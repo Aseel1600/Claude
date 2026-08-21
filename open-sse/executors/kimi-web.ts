@@ -29,6 +29,7 @@ import {
   sanitizeErrorMessage,
 } from "../utils/error.ts";
 import { extractKimiAccessToken } from "@/lib/providers/webCookieAuth";
+import { exchangeKimiRefreshToken } from "@/lib/kimi/tokenRefresh";
 import {
   type KimiWebModelConfig,
   resolveKimiWebContextLength,
@@ -321,7 +322,7 @@ export class KimiWebExecutor extends BaseExecutor {
     const bodyObj = (body || {}) as Record<string, unknown>;
 
     const rawCredential = String(credentials?.accessToken || credentials?.apiKey || "").trim();
-    const accessToken = extractKimiAccessToken(rawCredential);
+    let accessToken = extractKimiAccessToken(rawCredential);
     if (!accessToken) {
       return makeErrorResult(
         400,
@@ -403,6 +404,29 @@ export class KimiWebExecutor extends BaseExecutor {
         body,
         CHAT_URL
       );
+    }
+
+    if (upstream.status === 401) {
+      const refreshToken =
+        credentials?.refreshToken || credentials?.providerSpecificData?.refreshToken;
+      if (refreshToken && typeof refreshToken === "string") {
+        const refreshRes = await exchangeKimiRefreshToken(
+          refreshToken,
+          getKimiWebBaseUrl()
+        );
+        if (refreshRes.success && refreshRes.accessToken) {
+          accessToken = refreshRes.accessToken;
+          const retryHeaders = this.buildKimiHeaders(accessToken);
+          try {
+            upstream = await fetch(CHAT_URL, {
+              method: "POST",
+              headers: retryHeaders,
+              body: new Uint8Array(framedBody),
+              signal,
+            });
+          } catch {}
+        }
+      }
     }
 
     if (!upstream.ok) {
