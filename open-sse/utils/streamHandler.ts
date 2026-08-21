@@ -573,7 +573,10 @@ export function createNoopAbortWritable(): {
  *   streaming twin of the non-streaming `isEmptyContentResponse` check. Only
  *   applies to bodies that actually looked like SSE, and terminal states where
  *   emptiness is legitimate (length / tool_calls / content_filter / max_tokens /
- *   tool_use) are excluded by the watcher.
+ *   tool_use) are excluded by the watcher. If the stream already carried a
+ *   substantive SSE `error` / `response.failed` / Claude `event:error`, stand
+ *   down — same spirit as Claude #3685 `lifecycle.hasError` and readiness #8972
+ *   (do not invent empty content on top of an actionable error).
  */
 type SilentCloseOutcome = { kind: "truncated" } | { kind: "error"; reason: string };
 
@@ -611,6 +614,7 @@ function resolveSilentCloseOutcome(input: {
   }
 
   const watcher = input.contentWatcher;
+  if (watcher.sawError()) return null;
   if (watcher.sawSseFrame() && !watcher.sawContent() && !watcher.sawLegitEmptyTerminal()) {
     return { kind: "error", reason: "Provider returned empty content" };
   }
