@@ -854,7 +854,7 @@ The logging system writes to both stdout and rotated log files. All configuratio
 
 | Variable                   | Default            | Description                                                                                                                                                                                                                                                                       |
 | -------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OMNIROUTE_MEMORY_MB`      | _auto_             | **Recommended** Docker/standalone V8 heap limit (MB). When unset, calibrated dynamically (~35% of system RAM, clamped to `[512, 4096]`); `512` is only the floor when total memory can't be read. On `run-standalone.mjs` (Docker CMD), an **explicit** value is appended as `--max-old-space-size` and **wins** over a conflicting NODE_OPTIONS heap flag (V8 last-flag). `omniroute serve` still prefers an existing NODE_OPTIONS heap (#5238). Do not set both to different numbers — the process logs a warn naming both values and the winner. |
+| `OMNIROUTE_MEMORY_MB`      | _auto_ (bare metal); **`1024` in the Docker image** | **Recommended** Docker/standalone V8 heap limit (MB). When unset, calibrated dynamically (~35% of system RAM, clamped to `[512, 4096]`); `512` is only the floor when total memory can't be read. On `run-standalone.mjs` (Docker CMD), an **explicit** value is appended as `--max-old-space-size` and **wins** over a conflicting NODE_OPTIONS heap flag (V8 last-flag). `omniroute serve` still prefers an existing NODE_OPTIONS heap (#5238). Do not set both to different numbers — the process logs a warn naming both values and the winner. **The official Docker image always sets `1024`, so calibration never runs there.** Coding-agent `/v1/responses` needs `8192`–`12288` plus cgroup headroom — see [Docker Guide — runtime RAM](../guides/DOCKER_GUIDE.md#runtime-ram-for-coding-agents). |
 | `PROMPT_CACHE_MAX_SIZE`    | `50`               | Max cached system prompt entries.                                                                                                                                                                                                                                                 |
 | `PROMPT_CACHE_MAX_BYTES`   | `2097152` (2 MB)   | Max total prompt cache size.                                                                                                                                                                                                                                                      |
 | `PROMPT_CACHE_TTL_MS`      | `300000` (5 min)   | Prompt cache entry TTL.                                                                                                                                                                                                                                                           |
@@ -909,6 +909,8 @@ Embedding layer, vector store and reranking knobs for the persistent memory subs
 | `OMNIROUTE_STRICT_SYSTEM_PROVIDERS` | _(unset)_             | Comma-separated provider ids (case-insensitive) that accept a `system` message **only at index 0** (`src/lib/memory/injection.ts`). For these, the cache-safe mid-array memory splice is unsafe in multi-turn conversations, so memory is merged/prepended as the leading system message instead. Defaults to only `xiaomi-mimo`/`mimo`; extend for self-hosted OpenAI-compatible endpoints (e.g. Qwen3.5+/3.6) whose chat template enforces the same single-leading-system-message constraint. |
 
 ### Low-RAM Docker Example
+
+`128` is dashboard-only. Coding agents on this heap `FATAL ERROR` during long `/v1/responses`. Do not use this example as a Claude/Codex/Grok gateway.
 
 ```bash
 OMNIROUTE_MEMORY_MB=128
@@ -1177,7 +1179,7 @@ AUTH_COOKIE_SECURE=true
 REQUIRE_API_KEY=true
 NEXT_PUBLIC_BASE_URL=https://omniroute.example.com
 BASE_URL=http://localhost:20128
-OMNIROUTE_MEMORY_MB=512
+OMNIROUTE_MEMORY_MB=8192
 CORS_ORIGIN=https://your-frontend.example.com
 ```
 
