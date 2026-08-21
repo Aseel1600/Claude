@@ -1396,7 +1396,6 @@ export class CodexExecutor extends BaseExecutor {
       provider: "codex",
       preserveEncryptedReasoning:
         credentials?.providerSpecificData?.preserveEncryptedReasoning === true,
-      onIncompatibleReasoning: "drop",
     });
 
     if (nativeCodexPassthrough) {

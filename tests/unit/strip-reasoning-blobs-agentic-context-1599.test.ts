@@ -8,7 +8,7 @@ import { omitEncryptedReasoningForLog } from "../../src/lib/logPayloads.ts";
 // Responses reasoning replay is target-scoped. Plaintext DeepSeek state and
 // provider-generated opaque state are never interchangeable.
 
-test("unknown Responses targets reject opaque reasoning and ignore display summaries", () => {
+test("unknown Responses targets drop opaque reasoning and preserve display summaries (#10959)", () => {
   const body: Record<string, unknown> = {
     input: [
       { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
@@ -24,11 +24,14 @@ test("unknown Responses targets reject opaque reasoning and ignore display summa
     ],
   };
 
-  const originalInput = structuredClone(body.input);
   const result = applyReasoningInputPolicy(body, "responses");
 
-  assert.equal(result.incompatibleReasoning, true);
-  assert.deepEqual(body.input, originalInput, "rejection must not mutate the request");
+  assert.equal(result.incompatibleReasoning, false);
+  assert.deepEqual(body.input, [
+    { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
+    { type: "reasoning", summary: [{ text: "display only" }] },
+    { type: "function_call", name: "search", arguments: "{}", call_id: "call_1" },
+  ]);
 });
 
 test("unannotated targets preserve plaintext Responses reasoning without synthetic IDs", () => {

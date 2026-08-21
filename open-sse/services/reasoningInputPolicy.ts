@@ -36,7 +36,6 @@ export interface ReasoningInputPolicyOptions {
 export interface ReasoningInputPolicyResult {
   incompatibleReasoning: boolean;
 }
-
 export function resolveReasoningTransport(
   provider: string | null | undefined,
   preserveEncryptedReasoning = false
@@ -44,18 +43,6 @@ export function resolveReasoningTransport(
   const normalized = typeof provider === "string" ? provider.trim().toLowerCase() : "";
   const transport = REASONING_TRANSPORTS.get(normalized);
   return transport ?? (preserveEncryptedReasoning ? "opaque" : "plaintext");
-}
-
-export function createReasoningTransportIncompatibleError(): Error & {
-  statusCode: number;
-  errorType: string;
-} {
-  const error = new Error(
-    "Reasoning continuation is not compatible with the selected target"
-  ) as Error & { statusCode: number; errorType: string };
-  error.statusCode = 400;
-  error.errorType = "reasoning_transport_incompatible";
-  return error;
 }
 
 function asRecord(value: unknown): JsonRecord | null {
@@ -294,9 +281,9 @@ function sanitizeResponsesInput(
 }
 
 /**
- * Applies one protocol-independent compatibility decision before request translation.
- * Plaintext is portable by default; opaque state requires an explicit target declaration.
- * Display summaries do not affect compatibility; stateless input drops orphan summaries.
+ * Projects reasoning continuation onto the selected target transport.
+ * Incompatible active state is dropped by default; combo routing may reject an
+ * attempt instead so it can fall through without mutating the request.
  */
 export function applyReasoningInputPolicy(
   body: Record<string, unknown>,
@@ -308,12 +295,12 @@ export function applyReasoningInputPolicy(
     inputFormat === "responses"
       ? inspectResponsesReasoning(body.input)
       : inspectChatReasoning(body.messages);
-  // Mixed plaintext + opaque input (#10949) is never a rejection: it is projected
-  // onto the target transport by the per-item sanitizers below.
   const mixedState = inspection.hasPlaintext && inspection.hasOpaque;
   const incompatibleReasoning = !mixedState && !isReasoningCompatible(inspection, transport);
+  // Mixed plaintext + opaque input (#10949) is never a rejection: it is projected
+  // onto the target transport by the per-item sanitizers below.
 
-  if (incompatibleReasoning && options.onIncompatibleReasoning !== "drop") {
+  if (incompatibleReasoning && options.onIncompatibleReasoning === "reject") {
     return { incompatibleReasoning: true };
   }
 
