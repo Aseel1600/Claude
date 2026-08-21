@@ -12716,6 +12716,10 @@
       "ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE": {
         "description": "Mehrere Verbindungen für jeden Kompatibilitätsknoten zulassen."
       },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Kontextfensterprüfungen deaktivieren",
+        "description": "Lokale Kontextfenster- und Maximaleingabetoken-Prüfung von OmniRoute für direkte Einzelmodell-Anfragen überspringen. Upstream-Anbieter erzwingen weiterhin ihre tatsächlichen Grenzen. Prompt-Komprimierung und Ausgabetoken-Grenzen bleiben aktiv."
+      },
       "RESPONSES_PASSTHROUGH_DROP_COMMENTARY": {
         "description": "Interne Ausgabeelemente der Kommentarphase aus den Passthrough-Streams der Responses-API entfernen, bevor sie an Clients weitergeleitet werden. Deaktivieren Sie dieses Flag, um rohe Upstream-Kommentare zu erhalten."
       },
@@ -13356,6 +13360,7 @@
     }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Lehnen Sie Anfragen ab, bevor sie versendet werden, wenn das Zielmodell über die erforderlichen Funktionen (Vision, Werkzeuge, strukturierte Ausgabe, Kontextfenster) nicht verfügt. Schützt direkte Einzelanbieteranfragen, die den Kombo-Schicht-Kompatibilitätsfilter umgehen.",
+  "featureFlagDisableContextWindowChecksDescription": "Lokale Kontextfenster- und Maximaleingabetoken-Prüfung von OmniRoute für direkte Einzelmodell-Anfragen überspringen. Upstream-Anbieter erzwingen weiterhin ihre tatsächlichen Grenzen. Prompt-Komprimierung und Ausgabetoken-Grenzen bleiben aktiv.",
   "publicSystem": {
     "notFound": {
       "title": "Seite nicht gefunden",
