@@ -124,8 +124,8 @@ test("POST /api/acp/agents rejects an interpreter eval payload (GHSA-jphr-2gw7-x
       token
     )
   );
-  const body = (await response.json()) as any;
+  const body = (await response.json()) as { error?: string };
 
   assert.equal(response.status, 400);
-  assert.match(body.error, /Invalid versionCommand/i);
+  assert.match(body.error ?? "", /Invalid versionCommand/i);
 });

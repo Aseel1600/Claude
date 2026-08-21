@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 import { createRequire } from "node:module";
 
 import { config } from "../../../src/proxy.ts";
