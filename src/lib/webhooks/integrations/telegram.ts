@@ -29,7 +29,7 @@ export function buildTelegramPayload(
   data: Record<string, unknown>,
   chatId: string
 ): TelegramSendMessagePayload {
-  const desc = EVENT_DESCRIPTIONS[event];
+  const desc = EVENT_DESCRIPTIONS[event] || { emoji: "🔔", label: event, description: "", exampleData: {} };
   const model = typeof data.model === "string" ? escapeMd(data.model) : null;
   const error = typeof data.error === "string" ? escapeMd(data.error) : null;
   const provider = typeof data.provider === "string" ? escapeMd(data.provider) : null;

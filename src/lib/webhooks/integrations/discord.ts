@@ -24,7 +24,7 @@ export function buildDiscordPayload(
   event: WebhookEvent,
   data: Record<string, unknown>
 ): DiscordPayload {
-  const desc = EVENT_DESCRIPTIONS[event];
+  const desc = EVENT_DESCRIPTIONS[event] || { emoji: "🔔", label: event, description: "", exampleData: {} };
   const model = typeof data.model === "string" ? data.model : null;
   const error = typeof data.error === "string" ? data.error : null;
 

@@ -10,7 +10,7 @@ export function buildSlackPayload(
   event: WebhookEvent,
   data: Record<string, unknown>
 ): SlackPayload {
-  const desc = EVENT_DESCRIPTIONS[event];
+  const desc = EVENT_DESCRIPTIONS[event] || { emoji: "🔔", label: event, description: "", exampleData: {} };
   const model = typeof data.model === "string" ? data.model : null;
   const provider = typeof data.provider === "string" ? data.provider : null;
   const error = typeof data.error === "string" ? data.error : null;
