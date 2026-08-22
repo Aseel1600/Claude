@@ -10,6 +10,8 @@
  * perplexity-search reuses credentials from the "perplexity" chat provider.
  */
 
+import { isProviderBlockedByIdOrAlias } from "@/shared/utils/noAuthProviders";
+
 export interface SearchProviderConfig {
   id: string;
   name: string;
@@ -404,6 +406,21 @@ export function getAllSearchProviders(): Array<{
     name: p.name,
     searchTypes: p.searchTypes,
   }));
+}
+
+/**
+ * Get active search provider IDs for schema enums (excluding disabled and optionally blocked providers)
+ */
+export function getActiveSearchProviders(blockedProviders: string[] = []): [string, ...string[]] {
+  const active = Object.values(SEARCH_PROVIDERS)
+    .filter((p) => !(p as any).disabled && !isProviderBlockedByIdOrAlias(p.id, blockedProviders))
+    .map((p) => p.id);
+
+  if (active.length === 0) {
+    return ["none_available"];
+  }
+
+  return active as [string, ...string[]];
 }
 
 /**

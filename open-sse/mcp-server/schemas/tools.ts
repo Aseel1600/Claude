@@ -9,6 +9,7 @@
  * Copilot, Claude Desktop) to intelligently query gateway state.
  */
 
+import { getActiveSearchProviders } from "../../config/searchRegistry.ts";
 import { z } from "zod";
 import { toolSearchTool } from "./toolSearch.ts";
 import { pickFastestModelTool } from "./pickFastestModel.ts";
