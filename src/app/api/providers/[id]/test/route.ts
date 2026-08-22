@@ -67,6 +67,78 @@ function makeDiagnosis(
 }
 
 /**
+ * A codex "app-server" connection (providerSpecificData.codexTransport ===
+ * "app-server") does NOT carry a validatable OpenAI token: it drives the codex
+ * CLI's own `codex app-server` process over JSON-RPC/WebSocket, and THAT process
+ * self-manages its OpenAI OAuth (its own ~/.codex/auth.json), exactly like an
+ * interactive codex session. So the ordinary OAuth token probe is meaningless for
+ * these connections — it validates a placeholder and reports a false "Token
+ * invalid or revoked" 401 (which then trips the rate-limit cooldown on retest).
+ *
+ * The correct health signal for this transport is whether the app-server itself
+ * is reachable and ready. The app-server exposes an unauthenticated liveness
+ * endpoint at <httpBase>/readyz (200 = ready) alongside its ws:// listener, so we
+ * derive the http(s) origin from the configured ws(s):// URL and probe /readyz.
+ * Returns null when this connection is NOT an app-server connection (so the caller
+ * falls through to the normal token validation).
+ */
+async function testCodexAppServerConnection(
+  connection: any
+): Promise<{ valid: boolean; error?: string; diagnosis: any; refreshed: boolean } | null> {
+  const psd = (connection?.providerSpecificData as Record<string, unknown> | undefined) || undefined;
+  if (!psd || psd.codexTransport !== "app-server") return null;
+
+  const { resolveAppServerConfig } = await import(
+    "@omniroute/open-sse/executors/codex/appServerConfig.ts"
+  );
+  const config = resolveAppServerConfig(psd);
+  if (!config) {
+    const error = "Codex app-server transport is not configured (missing url or token)";
+    return {
+      valid: false,
+      error,
+      refreshed: false,
+      diagnosis: makeDiagnosis("validation_error", "local", error, "app_server_unconfigured"),
+    };
+  }
+
+  // ws://host:port → http://host:port/readyz ; wss:// → https://.
+  const httpBase = config.url.replace(/^ws(s?):\/\//i, (_m, s) => `http${s}://`).replace(/\/+$/, "");
+  const readyzUrl = `${httpBase}/readyz`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(readyzUrl, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${config.token}` },
+      signal: controller.signal,
+    });
+    if (res.status === 200) {
+      return { valid: true, refreshed: false, diagnosis: null };
+    }
+    const error = `Codex app-server not ready (${readyzUrl} → HTTP ${res.status})`;
+    return {
+      valid: false,
+      error,
+      refreshed: false,
+      diagnosis: makeDiagnosis("provider_error", "app_server", error, "app_server_not_ready"),
+    };
+  } catch (err: any) {
+    const reason = err?.name === "AbortError" ? "timed out" : (err?.message ?? "unreachable");
+    const error = `Codex app-server unreachable (${readyzUrl}: ${reason})`;
+    return {
+      valid: false,
+      error,
+      refreshed: false,
+      diagnosis: makeDiagnosis("provider_error", "app_server", error, "app_server_unreachable"),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * A provider/account that the upstream has deactivated (vs. a revoked/expired token).
  * #1444: a Codex account can have a perfectly healthy OAuth refresh while its ChatGPT
  * account is deactivated, in which case the API returns 401 — mislabeling that as
@@ -834,6 +906,13 @@ export async function testSingleConnection(connectionId: string, validationModel
   const startTime = Date.now();
   const runtime = await getProviderRuntimeStatus(connection);
 
+  // Codex app-server connections carry no validatable OpenAI token (the codex
+  // app-server process self-manages its own OAuth). Probe the app-server's
+  // /readyz liveness endpoint instead of the meaningless token check — otherwise
+  // every sweep reports a false "Token invalid or revoked" 401 and cools the
+  // connection down. Returns null for non-app-server connections (fall through).
+  const appServerResult = await testCodexAppServerConnection(connection);
+
   if ((runtime as any)?.diagnosis) {
     result = {
       valid: false,
@@ -841,6 +920,10 @@ export async function testSingleConnection(connectionId: string, validationModel
       refreshed: false,
       diagnosis: (runtime as any).diagnosis,
     };
+  } else if (appServerResult) {
+    result = await runWithProxyContext(proxyInfo?.proxy || null, () =>
+      Promise.resolve(appServerResult)
+    );
   } else if (shouldUseApiKeyConnectionTest(connection.authType, provider)) {
     const enrichedConnection = validationModelId
       ? {

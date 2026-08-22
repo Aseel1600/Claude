@@ -5111,6 +5111,7 @@
       "detailsTitle": "Usage caveats",
       "tooltip": "该提供者有使用注意事项 —— 点击查看详情",
       "oauth": "此提供者使用你官方产品的会话 / OAuth,这并未被授权用于代理或路由用途。 不建议进行高强度的自主代理使用(OpenCloud 风格、长链路多步流程、大批量请求)—— 上游可能因此限制甚至封禁账号。 使用风险自负。",
+      "codexOauth": "How you use this connection determines the risk. The app-server transport (codexTransport: \"app-server\") drives the Codex CLI's own local app-server, which manages its OpenAI sign-in exactly like an interactive Codex session — OmniRoute never replays your token to the API directly, so it is materially lower-risk. The other Codex transports use your official ChatGPT/OpenAI session, which is not authorized for proxy/router use: for those, avoid intensive autonomous usage (long multi-step flows, large batches) as the upstream may restrict or ban the account. Use at your own risk.",
       "webCookie": "此提供者通过你的网页会话 Cookie 进行鉴权。上游服务可能随时让会话失效,届时你需要重新登录。不建议用于长时间无人值守的操作。 使用风险自负。",
       "deprecated": "此提供者已被上游下线,可能随时停止工作。已存在的连接可能在上游完全关闭访问前继续可用。建议考虑替代方案。",
       "dontShowAgain": "对此提供者不再显示此提示",
