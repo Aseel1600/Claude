@@ -1065,7 +1065,11 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
       inputSchema: dynamicWebSearchInput,
     },
     withScopeEnforcement("omniroute_web_search", (args) =>
-      handleWebSearch(dynamicWebSearchInput.parse(args))
+      // Resolve per invocation (not the startup snapshot above) so a resolver
+      // function passed via CreateMcpServerOptions sees policy changes without
+      // a server rebuild. The advertised inputSchema stays a creation-time
+      // snapshot — MCP clients fetch it once at tools/list.
+      handleWebSearch(buildWebSearchInputSchema(resolveBlockedProviders()).parse(args))
     )
   );
 
