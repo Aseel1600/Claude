@@ -39,6 +39,12 @@ test("permissions modal uses i18n for management access description", () => {
   assert.doesNotMatch(managementBlock, /Allow this API key to manage OmniRoute configuration\./);
 });
 
+test("API manager page renders purpose-first header", () => {
+  const source = readApiManagerPage();
+  assert.match(source, /\{t\("keyManagement"\)\}/);
+  assert.match(source, /\{t\("keyManagementDesc"\)\}/);
+});
+
 test("permissions modal converts API key expiration ISO timestamps to local datetime input values", () => {
   const source = readApiManagerPage();
   const expirationBlock = source.slice(

@@ -959,6 +959,47 @@ export default function ApiManagerPageClient() {
         </div>
       )}
 
+      {/* Purpose-first orientation header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">{t("keyManagement")}</h1>
+        <p className="text-text-muted text-lg mb-6">{t("keyManagementDesc")}</p>
+
+        {/* Simple SVG diagram: Your App -> API Key -> OmniRoute */}
+        <div className="flex items-center space-x-4 text-text-secondary text-sm">
+          <span className="font-medium">Your App</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className="w-5 h-5"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
+            />
+          </svg>
+          <span className="font-medium">API Key</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className="w-5 h-5"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
+            />
+          </svg>
+          <span className="font-medium">OmniRoute</span>
+        </div>
+      </div>
+
       {/* Filter Bar — shown when there are keys */}
       {keys.length > 0 && (
         <ApiKeyFilterBar
