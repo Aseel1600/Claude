@@ -21,6 +21,30 @@ test("scanOpenAiSseText accumulates content deltas and flags an OpenAI-compat st
   assert.equal(r.terminal, false);
 });
 
+test("scanOpenAiSseText accumulates reasoning_content deltas separately from content", () => {
+  const sse =
+    'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n' +
+    'data: {"choices":[{"delta":{"reasoning_content":"thinking..."}}]}\n\n' +
+    'data: {"choices":[{"delta":{"reasoning_content":" more"}}]}\n\n';
+  const r = scanOpenAiSseText(sse);
+  assert.equal(r.reasoningText, "thinking... more");
+  assert.equal(r.text, "", "reasoning_content must never leak into the visible text field");
+  assert.equal(r.parsedOpenAi, true);
+});
+
+test("scanOpenAiSseText captures the literal finish_reason value", () => {
+  const stop = scanOpenAiSseText('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+  assert.equal(stop.finishReason, "stop");
+
+  const length = scanOpenAiSseText(
+    'data: {"choices":[{"delta":{"content":"x"},"finish_reason":"length"}]}\n\n'
+  );
+  assert.equal(length.finishReason, "length");
+
+  const none = scanOpenAiSseText('data: {"choices":[{"delta":{"content":"x"}}]}\n\n');
+  assert.equal(none.finishReason, null, "no finish_reason seen means null, not a guessed default");
+});
+
 test("scanOpenAiSseText detects the terminal [DONE] marker", () => {
   const r = scanOpenAiSseText('data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n');
   assert.equal(r.text, "hi");

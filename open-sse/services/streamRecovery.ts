@@ -183,10 +183,19 @@ export function hasTerminalMarker(bytes: Uint8Array): boolean {
 export interface OpenAiSseScan {
   /** Concatenated assistant text seen across `choices[].delta.content`. */
   text: string;
+  /** Concatenated reasoning trace seen across `choices[].delta.reasoning_content`. Some
+   *  providers stream the entire answer here and leave `content` empty/null — tracked
+   *  separately so a clean stop with reasoning-only output can still be recognized as
+   *  "nothing usable was delivered" instead of "a normal empty turn". */
+  reasoningText: string;
   /** True if any `choices[].delta.tool_calls` appeared — NEVER continue those. */
   sawToolCall: boolean;
   /** True if a terminal marker (`[DONE]` or a non-null `finish_reason`) appeared. */
   terminal: boolean;
+  /** The literal `finish_reason` string when present (e.g. "stop", "tool_calls", "length",
+   *  "content_filter"), or `null` if none was seen. `terminal` alone is not precise enough
+   *  to gate the reasoning-only-stop continuation — it must fire on `"stop"` only. */
+  finishReason: string | null;
   /** True if at least one OpenAI-shaped `choices[].delta` was parsed (format gate). */
   parsedOpenAi: boolean;
 }
@@ -198,11 +207,13 @@ export interface OpenAiSseScan {
  */
 export function scanOpenAiSseText(sse: string): OpenAiSseScan {
   let text = "";
+  let reasoningText = "";
   let sawToolCall = false;
   let terminal = false;
+  let finishReason: string | null = null;
   let parsedOpenAi = false;
   if (typeof sse !== "string" || sse.length === 0) {
-    return { text, sawToolCall, terminal, parsedOpenAi };
+    return { text, reasoningText, sawToolCall, terminal, finishReason, parsedOpenAi };
   }
   for (const line of sse.split("\n")) {
     const trimmed = line.trimStart();
@@ -227,14 +238,19 @@ export function scanOpenAiSseText(sse: string): OpenAiSseScan {
         parsedOpenAi = true;
         const content = (delta as { content?: unknown }).content;
         if (typeof content === "string") text += content;
+        const reasoning = (delta as { reasoning_content?: unknown }).reasoning_content;
+        if (typeof reasoning === "string") reasoningText += reasoning;
         const toolCalls = (delta as { tool_calls?: unknown }).tool_calls;
         if (Array.isArray(toolCalls) && toolCalls.length > 0) sawToolCall = true;
       }
-      const finishReason = (choice as { finish_reason?: unknown })?.finish_reason;
-      if (finishReason != null) terminal = true;
+      const rawFinishReason = (choice as { finish_reason?: unknown })?.finish_reason;
+      if (rawFinishReason != null) {
+        terminal = true;
+        if (typeof rawFinishReason === "string") finishReason = rawFinishReason;
+      }
     }
   }
-  return { text, sawToolCall, terminal, parsedOpenAi };
+  return { text, reasoningText, sawToolCall, terminal, finishReason, parsedOpenAi };
 }
 
 export interface ContinuableBody {
