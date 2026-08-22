@@ -6269,6 +6269,20 @@
     "webSessionGuideStep3": "Sao chép thông tin xác thực được yêu cầu từ tên miền riêng của nhà cung cấp. Đối với cookie, chỉ sao chép giá trị tiêu đề Cookie và bỏ qua Cookie:.",
     "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:.",
     "webSessionGuideStep4": "Dán vào đây và kiểm tra kết nối. Nếu nó ngừng hoạt động, hãy đăng nhập lại và thay thế bằng một giá trị mới.",
+    "harImportButtonLabel": "Nhập tệp .har",
+    "harImportButtonBusy": "Đang nhập…",
+    "harImportButtonHint": "Xuất từ thẻ Network trong DevTools sau khi gửi ít nhất một tin nhắn trò chuyện.",
+    "harImportStatusValid": "Đã nhập — còn hiệu lực trong khoảng {minutes} phút.",
+    "harImportStatusExpiringSoon": "Đã nhập — chỉ còn hiệu lực trong khoảng {minutes} phút nữa.",
+    "harImportStatusExpired": "Đã nhập, nhưng token này đã hết hạn ({minutes} phút trước) — hãy xuất một tệp HAR mới.",
+    "harImportStatusUnknownExpiry": "Đã nhập. Không đọc được thời gian hết hạn.",
+    "harImportErrorNotJson": "Tệp đó không phải JSON hợp lệ — nó có thực sự là tệp xuất .har không?",
+    "harImportErrorNoEntries": "Tệp HAR này không có bản ghi mạng nào được lưu.",
+    "harImportErrorNoChathubUrl": "Không tìm thấy kết nối trò chuyện Copilot trong tệp HAR này. Hãy gửi ít nhất một tin nhắn trò chuyện trong m365.cloud.microsoft trước khi xuất.",
+    "harImportErrorUnparsableUrl": "Đã tìm thấy kết nối trò chuyện, nhưng không đọc được URL của nó.",
+    "harImportErrorMissingFields": "Đã tìm thấy kết nối trò chuyện, nhưng trong đó thiếu token.",
+    "harImportErrorReadFailed": "Không thể đọc tệp đó.",
+    "harImportErrorUnknown": "Không thể trích xuất thông tin xác thực từ tệp HAR đó.",
     "webSessionSecurityHint": "Hãy coi đây như mật khẩu: nó có thể truy cập vào tài khoản web đã đăng nhập của bạn cho đến khi hết hạn hoặc bị thu hồi.",
     "webNoAuthGuideTitle": "Không yêu cầu thông tin xác thực",
     "webNoAuthGuideBody": "{provider} không cần khóa API hoặc cookie. Lưu kết nối để sử dụng endpoint web miễn phí của nó.",
@@ -12207,7 +12221,7 @@
       },
       "omni-webhooks": {
         "name": "Webhook",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Đăng ký, liệt kê, kiểm tra và xóa các endpoint webhook. Cấu hình đăng ký sự kiện (request.completed, request.failed, quota.exceeded, v.v.) và quản lý việc thử lại khi gửi."
       },
       "omni-mcp": {
         "name": "Máy chủ MCP",
