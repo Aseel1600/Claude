@@ -33,7 +33,11 @@ function getConfiguredIndex(dynamicRoot?: string): LocalCorpusIndex {
 
   if (!indexCache.has(resolvedRoot)) {
     // Simple LRU: if map is too large, evict the oldest entry
-    if (indexCache.size >= 5) {
+    const maxCacheSize = Math.max(
+      1,
+      parseInt(process.env.OMNIROUTE_CORPUS_CACHE_SIZE || "5", 10) || 5
+    );
+    if (indexCache.size >= maxCacheSize) {
       const firstKey = indexCache.keys().next().value;
       if (firstKey) indexCache.delete(firstKey);
     }
