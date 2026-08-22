@@ -626,11 +626,7 @@ export async function validateResponseQuality(
     // so trim and recognize the comment prefix before rejecting. Without this,
     // otherwise-good streamed completions get failed as "not valid JSON".
     const trimmed = text.trimStart();
-    if (
-      trimmed.startsWith("data:") ||
-      trimmed.startsWith("event:") ||
-      trimmed.startsWith(":")
-    ) {
+    if (trimmed.startsWith("data:") || trimmed.startsWith("event:") || trimmed.startsWith(":")) {
       return { valid: true };
     }
     return { valid: false, reason: "response is not valid JSON" };
