@@ -11,7 +11,12 @@ import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import * as log from "@/sse/utils/logger";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { getProviderCredentials, clearRecoveredProviderState } from "@/sse/services/auth";
-import { getCachedProviderNodes, getComboByName, getCombos, getDatabaseSettings } from "@/lib/localDb";
+import {
+  getCachedProviderNodes,
+  getComboByName,
+  getCombos,
+  getDatabaseSettings,
+} from "@/lib/localDb";
 import { resolveProxyForConnection } from "@/lib/db/settings";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { handleComboChat } from "@omniroute/open-sse/services/combo.ts";
@@ -21,6 +26,7 @@ import { isPrivateHost, isCloudMetadataHost } from "@/shared/network/outboundUrl
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { attachOmniRouteMetaHeaders } from "@/domain/omnirouteResponseMeta";
 import { generateRequestId } from "@/shared/utils/requestId";
+import { resolveLocalSyncedEndpointRoute } from "@/lib/providerModels/syncedEndpointRouting";
 
 type ValidatedEmbeddingBody = Record<string, unknown> & { model: string };
 type ProviderCredentialsResult = Awaited<ReturnType<typeof getProviderCredentials>>;
@@ -68,10 +74,7 @@ export async function createEmbeddingResponse(
         // different models are not comparable). The generic combo engine has no
         // notion of embedding families, so reject loudly here before dispatch.
         // See _tasks/features-v3.8.12/01-embeddings-combo-family-guard.plan.md.
-        const dimConflict = findEmbeddingComboDimensionConflict(
-          combo as any,
-          allCombos as any
-        );
+        const dimConflict = findEmbeddingComboDimensionConflict(combo as any, allCombos as any);
         if (dimConflict.conflict) {
           return errorResponse(
             HTTP_STATUS.BAD_REQUEST,
@@ -149,7 +152,12 @@ export async function createEmbeddingResponse(
     log.error("EMBED", `Failed to load provider_nodes for embeddings: ${err}`);
   }
 
-  const { provider, model: resolvedModel } = parseEmbeddingModel(body.model, dynamicProviders);
+  let { provider, model: resolvedModel } = parseEmbeddingModel(body.model, dynamicProviders);
+  const syncedEndpointRoute = await resolveLocalSyncedEndpointRoute(body.model, "embeddings");
+  if (syncedEndpointRoute) {
+    provider = syncedEndpointRoute.provider;
+    resolvedModel = syncedEndpointRoute.model;
+  }
   if (!provider) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
@@ -157,9 +165,52 @@ export async function createEmbeddingResponse(
     );
   }
 
+  let credentials: ProviderCredentialsResult | null = null;
   let providerConfig: EmbeddingProvider | null =
     dynamicProviders.find((dp) => dp.id === provider) || getEmbeddingProvider(provider) || null;
   let credentialsProviderId = provider;
+
+  if (syncedEndpointRoute) {
+    credentials = await getProviderCredentials(
+      provider,
+      null,
+      syncedEndpointRoute.connectionIds,
+      syncedEndpointRoute.model
+    );
+    if (!credentials) {
+      return errorResponse(
+        HTTP_STATUS.BAD_REQUEST,
+        `No credentials for embedding provider: ${provider}`
+      );
+    }
+    if ("allRateLimited" in credentials && credentials.allRateLimited) {
+      return unavailableResponse(
+        HTTP_STATUS.RATE_LIMITED,
+        `[${provider}] All accounts rate limited`,
+        credentials.retryAfter,
+        credentials.retryAfterHuman
+      );
+    }
+
+    const providerSpecificData = (credentials as { providerSpecificData?: Record<string, unknown> })
+      .providerSpecificData;
+    const configuredBaseUrl = providerSpecificData?.baseUrl;
+    if (typeof configuredBaseUrl !== "string" || configuredBaseUrl.trim().length === 0) {
+      return errorResponse(
+        HTTP_STATUS.BAD_REQUEST,
+        `No base URL configured for embedding provider: ${provider}`
+      );
+    }
+    let baseUrl = configuredBaseUrl.trim();
+    while (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
+    providerConfig = {
+      id: provider,
+      baseUrl: baseUrl.endsWith("/embeddings") ? baseUrl : `${baseUrl}/embeddings`,
+      authType: "apikey",
+      authHeader: "bearer",
+      models: [],
+    };
+  }
 
   if (!providerConfig) {
     try {
@@ -208,8 +259,7 @@ export async function createEmbeddingResponse(
     );
   }
 
-  let credentials: ProviderCredentialsResult | null = null;
-  if (providerConfig.authType !== "none") {
+  if (!credentials && providerConfig.authType !== "none") {
     credentials = await getProviderCredentials(credentialsProviderId);
     if (!credentials) {
       return errorResponse(
@@ -259,7 +309,9 @@ export async function createEmbeddingResponse(
   const runEmbedding = () =>
     handleEmbedding({
       body:
-        effectiveModel !== resolvedModel ? { ...body, model: `${provider}/${effectiveModel}` } : body,
+        effectiveModel !== resolvedModel
+          ? { ...body, model: `${provider}/${effectiveModel}` }
+          : body,
       // getProviderCredentials returns a richer connection object; handleEmbedding
       // only reads apiKey/accessToken, both present at runtime. Bridge the wider
       // selection type to the handler's narrow credential shape.
