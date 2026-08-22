@@ -87,9 +87,8 @@ function hasChatPlaintextReasoning(record: JsonRecord): boolean {
 
 /**
  * Returns only provider-authentic plaintext continuation state. Display summaries
- * are excluded, and a record carrying opaque state is never cross-converted.
- * Explicit plaintext wins over a coexisting opaque companion (#10949): the text is
- * independently portable, so its presence must not be suppressed by `encrypted_content`.
+ * and opaque-only records are excluded. Explicit plaintext remains independently
+ * portable when the same record also carries an opaque companion (#10949).
  */
 export function extractReplayableResponsesReasoningText(value: unknown): string {
   const record = asRecord(value);
