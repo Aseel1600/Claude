@@ -141,3 +141,6 @@ RUN apt-get update \
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
+# Return to the base image non-root user after the apt install (mirrors the
+# Node Dockerfile runner-web stage, which re-asserts USER node).
+USER bun
