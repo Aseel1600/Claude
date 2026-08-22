@@ -39,6 +39,7 @@ function hasUsefulValue(value: unknown): boolean {
   // assistant text. Deliberately NOT a blanket encrypted_content key — an
   // encrypted reasoning item alone is not user-visible output and must keep
   // tripping the #8649 empty-content guard.
+  // This shape is specific to Responses streams; chat-completion frames do not produce it.
   if (value.type === "compaction" && hasNonEmptyString(value.encrypted_content)) return true;
 
   for (const key of [
