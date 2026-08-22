@@ -24,8 +24,11 @@ it expires.
 | Antigravity / Devin Desktop         | Built-in quotas                              |
 
 **Strategy**: route here first for every request that fits the model's
-strengths. Quota tracker monitors approaching reset; combo strategies
-`reset-aware` and `subscription` prioritize accordingly.
+strengths. The quota tracker monitors approaching resets, and the `reset-aware`
+combo strategy prioritizes accordingly. To route Tier 1 first and only step out
+to paid tiers as quota runs out, use the `auto/thrifty` id — or `auto/subscription`
+to stay on plan-included capacity and fail closed instead. See
+[Subscription-first routing](../routing/SUBSCRIPTION_LADDER.md).
 
 ## Tier 2 — Cheap
 

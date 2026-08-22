@@ -42,6 +42,12 @@ export const AUTO_TEMPLATE_VARIANTS: Record<string, AutoVariant | undefined> = {
   "auto/claude-opus": "smart",
   "auto/claude-sonnet": "coding",
   "auto/best-free": "cheap",
+  // Subscription-first routing (see `subscriptionLadder.ts`). `auto/subscription`
+  // maps to no weight variant on purpose: its pool is already restricted to
+  // plan-included connections, so the scorer should rank them on merit rather
+  // than bias toward cheap/fast within an allowance the operator already paid for.
+  "auto/subscription": undefined,
+  "auto/thrifty": "cheap",
   // Chaos mode — parallel dispatch to top-N stable models
   "auto/best-chaos": "chaos",
   "auto/chaos": "chaos",
@@ -64,6 +70,18 @@ export const AUTO_SUFFIX_VARIANTS: string[] = [
   "auto/vision",
   "auto/multimodal",
 ];
+
+/**
+ * Flat `auto/*` ids that carry a tier overlay even though they are not written
+ * in `<category>:<tier>` form. `auto/best-free` established the pattern; the
+ * two subscription-first ids reuse it so a caller can ask for the behavior
+ * without also having to pick a category.
+ */
+export const FLAT_TIER_OVERLAY_IDS: Record<string, AutoTier> = {
+  "auto/best-free": "free",
+  "auto/subscription": "subscription",
+  "auto/thrifty": "thrifty",
+};
 
 type ResolvedAutoVariant =
   { recognized: true; variant: AutoVariant | undefined } | { recognized: false };
@@ -119,8 +137,7 @@ export function isPaidTierAutoId(autoId: string): boolean {
  * a candidate filter so the virtual combo only scores vision-capable models.
  */
 export type BuiltinAutoSpec =
-  | { variant: AutoVariant | undefined }
-  | { category: AutoCategory; tier?: AutoTier };
+  { variant: AutoVariant | undefined } | { category: AutoCategory; tier?: AutoTier };
 
 /**
  * Vision-flavored flat ids that MUST resolve to the `vision` category (candidate
@@ -193,8 +210,9 @@ export async function createBuiltinAutoCombo(
   }
 
   if ("variant" in spec && spec.variant !== undefined) {
+    const overlayTier = FLAT_TIER_OVERLAY_IDS[modelStr];
     const virtualCombo = await materialize(spec.variant, {
-      ...(modelStr === "auto/best-free" ? { tier: "free" as const } : {}),
+      ...(overlayTier ? { tier: overlayTier } : {}),
     });
     virtualCombo.name = modelStr;
     virtualCombo.id = modelStr;
@@ -205,7 +223,11 @@ export async function createBuiltinAutoCombo(
   // auto/best-chat, auto/pro-chat) still materialize via the default
   // (unconstrained) virtual combo rather than throwing "Unknown built-in".
   if (Object.prototype.hasOwnProperty.call(AUTO_TEMPLATE_VARIANTS, modelStr)) {
-    const virtualCombo = await materialize(undefined);
+    const overlayTier = FLAT_TIER_OVERLAY_IDS[modelStr];
+    const virtualCombo = await materialize(
+      undefined,
+      overlayTier ? { tier: overlayTier } : undefined
+    );
     virtualCombo.name = modelStr;
     virtualCombo.id = modelStr;
     return virtualCombo;
