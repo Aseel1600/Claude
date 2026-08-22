@@ -10,6 +10,7 @@ export {
 } from "./providers/registry/alibaba/index.ts";
 export { REGISTRY } from "./providers/index.ts";
 import { REGISTRY } from "./providers/index.ts";
+import { isPrivateHost } from "@/shared/network/outboundUrlGuard";
 import {
   RegistryModel,
   REASONING_UNSUPPORTED,
@@ -132,11 +133,8 @@ export function isLocalProvider(baseUrl?: string | null): boolean {
   try {
     const url = new URL(baseUrl);
     const hostname = url.hostname;
-    // Strictly matching 172.16.0.0/12 (Docker/local) and explicitly blocking ::1 per SSRF hardening
-    return (
-      LOCAL_HOSTNAMES.has(hostname) ||
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
-    );
+    if (!hostname) return false;
+    return LOCAL_HOSTNAMES.has(hostname) || isPrivateHost(hostname);
   } catch {
     return false;
   }
