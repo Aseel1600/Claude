@@ -86,4 +86,4 @@ EXPOSE 20128
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD bun healthcheck.mjs || exit 1
 
-ENTRYPOINT ["bun", "bin/omniroute.mjs", "serve", "--no-open"]
+ENTRYPOINT ["bun", "dev/run-standalone.mjs"]
