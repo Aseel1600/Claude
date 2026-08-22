@@ -259,6 +259,14 @@ export function restoreClaudeToolName(
     }
   }
 
+  // Canonical echo is terminal: when the upstream echoes back the exact
+  // canonical form the request declared, keep it verbatim. The #7926
+  // REVERSE_MAP fallbacks below would otherwise downcase it for routes that
+  // carry no _toolNameMap (Claude Code → OpenAI-style upstreams), which is
+  // what let a literal `croncreate` reach Claude Code even though the client
+  // declared `CronCreate` (live repro, PR #11085).
+  if (canonicalRaw === rawName) return rawName;
+
   if (canonical) return canonical;
 
   // When no request toolNameMap is provided (e.g. non-Claude client):

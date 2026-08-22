@@ -93,9 +93,19 @@ describe("Claude Code cron-era tool names survive identity-echo alias maps", () 
     assert.equal(restoreClaudeToolName("my_custom_tool", map), "my_custom_tool");
   });
 
-  it("no-map #7926 fallback is unchanged for already-PascalCase inputs", () => {
-    assert.equal(restoreClaudeToolName("TodoWrite", null), "todowrite");
-    assert.equal(restoreClaudeToolName("Read", undefined), "read");
+  it("canonical echo stays canonical on no-map routes (live repro 2026-08-22)", () => {
+    // Live-tested against glm-5.2 via opencode-go: the request declared
+    // CronCreate/Bash, the gateway echoed them TitleCase, and claude-to-openai
+    // builds no _toolNameMap — the old #7926 REVERSE_MAP fallback downcased
+    // the echo to `croncreate`/`bash`, which Claude Code rejects with
+    // "No such tool available", killing those tools for the whole session.
+    // Every restoreClaudeToolName caller converts toward a Claude-format
+    // client, so blind TitleCase→lowercase downcasing has no legitimate
+    // consumer left: legacy lowercase clients are protected by explicit
+    // alias maps (see test above), not by unmapped downcasing.
+    assert.equal(restoreClaudeToolName("TodoWrite", null), "TodoWrite");
+    assert.equal(restoreClaudeToolName("Read", undefined), "Read");
+    assert.equal(restoreClaudeToolName("WebSearch", null), "WebSearch");
   });
 });
 
@@ -163,5 +173,33 @@ describe("translateNonStreamingResponse restores Claude Code tool casing", () =>
       new Map([["read", "mcp__fs__read"]])
     );
     assert.equal(out.content.find((b) => b.type === "tool_use").name, "mcp__fs__read");
+  });
+
+  it("keeps canonical casing the upstream echoed verbatim when no alias map exists (live repro #11085)", () => {
+    // Live-tested on the Claude Code → OpenAI-style upstream route: the request
+    // declares CronCreate/Bash, the gateway echoes them TitleCase, and
+    // claude-to-openai builds no _toolNameMap — the #7926 REVERSE_MAP fallback
+    // must not downcase a canonical name back into "No such tool available".
+    const out = translateNonStreamingResponse(
+      openaiJson("CronCreate"),
+      FORMATS.OPENAI,
+      FORMATS.CLAUDE,
+      null
+    );
+    assert.equal(out.content.find((b) => b.type === "tool_use").name, "CronCreate");
+    assert.equal(restoreClaudeToolName("Bash", null), "Bash");
+    assert.equal(restoreClaudeToolName("WebSearch", null), "WebSearch");
+    assert.equal(restoreClaudeToolName("TaskCreate", new Map()), "TaskCreate");
+  });
+
+  it("declared lowercase form still wins when an explicit alias maps canonical → lowercase", () => {
+    // Legacy OpenCode/XML-style clients declare `bash`; request-side cloak
+    // records { CronCreate→croncreate }-style aliases and restoreClaudeToolName
+    // must keep honoring them even when the upstream echoes the canonical form.
+    assert.equal(
+      restoreClaudeToolName("CronCreate", new Map([["CronCreate", "croncreate"]])),
+      "croncreate"
+    );
+    assert.equal(restoreClaudeToolName("Read", new Map([["Read", "read"]])), "read");
   });
 });
