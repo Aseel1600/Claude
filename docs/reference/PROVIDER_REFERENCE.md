@@ -213,7 +213,6 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `glm-cn` | `glmcn` | GLM Coding (China) | API key | [link](https://open.bigmodel.cn) | — |
 | `glmt` | `glmt` | GLM Thinking | API key | [link](https://open.bigmodel.cn) | — |
 | `groq` | `groq` | Groq | API key | [link](https://groq.com) | Free tier: 30 RPM / 14.4K RPD — no credit card |
-| `hackclub` | `hc` | Hackclub AI | API key, aggregator | [link](https://ai.hackclub.com) | Sign in with your Hack Club account at ai.hackclub.com. |
 | `haiper` | `hp` | Haiper | API key, video | [link](https://haiper.ai) | Get API key at haiper.ai/haiper-api |
 | `hcnsec` | `hcnsec` | Huancheng Public API | API key | [link](https://api.hcnsec.cn) | Get API key at api.hcnsec.cn |
 | `helixmind` | `helixmind` | HelixMind | API key, aggregator | [link](https://helixmind.online) | Previously circulated 3 RPM/50 RPD and no-card claims were not confirmed during the 2026-08-02 audit; current quota and billing require account verification. |
