@@ -12207,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "Webhook",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Đăng ký, liệt kê, kiểm thử và xoá các endpoint webhook. Cấu hình đăng ký sự kiện (request.completed, request.failed, quota.exceeded, v.v.) và quản lý thử lại giao hàng."
       },
       "omni-mcp": {
         "name": "Máy chủ MCP",
