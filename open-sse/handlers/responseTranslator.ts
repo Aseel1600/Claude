@@ -154,7 +154,6 @@ export function translateNonStreamingResponse(
   sourceFormat: string,
   toolNameMap?: Map<string, string> | null
 ): unknown {
-  console.error(`[CANARY-E] translateNonStreamingResponse ${targetFormat}->${sourceFormat}`);
   // If already in source format, return as-is
   if (targetFormat === sourceFormat) {
     if (targetFormat === FORMATS.OPENAI) {
@@ -722,9 +721,6 @@ function convertOpenAINonStreamingToClaude(
   }
 
   if (Array.isArray(messageObj.tool_calls)) {
-    console.error(
-      `[CANARY-B] convertOpenAINonStreamingToClaude names=${JSON.stringify(messageObj.tool_calls.map((t) => t?.function?.name))} mapSize=${toolNameMap instanceof Map ? toolNameMap.size : String(toolNameMap)}`
-    );
     for (const tool of messageObj.tool_calls) {
       const toolObj = toRecord(tool);
       const fn = toRecord(toolObj.function);
