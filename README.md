@@ -1592,3 +1592,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 </div>
 <!-- GitHub Discussions enabled for community Q&A -->
+## My contribution
+
+Improving documentation and AI workflow examples.
