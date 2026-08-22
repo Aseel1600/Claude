@@ -232,11 +232,28 @@ export class CodexAppServerExecutor extends BaseExecutor {
 
     const run = async () => {
       let terminated = false;
-      const finishTurn = () => {
+      // Resolves when the turn reaches a terminal state (turn/completed, error,
+      // or an item/tool/call passthrough). `turn/start` resolving only means the
+      // turn was ACCEPTED (status: inProgress) — the model's output arrives later
+      // as notifications. run() MUST await this before the finally-block closes
+      // the client, otherwise the socket is torn down mid-turn and the event
+      // queue never receives its terminal event (the request then hangs until the
+      // caller's timeout). See translateNotification: it returns true on the
+      // terminal notification, which is where we settle this.
+      let settleTurn!: () => void;
+      const turnDone = new Promise<void>((resolve) => {
+        settleTurn = resolve;
+      });
+      const markTerminated = () => {
         if (terminated) return;
         terminated = true;
+        settleTurn();
+      };
+      const finishTurn = () => {
+        if (terminated) return;
         events.push({ type: "done", endTurn: true });
         events.close();
+        markTerminated();
       };
       try {
         await client.connect(config.url, config.token);
@@ -290,8 +307,8 @@ export class CodexAppServerExecutor extends BaseExecutor {
           if (terminated) return;
           const isTerminal = translateNotification(method, params, (event) => events.push(event));
           if (isTerminal) {
-            terminated = true;
             events.close();
+            markTerminated();
           }
         });
 
@@ -330,6 +347,13 @@ export class CodexAppServerExecutor extends BaseExecutor {
           } catch {
             /* interrupt best-effort */
           }
+          // Unblock run() so the finally-block can tear down the client. Without
+          // this, an aborted request would wait on turnDone until the terminal
+          // notification that will never come.
+          if (!terminated) {
+            events.close();
+            markTerminated();
+          }
         };
         input.signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -342,7 +366,12 @@ export class CodexAppServerExecutor extends BaseExecutor {
           model: input.model,
           ...(effort ? { effort } : {}),
         });
-        // turn/completed, error, or an item/tool/call passthrough closes the queue.
+        // `turn/start` resolving only ACCEPTS the turn (status: inProgress). The
+        // model's output (agentMessage deltas) and the terminal turn/completed
+        // arrive AFTER, as notifications. Wait for the terminal signal before
+        // falling through to the finally-block — otherwise client.close() tears
+        // down the socket mid-turn and the queue never closes (request hangs).
+        await turnDone;
       } catch (err) {
         if (!terminated) {
           events.push({
@@ -353,6 +382,7 @@ export class CodexAppServerExecutor extends BaseExecutor {
             code: "codex_app_server_turn_failed",
           });
           events.close();
+          markTerminated();
         }
       } finally {
         client.close();

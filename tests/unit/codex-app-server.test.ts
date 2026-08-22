@@ -548,3 +548,87 @@ test("CodexAppServerExecutor: item/tool/call is settled and surfaced as a Respon
   assert.ok(sseText.includes("[DONE]"));
 });
 
+// REGRESSION (live BUG#3, 2026-08-22): the real codex app-server ACCEPTS a turn
+// on turn/start (returns status:"inProgress") and delivers the model output +
+// terminal turn/completed LATER as async notifications. The original run() closed
+// the WS in its finally-block as soon as `await turn/start` resolved, tearing the
+// socket down BEFORE those notifications arrived, so the event queue never closed
+// and the request hung until the caller's timeout. The pre-existing mocks hid this
+// because they emitted turn/completed in the SAME microtask as the turn/start
+// response (completion raced ahead of request-resolution). This test reproduces
+// the real ordering: turn/start resolves FIRST, then agentMessage/delta +
+// turn/completed fire on a later macrotask. It must still complete (not hang).
+test("CodexAppServerExecutor: async post-turn/start completion does not close the socket early (BUG#3)", async () => {
+  const ctrl = makeFakeSocket();
+  const { fn } = fakeTransport(ctrl);
+  const executor = new CodexAppServerExecutor({ websocketFn: fn });
+
+  // Model a REAL socket: once closed, it delivers no more frames. The shared
+  // makeFakeSocket keeps emitting after close (fine for the other tests), but
+  // this regression turns specifically on the fact that a prematurely-closed
+  // socket DROPS the later turn/completed — so guard emits on ctrl.closed here.
+  const emitLive = (frame: Record<string, unknown>) => {
+    if (ctrl.closed) return; // socket torn down → frame never arrives (real behavior)
+    ctrl.emit(frame);
+  };
+
+  const originalSend = ctrl.socket.send;
+  ctrl.socket.send = (data: string) => {
+    originalSend(data);
+    const frame = JSON.parse(data) as Record<string, unknown>;
+    if (frame.id == null || !frame.method) return;
+    if (frame.method === "thread/start") {
+      queueMicrotask(() =>
+        emitLive({ jsonrpc: "2.0", id: frame.id, result: { thread: { id: "thr_async" } } })
+      );
+    } else if (frame.method === "turn/start") {
+      // Resolve turn/start FIRST (status inProgress) …
+      queueMicrotask(() =>
+        emitLive({
+          jsonrpc: "2.0",
+          id: frame.id,
+          result: { turn: { id: "t1", status: "inProgress" } },
+        })
+      );
+      // … then, on a LATER macrotask, stream the output + terminal completion.
+      // Under the OLD code the finally-block closes the socket right after
+      // turn/start resolves, so ctrl.closed is true here and these frames are
+      // DROPPED → the queue never closes → execute() hangs (test times out).
+      setTimeout(() => {
+        emitLive({
+          jsonrpc: "2.0",
+          method: "item/agentMessage/delta",
+          params: { delta: "ASYNC-OK" },
+        });
+        emitLive({
+          jsonrpc: "2.0",
+          method: "turn/completed",
+          params: { turn: { usage: { input_tokens: 1, output_tokens: 1 } } },
+        });
+      }, 15);
+    } else {
+      queueMicrotask(() => emitLive({ jsonrpc: "2.0", id: frame.id, result: {} }));
+    }
+  };
+
+  // Non-streaming: execute() awaits events.collect(), which only returns once the
+  // queue closes on the terminal notification. Under the old (buggy) code the
+  // socket closed early, the terminal frame was dropped, and this promise never
+  // resolved. Guard with a timeout so a regression fails loudly, not by hanging.
+  const result = await Promise.race([
+    executor.execute(makeExecuteInput({ stream: false })),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("execute() hung: socket closed before async completion (BUG#3 regressed)")), 5000)
+    ),
+  ]);
+  const response = "response" in result ? result.response : (result as Response);
+  assert.equal(response.status, 200);
+  const body = JSON.parse(await response.text()) as {
+    status?: string;
+    output?: Array<{ content?: Array<{ text?: string }> }>;
+  };
+  assert.equal(body.status, "completed", "the turn completed after the async terminal notification");
+  const text = body.output?.[0]?.content?.[0]?.text ?? "";
+  assert.equal(text, "ASYNC-OK", "the model output that arrived AFTER turn/start is present");
+});
+
