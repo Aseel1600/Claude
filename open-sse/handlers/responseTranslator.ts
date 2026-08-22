@@ -10,6 +10,7 @@ import {
   caseInsensitiveToolNameLookup,
   restoreOpenAIToolNames,
 } from "../translator/helpers/toolCallHelper.ts";
+import { restoreClaudeToolName } from "../services/claudeCodeToolRemapper.ts";
 import { extractReplayableResponsesReasoningText } from "../services/reasoningInputPolicy.ts";
 import { sanitizeToolId } from "../translator/helpers/schemaCoercion.ts";
 
@@ -153,6 +154,7 @@ export function translateNonStreamingResponse(
   sourceFormat: string,
   toolNameMap?: Map<string, string> | null
 ): unknown {
+  console.error(`[CANARY-E] translateNonStreamingResponse ${targetFormat}->${sourceFormat}`);
   // If already in source format, return as-is
   if (targetFormat === sourceFormat) {
     if (targetFormat === FORMATS.OPENAI) {
@@ -631,7 +633,7 @@ export function translateNonStreamingResponse(
 
   // Phase 3: Translate from OpenAI back to Client Source format
   if (sourceFormat === FORMATS.CLAUDE && sourceFormat !== targetFormat) {
-    return convertOpenAINonStreamingToClaude(toRecord(intermediateOpenAI));
+    return convertOpenAINonStreamingToClaude(toRecord(intermediateOpenAI), toolNameMap ?? null);
   }
 
   // Gemini-family clients (Gemini, Antigravity): the streaming SSE path already
@@ -667,8 +669,18 @@ function resolveReasoningText(messageObj: JsonRecord): string {
 
 /**
  * Helper to convert an OpenAI chat.completion JSON object to Claude format for non-streaming.
+ *
+ * `toolNameMap` carries request-side aliases; when it does not resolve a name,
+ * `restoreClaudeToolName` upgrades known Claude Code tools to their canonical
+ * PascalCase ("bash" → "Bash", "croncreate" → "CronCreate"). Without this, a
+ * non-streaming upstream JSON body (or a stream:true request the upstream
+ * answered with application/json) reaches Claude Code with lowercase tool_use
+ * names the CLI rejects as "No such tool available".
  */
-function convertOpenAINonStreamingToClaude(openaiResponse: JsonRecord): JsonRecord {
+function convertOpenAINonStreamingToClaude(
+  openaiResponse: JsonRecord,
+  toolNameMap?: Map<string, string> | null
+): JsonRecord {
   const choices = openaiResponse.choices as unknown[] | undefined;
   const isChoicesArray = Array.isArray(choices);
   if (!isChoicesArray && openaiResponse.object !== "chat.completion") {
@@ -710,6 +722,9 @@ function convertOpenAINonStreamingToClaude(openaiResponse: JsonRecord): JsonReco
   }
 
   if (Array.isArray(messageObj.tool_calls)) {
+    console.error(
+      `[CANARY-B] convertOpenAINonStreamingToClaude names=${JSON.stringify(messageObj.tool_calls.map((t) => t?.function?.name))} mapSize=${toolNameMap instanceof Map ? toolNameMap.size : String(toolNameMap)}`
+    );
     for (const tool of messageObj.tool_calls) {
       const toolObj = toRecord(tool);
       const fn = toRecord(toolObj.function);
@@ -717,7 +732,7 @@ function convertOpenAINonStreamingToClaude(openaiResponse: JsonRecord): JsonReco
       content.push({
         type: "tool_use",
         id: sanitizeToolId(rawId),
-        name: toString(fn.name),
+        name: restoreClaudeToolName(toString(fn.name), toolNameMap ?? null),
         input:
           typeof fn.arguments === "string" ? JSON.parse(fn.arguments || "{}") : fn.arguments || {},
       });
