@@ -384,6 +384,10 @@ export function createRecoverableStream(
   let continuations = 0;
   let emittedTail = ""; // raw SSE not yet scanned (awaiting an event boundary)
   let emittedText = ""; // assistant text already delivered to the client
+  let emittedReasoningText = ""; // reasoning trace already delivered (never shown to the client,
+  // tracked only to distinguish "a real empty turn" from "the whole
+  // answer stayed in the reasoning channel")
+  let emittedFinishReason: string | null = null; // literal finish_reason last seen, if any
   let emittedTerminal = false;
   let emittedToolCall = false;
   let emittedParsedOpenAi = false;
@@ -403,6 +407,8 @@ export function createRecoverableStream(
     emittedTail = emittedTail.slice(boundary + 2);
     const scan = scanOpenAiSseText(complete);
     emittedText += scan.text;
+    emittedReasoningText += scan.reasoningText;
+    if (scan.finishReason !== null) emittedFinishReason = scan.finishReason;
     if (scan.terminal) emittedTerminal = true;
     if (scan.sawToolCall) emittedToolCall = true;
     if (scan.parsedOpenAi) emittedParsedOpenAi = true;
