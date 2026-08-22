@@ -1,4 +1,4 @@
--- 161_remove_hackclub_provider.sql
+-- 162_remove_hackclub_provider.sql
 -- Hack Club AI provider was removed from OmniRoute at the request of Hack Club's
 -- maintainers (#11118). Clean up any locally stored configuration for it.
 -- Historical request and usage records are intentionally preserved under the
