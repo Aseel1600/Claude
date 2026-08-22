@@ -10,7 +10,10 @@ export {
 } from "./providers/registry/alibaba/index.ts";
 export { REGISTRY } from "./providers/index.ts";
 import { REGISTRY } from "./providers/index.ts";
-import { isPrivateHost } from "@/shared/network/outboundUrlGuard";
+// Imported from `privateHost` rather than `outboundUrlGuard`: this module is reachable from
+// `ProviderDetailPageClient.tsx`, so anything it pulls in has to survive a browser bundle
+// (#11122). `privateHost` is platform-free by contract; the guard module is not.
+import { isPrivateHost } from "@/shared/network/privateHost";
 import {
   RegistryModel,
   REASONING_UNSUPPORTED,
