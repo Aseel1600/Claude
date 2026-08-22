@@ -89,6 +89,15 @@ test("makeContinuationBody refuses bodies without a messages array or empty text
   assert.equal(makeContinuationBody(null as never, "t"), null);
 });
 
+test("makeContinuationBody accepts an empty prefill by re-sending the messages unchanged", () => {
+  const body = { model: "x", stream: true, messages: [{ role: "user", content: "hi" }] };
+  const out = makeContinuationBody(body, "");
+  assert.ok(out, "an empty prefill must still produce a re-request body, not null");
+  assert.equal(out!.messages.length, 1, "no empty assistant turn is appended");
+  assert.deepEqual(out!.messages[0], { role: "user", content: "hi" });
+  assert.equal(out!.stream, true);
+});
+
 // ── trimContinuationOverlap ───────────────────────────────────────────────────
 
 test("trimContinuationOverlap removes a duplicated seam so the join is append-only", () => {

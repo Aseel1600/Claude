@@ -261,8 +261,10 @@ export interface ContinuableBody {
 
 /**
  * Build a re-request body that continues from `assistantSoFar` by appending it as an
- * assistant turn. Returns null when the body has no `messages` array or the partial text
- * is empty (nothing to continue from). Does not mutate the original.
+ * assistant turn. When `assistantSoFar` is empty (nothing usable was emitted yet — e.g. a
+ * clean stop that only produced reasoning), the messages are re-sent unchanged instead of
+ * appending an empty assistant turn: this simply re-asks for a real answer. Returns null
+ * only when the body has no `messages` array at all (nothing to continue from).
  */
 export function makeContinuationBody(
   body: ContinuableBody,
@@ -270,10 +272,13 @@ export function makeContinuationBody(
 ): (ContinuableBody & { messages: unknown[] }) | null {
   if (!body || typeof body !== "object") return null;
   if (!Array.isArray(body.messages) || body.messages.length === 0) return null;
-  if (typeof assistantSoFar !== "string" || assistantSoFar.length === 0) return null;
+  if (typeof assistantSoFar !== "string") return null;
   return {
     ...body,
-    messages: [...body.messages, { role: "assistant", content: assistantSoFar }],
+    messages:
+      assistantSoFar.length > 0
+        ? [...body.messages, { role: "assistant", content: assistantSoFar }]
+        : [...body.messages],
     stream: true,
   };
 }
