@@ -28,4 +28,11 @@ test("isLocalProvider detects RFC1918, CGNAT/Tailscale, and mDNS private hosts",
   assert.equal(isLocalProvider("https://api.openai.com/v1"), false);
   assert.equal(isLocalProvider("https://api.anthropic.com/v1"), false);
   assert.equal(isLocalProvider("http://8.8.8.8:8080/v1"), false);
+
+  // Fails open on missing or unparseable input (Issue #11091 review finding)
+  assert.equal(isLocalProvider(null), false);
+  assert.equal(isLocalProvider(undefined), false);
+  assert.equal(isLocalProvider(""), false);
+  assert.equal(isLocalProvider("not a url"), false);
+  assert.equal(isLocalProvider("file:///models"), false);
 });
