@@ -10,6 +10,7 @@ export {
 } from "./providers/registry/alibaba/index.ts";
 export { REGISTRY } from "./providers/index.ts";
 import { REGISTRY } from "./providers/index.ts";
+import { isPrivateHost } from "@/shared/network/outboundUrlGuard";
 import {
   RegistryModel,
   REASONING_UNSUPPORTED,
@@ -126,17 +127,31 @@ const LOCAL_HOSTNAMES = new Set([
  *
  * Operators can extend via LOCAL_HOSTNAMES env var (comma-separated) for Docker
  * hostnames (e.g., LOCAL_HOSTNAMES=omlx,mlx-audio).
+ *
+ * #11091 — this previously matched only `localhost`, `127.0.0.1` and 172.16.0.0/12,
+ * which misses most of the address space a self-hosted LLM box actually lives on
+ * (192.168/16, 10/8, CGNAT/Tailscale 100.64/10, and `.local` mDNS names). A LAN
+ * Ollama/LM Studio host therefore failed this check and a 404 for one missing model
+ * cooled the WHOLE connection instead of locking out just that model — the exact
+ * opposite of what a multi-host setup needs. Delegate to `isPrivateHost`, which is
+ * this codebase's existing definition of a private host, instead of maintaining a
+ * second narrower one.
+ *
+ * Deliberately NOT an SSRF control: the sole caller is the 404 model-lockout branch
+ * in `src/sse/services/auth.ts`, which gates no outbound request. `isPrivateHost`
+ * fails CLOSED (empty host ⇒ private) because it guards egress; this helper must
+ * fail OPEN, so an unparseable URL or empty hostname still returns false.
+ *
+ * Custom LAN suffixes that are not IP literals and not `.local`/`.internal`
+ * (e.g. `studio.lan`) still need LOCAL_HOSTNAMES — they are indistinguishable
+ * from public hostnames without resolving them.
  */
 export function isLocalProvider(baseUrl?: string | null): boolean {
   if (!baseUrl) return false;
   try {
-    const url = new URL(baseUrl);
-    const hostname = url.hostname;
-    // Strictly matching 172.16.0.0/12 (Docker/local) and explicitly blocking ::1 per SSRF hardening
-    return (
-      LOCAL_HOSTNAMES.has(hostname) ||
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
-    );
+    const hostname = new URL(baseUrl).hostname;
+    if (!hostname) return false;
+    return LOCAL_HOSTNAMES.has(hostname) || isPrivateHost(hostname);
   } catch {
     return false;
   }
