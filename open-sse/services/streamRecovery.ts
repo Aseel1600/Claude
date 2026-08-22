@@ -418,15 +418,42 @@ export function createRecoverableStream(
     for (const chunk of holdback.flush()) emit(controller, chunk);
   };
 
-  // A post-commit truncation is continuable only for a plain-text OpenAI-compatible
-  // stream that has not finished and has no tool call in flight.
+  // A post-commit truncation is continuable for a plain-text OpenAI-compatible stream that
+  // has no tool call in flight, AND either:
+  //  - has not finished yet (the original #4131 truncation case), or
+  //  - finished with a literal finish_reason of "stop" but delivered nothing usable while a
+  //    non-empty reasoning trace shows the provider spent its whole turn "thinking" and never
+  //    turned that into an answer (some providers put the entire response in
+  //    reasoning_content and leave content empty). Gated on the LITERAL "stop" value, not the
+  //    generic `terminal` flag — `terminal` also covers "length"/"content_filter"/a bare
+  //    [DONE], which are out of scope for this specific recovery.
+  //
+  // Known consequence of the hallucinatedEmptyStop path (flagged in cross-review, accepted as
+  // inherent to tryContinue's existing design, not new to this fix): the original upstream's
+  // `finish_reason:"stop"` chunk was already forwarded to the client via `emit()`'s unconditional
+  // `controller.enqueue(chunk)` (streamRecovery.ts:381) BEFORE this scan ever runs — that is how
+  // `emittedFinishReason`/`emittedTerminal` get set in the first place. So the client sees an
+  // empty "stop" marker from the original turn, then — once the continuation succeeds — the real
+  // answer plus a SECOND `emitCleanTerminal` from `tryContinue`. This mirrors what already
+  // happens for the pre-existing truncation-continuation case (a truncated stream can likewise
+  // have partially delivered SSE framing before `tryContinue` appends more); it is not a new
+  // double-close of the underlying `ReadableStream` (`controller.close()` runs exactly once,
+  // after `tryContinue` returns). An SSE client that treats a bare `finish_reason:"stop"` as an
+  // unconditional end-of-turn (rather than waiting for `[DONE]`) may need updating separately —
+  // out of scope for this fix, which targets the observed opencode/OmniRoute pairing where the
+  // client kept the connection open.
+  const hallucinatedEmptyStop = () =>
+    emittedFinishReason === "stop" &&
+    !emittedToolCall &&
+    emittedText.length === 0 &&
+    emittedReasoningText.length > 0;
+
   const canContinue = () =>
     continueEnabled &&
     continuations < maxContinuations &&
     emittedParsedOpenAi &&
     !emittedToolCall &&
-    !emittedTerminal &&
-    emittedText.length > 0;
+    (emittedText.length > 0 ? !emittedTerminal : hallucinatedEmptyStop());
 
   const emitCleanTerminal = (controller: ReadableStreamDefaultController<Uint8Array>) => {
     controller.enqueue(
@@ -527,9 +554,11 @@ export function createRecoverableStream(
         const { done, value } = result;
         if (done) {
           if (holdback.committed) {
-            // Graceful end after commit: if it lacks a terminal marker it is a silent
-            // truncation — try to continue; otherwise (clean finish) just close.
-            if (!emittedTerminal && (await tryContinue(controller))) {
+            // Graceful end after commit: try a mid-stream continuation whenever canContinue()
+            // says the stream is worth continuing (silent truncation, or a clean-but-empty
+            // reasoning-only stop) — canContinue() is the single source of truth here, same as
+            // the read-error branch above.
+            if (await tryContinue(controller)) {
               runFinalize();
               controller.close();
               return;
