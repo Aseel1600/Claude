@@ -243,6 +243,12 @@ export async function createEmbeddingResponse(
         credentials.retryAfterHuman
       );
     }
+    if ("allExpired" in credentials && credentials.allExpired) {
+      return errorResponse(
+        HTTP_STATUS.UNAUTHORIZED,
+        `[${provider}] All ${credentials.expiredCount || 1} connection(s) authentication expired — please reconnect in the dashboard`
+      );
+    }
   } else if (provider === "ollama-local") {
     // Ollama is keyless, but a configured connection can still provide a
     // custom local host. Hydrate that optional connection without imposing an
@@ -323,7 +329,7 @@ export async function createEmbeddingResponse(
   const responseHeaders = new Headers(result.headers);
 
   if (result.success) {
-    if (credentials) await clearRecoveredProviderState(credentials);
+    if (credentials) await clearRecoveredProviderState(credentials as Record<string, unknown>);
     responseHeaders.set("Content-Type", "application/json");
     const usage = (result.data as { usage?: Record<string, number> })?.usage ?? null;
     const costUsd = usage ? await calculateCost(provider, effectiveModel ?? "", usage) : 0;

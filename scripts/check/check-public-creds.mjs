@@ -98,7 +98,6 @@ export const KNOWN_LITERAL_CREDS = new Set([
   "open-sse/services/usage/minimax.ts:213:minimax", // TODO(6A.8): pre-existing FP — TS fn-param type, not a credential (getMiniMaxUsage signature)
   "open-sse/services/usage/minimax.ts:213:minimax-cn", // TODO(6A.8): pre-existing FP — TS fn-param type, not a credential (getMiniMaxUsage signature)
   "open-sse/executors/zcodeProtocol.ts:302:omniroute-${process.pid}", // local per-process ZCode handshake ID, not an upstream credential
-  "open-sse/executors/copilot-m365-web.ts:330:access_token=${result.accessToken}; chathubPath=${chathubPath}", // dynamic header format string in token refresh
 ]);
 
 /**

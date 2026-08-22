@@ -4974,7 +4974,9 @@
         "skipped": "już skonfigurowane",
         "failed": "niepowodzenie"
       }
-    }
+    },
+    "securityDescSkipWarning": "⚠️ Without a password, you won't be able to add providers during setup. You can add them later from the dashboard after setting a password.",
+    "providerRequiresPassword": "You need to set a password first to add providers. Please go back to the security step and set a password, or add providers later from the dashboard."
   },
   "providers": {
     "title": "Providers",
@@ -10626,11 +10628,23 @@
   },
   "cursorAuthModal": {
     "title": "Połącz Cursor IDE",
+    "tabLogin": "Login with Cursor",
+    "tabImport": "Import token",
+    "loginDescription": "Opens Cursor's browser login. Works in Docker — approve in your host browser, then return here.",
+    "loginWithCursor": "Login with Cursor",
+    "startingLogin": "Starting…",
+    "waitingApproval": "Waiting for Cursor login approval…",
+    "openUrlHint": "If the browser did not open:",
+    "openLoginLink": "Open login page",
+    "cancelLogin": "Cancel login",
     "autoDetecting": "Automatyczne wykrywanie tokens...",
     "readingFromCursor": "Odczytywanie z Cursor IDE lub cursor-agent",
     "tokensAutoDetected": "Tokens pomyślnie automatycznie wykryte z Cursor IDE!",
     "cursorNotDetected": "Nie wykryto Cursor IDE. Wklej ręcznie swój token.",
+    "dockerImportHint": "Running in Docker? Prefer Login with Cursor. IDE auto-import and cursor-agent are usually unavailable inside the container. See docs/providers/CURSOR-DOCKER.md.",
     "accessToken": "Access Token",
+    "refreshToken": "Refresh Token",
+    "refreshTokenPlaceholder": "Optional — enables automatic token refresh",
     "required": "*",
     "accessTokenPlaceholder": "Access token zostanie automatycznie uzupełniony...",
     "machineId": "Machine ID",
@@ -10642,7 +10656,10 @@
     "errorAutoDetect": "Nie można automatycznie wykryć tokens",
     "errorAutoDetectFailed": "Automatyczne wykrywanie tokens nie powiodło się",
     "errorEnterToken": "Wprowadź access token",
-    "errorImportFailed": "Import nie powiódł się"
+    "errorImportFailed": "Import nie powiódł się",
+    "errorLoginStart": "Failed to start Cursor login",
+    "errorLoginPoll": "Cursor login failed",
+    "errorLoginTimeout": "Cursor login timed out — try again"
   },
   "pricingModal": {
     "title": "Konfiguracja cennika",
@@ -12185,7 +12202,7 @@
       },
       "omni-webhooks": {
         "name": "Webhooki",
-        "description": "Rejestruj, listuj, testuj i usuwaj punkty końcowe webhooków. Konfiguruj subskrypcje zdarzeń (request.completed, provider.error, budget.exceeded itp.) i zarządzaj ponownymi próbami dostarczenia."
+        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "Serwer MCP",

@@ -18,6 +18,7 @@ import {
   costReportInput,
   listModelsCatalogInput,
   webSearchInput,
+  xSearchInput,
   webFetchInput,
   simulateRouteInput,
   setBudgetGuardInput,
@@ -664,6 +665,28 @@ async function handleWebSearch(args: {
   }
 }
 
+async function handleXSearch(args: { query: string; max_results?: number }) {
+  const start = Date.now();
+  try {
+    const result = await omniRouteFetch("/v1/search", {
+      method: "POST",
+      body: JSON.stringify({
+        query: args.query,
+        max_results: args.max_results ?? 5,
+        search_type: "x",
+        provider: "x-search",
+      }),
+      signal: AbortSignal.timeout(120000),
+    });
+    await logToolCall("omniroute_x_search", args, result, Date.now() - start, true);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await logToolCall("omniroute_x_search", args, null, Date.now() - start, false, msg);
+    return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
+  }
+}
+
 async function handleWebFetch(args: {
   url: string;
   provider?: "firecrawl" | "jina-reader" | "tavily-search" | "tinyfish";
@@ -1026,6 +1049,16 @@ export function createMcpServer(): McpServer {
     withScopeEnforcement("omniroute_web_search", (args) =>
       handleWebSearch(webSearchInput.parse(args))
     )
+  );
+
+  server.registerTool(
+    "omniroute_x_search",
+    {
+      description:
+        "Search X (Twitter) through OmniRoute using SuperGrok / xAI server-side x_search. Requires xai-oauth or an xAI API key. Not web search.",
+      inputSchema: xSearchInput,
+    },
+    withScopeEnforcement("omniroute_x_search", (args) => handleXSearch(xSearchInput.parse(args)))
   );
 
   server.registerTool(

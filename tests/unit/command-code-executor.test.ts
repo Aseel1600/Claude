@@ -333,6 +333,68 @@ test("Command Code data: SSE lines aggregate into non-stream ChatCompletion JSON
   });
 });
 
+test("Command Code reasoning-only output falls back to reasoning as content (non-stream)", async () => {
+  globalThis.fetch = async () =>
+    commandCodeStream(
+      [
+        { type: "reasoning-delta", text: "The user wants 79874+93658. " },
+        { type: "reasoning-delta", text: "That equals 173532." },
+        {
+          type: "finish",
+          finishReason: "stop",
+          totalUsage: { inputTokens: 20, outputTokens: 64, outputTokenDetails: { reasoningTokens: 61 } },
+        },
+      ],
+      { sse: true }
+    );
+
+  const { response } = await getExecutor("command-code").execute({
+    model: "meta/muse-spark-1.2-contributor",
+    stream: false,
+    credentials: { apiKey: "cc_test_key" },
+    body: { messages: [{ role: "user", content: "Calculate 79874+93658, and reply with the result only." }] },
+  });
+
+  const json = await response.json();
+  const message = json.choices[0].message;
+  // Regression #10986: when the model emits only reasoning-delta events (never a
+  // text-delta), content must fall back to the reasoning text instead of "" (which
+  // OpenAI-compatible clients treat as null/no answer).
+  assert.equal(message.content, "The user wants 79874+93658. That equals 173532.");
+  // reasoning_content must STAY populated for reasoning-aware clients.
+  assert.equal(message.reasoning_content, "The user wants 79874+93658. That equals 173532.");
+});
+
+test("Command Code reasoning-only output emits a content delta chunk when streaming", async () => {
+  globalThis.fetch = async () =>
+    commandCodeStream(
+      [
+        { type: "reasoning-delta", text: "The result is 173532." },
+        { type: "finish", finishReason: "stop" },
+      ],
+      { sse: true }
+    );
+
+  const { response } = await getExecutor("command-code").execute({
+    model: "meta/muse-spark-1.2-contributor",
+    stream: true,
+    credentials: { apiKey: "cc_test_key" },
+    body: { messages: [{ role: "user", content: "Calcular 79874+93658" }] },
+  });
+
+  const sse = await response.text();
+  assert.match(sse, /data: \[DONE\]/);
+  const chunks = parseSsePayloads(sse);
+  assert.equal(chunks[0].choices[0].delta.role, "assistant");
+  // Regression #10986: the reasoning-only stream must emit a content delta when it
+  // otherwise ends with no content. reasoning_content stays present too.
+  const contentDelta = chunks.find((c) => c.choices[0].delta.content !== undefined);
+  assert.equal(contentDelta.choices[0].delta.content, "The result is 173532.");
+  const reasoningDelta = chunks.find((c) => c.choices[0].delta.reasoning_content !== undefined);
+  assert.equal(reasoningDelta.choices[0].delta.reasoning_content, "The result is 173532.");
+  assert.equal(chunks.at(-1).choices[0].finish_reason, "stop");
+});
+
 test("Command Code executor surfaces upstream and streamed errors", async () => {
   globalThis.fetch = async () =>
     new Response("bad key", { status: 401, statusText: "Unauthorized" });

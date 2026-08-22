@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### ✨ New Features
+
+- **feat(sse): STRICT_ZERO_COST** — opt-in, off-by-default `freeAccessPolicy: "strict"` setting
+  that hard-verifies every auto-combo candidate against live quota state and per-connection
+  economic safety before it can be dispatched, going beyond `hidePaidModels`'s static catalog
+  check. Adds curated `hardStopGuaranteed` metadata to `FREE_MODEL_BUDGETS`, a short-TTL quota
+  cache reusing `getUsageForProvider()`, and a connection-safety guarantee: a candidate backed
+  by multiple accounts has its `allowedConnectionIds` narrowed to exactly the connections
+  independently verified `SAFE`, so dispatch can never use an unverified account. An
+  `excludeTosAvoid` guard (default `false`) is available separately for contractual risk. See
+  `docs/routing/STRICT_ZERO_COST.md`.
+
 ---
 
 ## [3.8.50] — TBD
@@ -9,6 +21,7 @@
 _Living section — regenerated 2026-08-12 from all cycle commits (cycle open `ed2db6cb19` → tip). Bullets carry the merged PR and its author; direct pushes listed separately._
 
 ### ✨ New Features
+- **feat(search):** first-class X Search provider (`x-search`) on `POST /v1/search` and MCP `omniroute_x_search` using SuperGrok / xAI server-side `x_search`. Explicit provider or `search_type: "x"` only — never auto-selected for web. Reuses `xai-oauth` / `xao` / `xai` credentials. Not the X Developer Platform MCP. ([#10985](https://github.com/diegosouzapw/OmniRoute/issues/10985))
 - **feat(core):** add Layer A capability filter at router (#5696)
 - **feat(providers):** add DeepAI as paid API-key image provider ([#6671](https://github.com/diegosouzapw/OmniRoute/issues/6671))
 - **feat(providers):** add Naga.ac and ChatAnywhere aggregator gateway providers (#6674 — thanks @chirag127)

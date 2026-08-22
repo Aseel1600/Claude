@@ -273,17 +273,6 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     warningLevel: "info",
   },
   {
-    key: "ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE",
-    label: "Multi Connections per Compat Node",
-    description: "Allow multiple connections per compatibility node",
-    descriptionI18nKey: "featureFlagAllowMultiConnectionsPerCompatNodeDescription",
-    category: "policies",
-    defaultValue: "false",
-    type: "boolean",
-    requiresRestart: true,
-    warningLevel: "info",
-  },
-  {
     key: "DISABLE_CONTEXT_WINDOW_CHECKS",
     label: "Disable Context Window Checks",
     description:

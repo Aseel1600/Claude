@@ -4974,7 +4974,9 @@
         "skipped": "כבר מוגדר",
         "failed": "נכשל"
       }
-    }
+    },
+    "securityDescSkipWarning": "⚠️ Without a password, you won't be able to add providers during setup. You can add them later from the dashboard after setting a password.",
+    "providerRequiresPassword": "You need to set a password first to add providers. Please go back to the security step and set a password, or add providers later from the dashboard."
   },
   "providers": {
     "title": "ספקים",
@@ -10626,11 +10628,23 @@
   },
   "cursorAuthModal": {
     "title": "חבר את הסמן IDE",
+    "tabLogin": "Login with Cursor",
+    "tabImport": "Import token",
+    "loginDescription": "Opens Cursor's browser login. Works in Docker — approve in your host browser, then return here.",
+    "loginWithCursor": "Login with Cursor",
+    "startingLogin": "Starting…",
+    "waitingApproval": "Waiting for Cursor login approval…",
+    "openUrlHint": "If the browser did not open:",
+    "openLoginLink": "Open login page",
+    "cancelLogin": "Cancel login",
     "autoDetecting": "מזהה אוטומטית אסימונים...",
     "readingFromCursor": "קריאה מ-IDE Cursor או Cursor-agent",
     "tokensAutoDetected": "אסימונים זוהו בהצלחה אוטומטית מ-Cursor IDE!",
     "cursorNotDetected": "IDE הסמן לא זוהה. אנא הדבק ידנית את האסימון שלך.",
+    "dockerImportHint": "Running in Docker? Prefer Login with Cursor. IDE auto-import and cursor-agent are usually unavailable inside the container. See docs/providers/CURSOR-DOCKER.md.",
     "accessToken": "אסימון גישה",
+    "refreshToken": "Refresh Token",
+    "refreshTokenPlaceholder": "Optional — enables automatic token refresh",
     "required": "*",
     "accessTokenPlaceholder": "אסימון הגישה יאוכלס אוטומטית...",
     "machineId": "מזהה מכונה",
@@ -10642,7 +10656,10 @@
     "errorAutoDetect": "לא ניתן לזהות אוטומטית אסימונים",
     "errorAutoDetectFailed": "זיהוי אוטומטי של אסימונים נכשל",
     "errorEnterToken": "נא להזין אסימון גישה",
-    "errorImportFailed": "הייבוא נכשל"
+    "errorImportFailed": "הייבוא נכשל",
+    "errorLoginStart": "Failed to start Cursor login",
+    "errorLoginPoll": "Cursor login failed",
+    "errorLoginTimeout": "Cursor login timed out — try again"
   },
   "pricingModal": {
     "title": "תצורת תמחור",
@@ -12185,7 +12202,7 @@
       },
       "omni-webhooks": {
         "name": "Webhooks",
-        "description": "רשום, הצג, בדוק והסר נקודות קצה של webhook. הגדר מנויים לאירועים (request.completed, provider.error, budget.exceeded וכו') ונהל ניסיונות מסירה חוזרים."
+        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "שרת MCP",
