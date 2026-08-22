@@ -1,0 +1,1 @@
+- fix(codex): prefer `max_context_window` over the `context_window` pricing tier as the usable input limit in discovery, so large-context requests route to codex instead of being treated as too big
