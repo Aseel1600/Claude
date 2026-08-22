@@ -237,7 +237,6 @@ export function isSelfHostedChatProvider(providerId: unknown): boolean {
 const EXPLICIT_OPTIONAL_APIKEY_PROVIDER_IDS = new Set([
   "searxng-search",
   "firecrawl",
-  "pollinations",
   "copilot-web",
   "hackclub",
   "g4f-groq",
