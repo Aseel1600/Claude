@@ -402,7 +402,7 @@ export function getAllSearchProviders(blockedProviders: string[] = []): Array<{
   searchTypes: string[];
 }> {
   return Object.values(SEARCH_PROVIDERS)
-    .filter((p) => !(p as any).disabled && !isProviderBlockedByIdOrAlias(p.id, blockedProviders))
+    .filter((p) => !p.disabled && !isProviderBlockedByIdOrAlias(p.id, blockedProviders))
     .map((p) => ({
       id: p.id,
       name: p.name,
