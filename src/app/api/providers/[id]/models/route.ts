@@ -83,10 +83,6 @@ import {
   isAutoFetchModelsEnabled,
   persistDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
-import {
-  buildOllamaShowUrl,
-  enrichOllamaModelsWithCapabilities,
-} from "@/lib/providerModels/ollamaCapabilities";
 import { buildProviderModelsUrl, getDiscoveryClientVersionOptions } from "./discoveryClientVersion";
 import {
   parseGeminiModelsList,
@@ -106,6 +102,7 @@ import {
   mergeSpecialtyCatalogIntoLiveModels,
   buildOptionalBearerHeaders,
   buildNamedOpenAiStyleHeaders,
+  enrichOllamaLocalModels,
 } from "./discovery/helpers";
 import {
   fetchAntigravityDiscoveryModelsCached,
@@ -842,24 +839,8 @@ export async function GET(
             models = isNamedOpenAIStyleProvider(provider)
               ? normalizeOpenAiLikeModelsResponse(data, provider)
               : data.data || data.models || [];
-            if (provider === "ollama-local") {
-              const showUrl = buildOllamaShowUrl(baseUrl);
-              models = await enrichOllamaModelsWithCapabilities(models, async (modelId) => {
-                try {
-                  const showResponse = await safeOutboundFetch(showUrl, {
-                    ...SAFE_OUTBOUND_FETCH_PRESETS.modelsProbe,
-                    guard: getProviderValidationGuard(),
-                    proxyConfig: proxy,
-                    method: "POST",
-                    headers: buildOptionalBearerHeaders(token),
-                    body: JSON.stringify({ model: modelId, verbose: false }),
-                  });
-                  return showResponse.ok ? await showResponse.json() : null;
-                } catch {
-                  return null;
-                }
-              });
-            }
+            if (provider === "ollama-local")
+              models = await enrichOllamaLocalModels(models, baseUrl, proxy, token);
             break; // Success!
           }
 
