@@ -1593,5 +1593,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 </div>
 <!-- GitHub Discussions enabled for community Q&A -->
 ## My contribution
+## Contribution
+
+Improving documentation and exploring AI workflow integrations.
 
 Improving documentation and AI workflow examples.
