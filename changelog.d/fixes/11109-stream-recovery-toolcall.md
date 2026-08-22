@@ -14,4 +14,4 @@ verbatim). Once that finish reason closes the call, a later truncation of
 trailing text is recoverable, matching how the client actually behaves: the
 call was already fully delivered.
 
-([#0000](https://github.com/diegosouzapw/OmniRoute/pull/11109))
+([#11109](https://github.com/diegosouzapw/OmniRoute/pull/11109))
