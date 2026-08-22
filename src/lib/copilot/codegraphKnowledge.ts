@@ -11,6 +11,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isNextBuildPhase } from "../buildPhase";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,11 +97,7 @@ function queryDb(query: string, params: unknown[] = []): CodeGraphQueryResult {
         // its Statement destructor aborts with SIGABRT at build-worker teardown
         // (node::RemoveEnvironmentCleanupHook). This path is not exercised during
         // build, so failing closed to "not available" is safe. (#10060)
-        const isBuild =
-          process.env.NEXT_PHASE === "phase-production-build" ||
-          process.env.OMNIROUTE_BUILDING === "1" ||
-          process.env.npm_lifecycle_event === "build";
-        if (isBuild) throw new Error("Skip better-sqlite3 during build");
+        if (isNextBuildPhase()) throw new Error("Skip better-sqlite3 during build");
 
         const Database = require("better-sqlite3");
         _db = new Database(dbPath, { readonly: true });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { homedir } from "os";
 import { join } from "path";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { isNextBuildPhase } from "@/lib/buildPhase";
 import {
   createProviderConnection,
   getProviderConnections,
@@ -87,11 +88,7 @@ async function tryKiroCliSqlite(): Promise<{
     // its Statement destructor aborts with SIGABRT at build-worker teardown
     // (node::RemoveEnvironmentCleanupHook). Kiro auto-import never runs during
     // build, so returning "not found" here is safe. (#10060)
-    const isBuild =
-      process.env.NEXT_PHASE === "phase-production-build" ||
-      process.env.OMNIROUTE_BUILDING === "1" ||
-      process.env.npm_lifecycle_event === "build";
-    if (isBuild) throw new Error("Skip better-sqlite3 during build");
+    if (isNextBuildPhase()) throw new Error("Skip better-sqlite3 during build");
     Database = (await import("better-sqlite3")).default;
   } catch {
     return { found: false, triedPaths: candidatePaths };

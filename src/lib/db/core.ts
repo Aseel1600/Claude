@@ -16,6 +16,7 @@ import path from "path";
 import { retryProbeIfTransient } from "./probeUtils";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
+import { isNextBuildPhase } from "../buildPhase";
 import { runMigrations } from "./migrationRunner";
 import { runDbHealthCheck } from "./healthCheck";
 import { resetAllDbModuleState } from "./stateReset";
@@ -90,8 +91,12 @@ export const isCloud = typeof globalThis.caches === "object" && globalThis.cache
 // better-sqlite3 addon must never load: its Statement destructor aborts with
 // SIGABRT when the worker thread exits (assertion in
 // node::RemoveEnvironmentCleanupHook, env == nullptr). (#10060)
-export const isBuildPhase =
-  process.env.NEXT_PHASE === "phase-production-build" || process.env.OMNIROUTE_BUILDING === "1";
+//
+// Delegates to the shared leaf helper (src/lib/buildPhase.ts) so every build
+// signal is defined in exactly one place. Kept as a module const (evaluated at
+// import time) to preserve the existing eager-boolean semantics of the many
+// `if (isBuildPhase || isCloud)` call sites across the db layer.
+export const isBuildPhase = isNextBuildPhase();
 
 // ──────────────── Paths ────────────────
 

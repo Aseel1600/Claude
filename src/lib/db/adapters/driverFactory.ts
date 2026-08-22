@@ -1,4 +1,5 @@
 import { runtimeRequire as _require } from "./runtimeRequire";
+import { isNextBuildPhase } from "../../buildPhase";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createBetterSqliteAdapter } from "./betterSqliteAdapter";
@@ -241,11 +242,7 @@ export function createSyncDriverFactory(load: DriverLoader, betterSqliteProbe?: 
     // node:sqlite / sql.js in production. During the build the native addon
     // cannot load: the Statement destructor aborts with SIGABRT on worker
     // teardown (node::RemoveEnvironmentCleanupHook). (#10060)
-    const isBuild =
-      process.env.NEXT_PHASE === "phase-production-build" ||
-      process.env.OMNIROUTE_BUILDING === "1" ||
-      process.env.npm_lifecycle_event === "build";
-    if (!process.versions.bun && !isBuild && mayLoadBetterSqlite()) {
+    if (!process.versions.bun && !isNextBuildPhase() && mayLoadBetterSqlite()) {
       try {
         const BetterSqlite = load("better-sqlite3") as {
           new (p: string, o?: object): import("better-sqlite3").Database;
