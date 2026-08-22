@@ -133,6 +133,7 @@ export function isLocalProvider(baseUrl?: string | null): boolean {
   try {
     const url = new URL(baseUrl);
     const hostname = url.hostname;
+    if (!hostname) return false;
     return LOCAL_HOSTNAMES.has(hostname) || isPrivateHost(hostname);
   } catch {
     return false;
