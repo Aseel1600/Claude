@@ -3585,6 +3585,29 @@
       "stream": "https://arena.ai/nextjs-api/stream/create-evaluation"
     }
   },
+  "logfare": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://logfare.ai/v1/chat/completions",
+      "stream": "https://logfare.ai/v1/chat/completions"
+    }
+  },
   "longcat": {
     "format": "openai",
     "headers": {
