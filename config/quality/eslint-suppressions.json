@@ -4087,11 +4087,6 @@
       "count": 9
     }
   },
-  "tests/integration/qdrant-routes.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 19
-    }
-  },
   "tests/integration/quota-pools-usage.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
