@@ -25,6 +25,7 @@ import {
   mapUsage,
 } from "../../open-sse/executors/codex/appServerEvents.ts";
 import { resolveAppServerConfig } from "../../open-sse/executors/codex/appServerConfig.ts";
+import { probeCodexAppServerAuth } from "../../open-sse/executors/codex/appServerAuthProbe.ts";
 import type { AdapterEvent } from "../../open-sse/vendor/codex-chatgpt-web/types.ts";
 import type { ExecuteInput } from "../../open-sse/executors/base.ts";
 
@@ -630,5 +631,72 @@ test("CodexAppServerExecutor: async post-turn/start completion does not close th
   assert.equal(body.status, "completed", "the turn completed after the async terminal notification");
   const text = body.output?.[0]?.content?.[0]?.text ?? "";
   assert.equal(text, "ASYNC-OK", "the model output that arrived AFTER turn/start is present");
+});
+
+// ── Layer-2 auth-status probe (probeCodexAppServerAuth) ─────────────────────
+// /readyz proves the server PROCESS is up but NOT that its Codex CLI is signed
+// in. probeCodexAppServerAuth opens the JSON-RPC WS and reads account/read:
+//   authenticated → { account: {...} } ; logged out → no account (or auth error).
+// Verified against codex 0.149.0: account/read returns
+//   { account: { type, email, planType }, requiresOpenaiAuth }.
+
+/** A fake websocketFn that answers initialize + account/read with a scripted result. */
+function fakeAuthTransport(accountReadResponse: {
+  result?: Record<string, unknown>;
+  error?: { code: number; message: string };
+}) {
+  const ctrl = makeFakeSocket();
+  const originalSend = ctrl.socket.send;
+  ctrl.socket.send = (data: string) => {
+    originalSend(data);
+    const frame = JSON.parse(data) as Record<string, unknown>;
+    if (frame.id == null || !frame.method) return;
+    queueMicrotask(() => {
+      if (frame.method === "initialize") {
+        ctrl.emit({ jsonrpc: "2.0", id: frame.id, result: { ok: true } });
+      } else if (frame.method === "account/read") {
+        if (accountReadResponse.error) {
+          ctrl.emit({ jsonrpc: "2.0", id: frame.id, error: accountReadResponse.error });
+        } else {
+          ctrl.emit({ jsonrpc: "2.0", id: frame.id, result: accountReadResponse.result ?? {} });
+        }
+      } else {
+        ctrl.emit({ jsonrpc: "2.0", id: frame.id, result: {} });
+      }
+    });
+  };
+  const fn = async () => ctrl.socket;
+  return fn;
+}
+
+const AUTH_CONFIG = { url: "ws://ts-egress:1456", token: "deadbeef", cwd: "/tmp" };
+
+test("probeCodexAppServerAuth: account with email → authenticated", async () => {
+  const fn = fakeAuthTransport({
+    result: { account: { type: "chatgpt", email: "user@example.com", planType: "pro" }, requiresOpenaiAuth: true },
+  });
+  const status = await probeCodexAppServerAuth(AUTH_CONFIG, fn, 3000);
+  assert.equal(status.state, "authenticated");
+  if (status.state === "authenticated") {
+    assert.equal(status.account.email, "user@example.com");
+    assert.equal(status.account.planType, "pro");
+  }
+});
+
+test("probeCodexAppServerAuth: no account → logged_out", async () => {
+  const fn = fakeAuthTransport({ result: { requiresOpenaiAuth: true } }); // no `account`
+  const status = await probeCodexAppServerAuth(AUTH_CONFIG, fn, 3000);
+  assert.equal(status.state, "logged_out");
+});
+
+test("probeCodexAppServerAuth: auth-error on account/read → logged_out", async () => {
+  const fn = fakeAuthTransport({ error: { code: -32000, message: "AuthRequiredError: please login" } });
+  const status = await probeCodexAppServerAuth(AUTH_CONFIG, fn, 3000);
+  assert.equal(status.state, "logged_out");
+});
+
+test("probeCodexAppServerAuth: no transport → unknown (does not throw)", async () => {
+  const status = await probeCodexAppServerAuth(AUTH_CONFIG, null, 3000);
+  assert.equal(status.state, "unknown");
 });
 

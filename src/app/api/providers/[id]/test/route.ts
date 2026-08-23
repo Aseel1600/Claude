@@ -122,16 +122,45 @@ async function testCodexAppServerConnection(
       headers: { Authorization: `Bearer ${config.token}` },
       signal: controller.signal,
     });
-    if (res.status === 200) {
-      return { valid: true, refreshed: false, diagnosis: null };
+    if (res.status !== 200) {
+      const error = `Codex app-server not ready (${readyzUrl} → HTTP ${res.status})`;
+      return {
+        valid: false,
+        error,
+        refreshed: false,
+        diagnosis: makeDiagnosis("provider_error", "app_server", error, "app_server_not_ready"),
+      };
     }
-    const error = `Codex app-server not ready (${readyzUrl} → HTTP ${res.status})`;
-    return {
-      valid: false,
-      error,
-      refreshed: false,
-      diagnosis: makeDiagnosis("provider_error", "app_server", error, "app_server_not_ready"),
-    };
+    // The server PROCESS is up. Now confirm its Codex CLI is actually SIGNED IN —
+    // /readyz alone would show green for a logged-out CLI, which then fails on the
+    // first real turn. Probe account/read over the JSON-RPC WebSocket.
+    let authStatus;
+    try {
+      const [{ probeCodexAppServerAuth }, { getCodexAppServerWebsocketTransport }] =
+        await Promise.all([
+          import("@omniroute/open-sse/executors/codex/appServerAuthProbe.ts"),
+          import("@omniroute/open-sse/executors/codex.ts"),
+        ]);
+      authStatus = await probeCodexAppServerAuth(config, getCodexAppServerWebsocketTransport(), 8000);
+    } catch (probeErr: any) {
+      // If the auth probe itself fails to load/run, don't fail the whole health
+      // check — the server IS reachable. Treat as unknown-but-reachable (valid).
+      authStatus = { state: "unknown", reason: probeErr?.message ?? "auth probe failed" } as const;
+    }
+
+    if (authStatus.state === "logged_out") {
+      const error =
+        "Codex app-server is running but its Codex CLI is not signed in. Use \u201cSign in with ChatGPT\u201d to authenticate.";
+      return {
+        valid: false,
+        error,
+        refreshed: false,
+        diagnosis: makeDiagnosis("auth_required", "app_server", error, "app_server_login_required"),
+      };
+    }
+    // "authenticated" → healthy; "unknown" (probe unavailable/timed out) → treat
+    // the reachable server as healthy rather than blocking on an inconclusive probe.
+    return { valid: true, refreshed: false, diagnosis: null };
   } catch (err: any) {
     const reason = err?.name === "AbortError" ? "timed out" : (err?.message ?? "unreachable");
     const error = `Codex app-server unreachable (${readyzUrl}: ${reason})`;
