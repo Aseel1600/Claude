@@ -408,7 +408,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - fix(web-search): bind each search provider attempt to its connection proxy (#9201)
 - fix(auth): make antigravity and agy equivalent in credential selection (#9204)
 - **fix(cli):** prefer IPv4 DNS for spawned Node servers. (thanks @dsitmilis) ([#9209](https://github.com/diegosouzapw/OmniRoute/pull/9209))
-- **fix(pricing):** stop billing reasoning tokens twice. (thanks @yidecode) ([#9212](https://github.com/diegosouzapw/OmniRoute/pull/9212))
+- **fix(pricing):** stop billing reasoning tokens twice. ([#9212](https://github.com/diegosouzapw/OmniRoute/pull/9212) — thanks @yidecode)
 - **fix(models):** `/v1/models` now publishes one contiguous provider-grouped block per provider instead of interleaved fragments. The catalog is assembled by many independent push loops (auto-combos, named combos, static registry, codex-native, synced, OpenRouter, specialty, custom, alias-backed, connection-fallback), so one provider's models previously landed in several separated blocks. A single stable, provider-grouped sort is applied at serialization, keyed by `owned_by` (canonical owner identity) rather than the model-id prefix — so a single routable public prefix that differs from its owner (e.g. no-auth OpenCode publishing `oc/<model>` while keeping `owned_by: "opencode"`) stays contiguous. Combos are pinned first (preserving #4164); then providers in registry precedence (OAuth → NoAuth → API-key); then unknown providers in locale-independent code-unit order. The sort is stable and pure (reorders rows only, no mutation, no DB/IO), preserving combo `sort_order`, connection priority, custom append-order, and equal-id audio twins ([#9215](https://github.com/diegosouzapw/OmniRoute/pull/9215)) — thanks @nguyenha935
 - **fix(combo):** the Combo "Add model" picker now respects hidden-model visibility for every model source — system catalog, fallback, passthrough/node aliases, custom rows and auto-fetched models — instead of drowning the list in 500+ unavailable entries ([#9218](https://github.com/diegosouzapw/OmniRoute/pull/9218)) — thanks @szzhoujiarui
 - **fix(codex):** normalize additional_tools passthrough items. (thanks @SalyyS1) ([#9219](https://github.com/diegosouzapw/OmniRoute/pull/9219))
@@ -1517,6 +1517,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 
 
 
+
 ### 🙌 Contributors
 
 Thanks to everyone whose work landed in v3.8.50:
@@ -1761,7 +1762,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@xz-dev](https://github.com/xz-dev) | #8367, #8908, #9199, #9205, #9262, #9290, #9313, #9555, #9569, #9629, #9788, #9983, #10066, #10072, #10079, #10162, #10243, #10247, #10712, #10716, #10723, #10806, #10953, #10963 |
 | [@yansigit](https://github.com/yansigit) | #9834, #9909, #9911, #9917, #9921, #10065 |
 | [@yawar-aquil](https://github.com/yawar-aquil) | #10668 |
-| [@yidecode](https://github.com/yidecode) | #7223 |
+| [@yidecode](https://github.com/yidecode) | #7223, #9212 |
 | [@yourspraveen](https://github.com/yourspraveen) | #11165, #11176 |
 | [@yulinlina](https://github.com/yulinlina) | #10013 |
 | [@YunyunZhai](https://github.com/YunyunZhai) | #10946 |
