@@ -441,7 +441,8 @@
     "open-sse/executors/kiro.ts": 1390,
     "open-sse/translator/request/openai-to-kiro.ts": 1374,
     "open-sse/utils/sseHeartbeat.ts": 194,
-    "open-sse/utils/proxyFetch.ts": 1239,
+    "open-sse/utils/proxyFetch.ts": 1244,
+    "_rebaseline_2026_08_23_11177_dns_retry_classification": "PR #11177 (rqzbeh) own growth: proxyFetch.ts 1239->1244 (+5, EAI_AGAIN/ENOTFOUND/ETIMEDOUT join the retryable dispatcher classification alongside ECONNREFUSED — bounded socket retries for transient DNS failures, part of the #10443 Hermes→Antigravity stream-drop fixes). Covered by tests/unit/proxy-fetch-dns-retry-10443.test.ts. Owner pre-authorized baseline bumps 2026-08-22.",
     "_rebaseline_2026_08_11_v3850_merge_storm_provider_registry: DRIFT do merge-storm 2026-08-11 (99 PRs mergeados no release/v3.8.50). AddApiKeyModal.tsx (PR #8949 ChatGPT Web provider) e useProviderConnections.ts/ModelSelectModal.tsx (PRs #9011 combo test-all, #9499 image combos) = UI nova legítima acima do cap; gateways.ts = god-file de catálogo de providers que cresceu com os PRs #9009/#9421/#9468/#9594 (qualquer split arriscaria corromper o merge de novo — o próprio PR #9421 foi o que quebrou o arquivo; sem split até o release, congelado no tamanho atual). Owner autorizou rebaseline com anotação (2026-08-11).": {
       "src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal.tsx": 1062,
       "src/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections.ts": 1051,
