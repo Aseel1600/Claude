@@ -1,4 +1,9 @@
-import { BaseExecutor, type ExecuteInput, type ProviderCredentials } from "./base.ts";
+import {
+  BaseExecutor,
+  type ExecuteInput,
+  type ExecutorExecuteResult,
+  type ProviderCredentials,
+} from "./base.ts";
 import { PROVIDERS } from "../config/constants.ts";
 import { getModelTargetFormat, PROVIDER_ID_TO_ALIAS } from "../config/providerModels.ts";
 import {
@@ -378,11 +383,11 @@ export class OpencodeExecutor extends BaseExecutor {
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
     let buffer = "";
-    const upstream = response.body;
+    const reader = response.body.getReader();
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
-          const { done, value } = await upstream.read();
+          const { done, value } = await reader.read();
           if (done) {
             if (buffer.length > 0) controller.enqueue(encoder.encode(normalizer(buffer)));
             controller.close();
@@ -397,7 +402,7 @@ export class OpencodeExecutor extends BaseExecutor {
         }
       },
       cancel(reason) {
-        upstream.cancel(reason).catch(() => undefined);
+        reader.cancel(reason).catch(() => undefined);
       },
     });
     return {
