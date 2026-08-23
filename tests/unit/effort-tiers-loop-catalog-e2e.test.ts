@@ -4,7 +4,7 @@
  * response (/api/v1/models), including the learned-only variant entry.
  * Never "fix" this test by injecting the same string on both sides.
  */
-import { test, after, beforeEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
