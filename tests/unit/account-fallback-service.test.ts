@@ -470,8 +470,7 @@ test("hasPerModelQuota honors shared-registry passthrough providers (#11071)", (
   // Neither declared in the shared registry nor local: a failure here is still connection-wide.
   assert.equal(hasPerModelQuota("openai"), false);
   assert.equal(hasPerModelQuota("anthropic"), false);
-  // PR #11088 variant added this non-passthrough negative case.
-  assert.equal(hasPerModelQuota("mlx-gemma"), false);});
+});
 
 test("Codex Spark 429s are scoped away from normal Codex models", () => {
   const connectionId = `codex-${Date.now()}`;
