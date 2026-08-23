@@ -19,6 +19,10 @@ import assert from "node:assert/strict";
 const { applyMuseSparkMinOutputTokens, MUSE_SPARK_MIN_OUTPUT_TOKENS } = await import(
   "../../open-sse/executors/opencode.ts"
 );
+const {
+  normalizeMuseSparkFinishReason,
+  createMuseSparkStreamFinishNormalizer,
+} = await import("../../open-sse/executors/opencode.ts");
 
 test("RED: muse-spark tiny max_tokens is raised to the floor", () => {
   const body: Record<string, unknown> = { model: "x", max_tokens: 64, messages: [] };
@@ -50,4 +54,58 @@ test("RED: missing/non-numeric max_tokens stays absent (no synthetic budget)", (
   const body: Record<string, unknown> = { messages: [] };
   applyMuseSparkMinOutputTokens("muse-spark-1.2-contributor", body);
   assert.equal("max_tokens" in body, false);
+});
+
+test("RED: finish_reason length is rewritten to stop when completion is far under budget", () => {
+  const payload: Record<string, unknown> = {
+    choices: [{ index: 0, message: { role: "assistant" }, finish_reason: "length" }],
+    usage: { completion_tokens: 270 },
+  };
+  normalizeMuseSparkFinishReason(payload, 128000);
+  assert.equal((payload.choices as Array<Record<string, unknown>>)[0].finish_reason, "stop");
+});
+
+test("RED: genuine truncation at the budget keeps finish_reason length", () => {
+  const payload: Record<string, unknown> = {
+    choices: [{ index: 0, message: { role: "assistant" }, finish_reason: "length" }],
+    usage: { completion_tokens: 127000 },
+  };
+  normalizeMuseSparkFinishReason(payload, 128000);
+  assert.equal((payload.choices as Array<Record<string, unknown>>)[0].finish_reason, "length");
+});
+
+test("RED: non-length finish reasons and missing usage are untouched", () => {
+  const payload: Record<string, unknown> = {
+    choices: [{ index: 0, message: { role: "assistant" }, finish_reason: "stop" }],
+  };
+  normalizeMuseSparkFinishReason(payload, 128000);
+  assert.equal((payload.choices as Array<Record<string, unknown>>)[0].finish_reason, "stop");
+
+  const noUsage: Record<string, unknown> = {
+    choices: [{ index: 0, message: { role: "assistant" }, finish_reason: "length" }],
+  };
+  normalizeMuseSparkFinishReason(noUsage, 128000);
+  assert.equal(
+    (noUsage.choices as Array<Record<string, unknown>>)[0].finish_reason,
+    "length",
+    "without a completion count the rewrite must stay conservative"
+  );
+});
+
+test("RED: stream normalizer rewrites the finish frame after the usage frame", () => {
+  const norm = createMuseSparkStreamFinishNormalizer(128000);
+  const usageLine =
+    'data: {"id":"r","object":"chat.completion.chunk","choices":[],"usage":{"completion_tokens":270}}';
+  assert.equal(norm(usageLine), usageLine, "usage frame itself must not change");
+  const finishLine =
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"length"}]}';
+  const out = JSON.parse(norm(finishLine).slice(5).trim());
+  assert.equal(out.choices[0].finish_reason, "stop");
+});
+
+test("RED: stream normalizer passes through [DONE], comments and non-JSON lines", () => {
+  const norm = createMuseSparkStreamFinishNormalizer(128000);
+  assert.equal(norm("data: [DONE]"), "data: [DONE]");
+  assert.equal(norm(": keepalive"), ": keepalive");
+  assert.equal(norm("data: not-json"), "data: not-json");
 });
