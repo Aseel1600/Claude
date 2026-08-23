@@ -10,7 +10,6 @@ import {
 } from "./nodeSqliteShared";
 import type { SqliteAdapter } from "./types";
 
-
 type DriverLoader = (moduleName: string) => unknown;
 
 type SpawnSyncLike = (

@@ -31,12 +31,10 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-7620-sibl
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "compat-sibling-test-secret";
 
-const { mergeModelCompatOverride, getModelCompatOverrides } = await import(
-  "../../src/lib/db/models/compat.ts"
-);
-const { getNoAuthHydrationProviderIds } = await import(
-  "../../src/sse/services/noAuthProviderSiblings.ts"
-);
+const { mergeModelCompatOverride, getModelCompatOverrides } =
+  await import("../../src/lib/db/models/compat.ts");
+const { getNoAuthHydrationProviderIds } =
+  await import("../../src/sse/services/noAuthProviderSiblings.ts");
 const { getModelInfo } = await import("../../src/sse/services/model.ts");
 
 test("#7620: isHidden override written under raw 'opencode' stays on the raw key, not the 'opencode-zen' sibling", () => {
