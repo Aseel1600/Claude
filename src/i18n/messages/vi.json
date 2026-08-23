@@ -12035,7 +12035,8 @@
         "title": "Các tác nhân ACP",
         "phrase": "Các CLI mà OmniRoute khởi chạy làm phần phụ trợ thực thi (luồng ngược)",
         "flow": "Ứng dụng khách → OmniRoute → khởi chạy CLI (stdio/ACP) → phản hồi",
-        "seeOther": "See →"
+        "seeOther": "See →",
+        "warning": "Hầu hết người dùng có thể bỏ qua — chỉ dùng khi một tích hợp yêu cầu."
       }
     },
     "comparison": {
