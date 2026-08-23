@@ -46,6 +46,10 @@ async function collectText(stream: ReadableStream<Uint8Array>): Promise<string> 
 
 const ROLE = 'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n';
 const content = (s: string) => `data: {"choices":[{"delta":{"content":${JSON.stringify(s)}}}]}\n\n`;
+const reasoning = (s: string) =>
+  `data: {"choices":[{"delta":{"reasoning_content":${JSON.stringify(s)}}}]}\n\n`;
+const finishStopNoContent = 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n';
+const finishLengthNoContent = 'data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n';
 
 test("mid-stream continuation: stitches the suffix after a silent post-commit truncation", async () => {
   // Commits on chunk 1, emits "Hello wor", then ends WITHOUT a terminal marker (silent cut).
@@ -114,4 +118,92 @@ test("tool-call in flight is never continued (would corrupt tool JSON)", async (
   });
   await collectText(stream);
   assert.equal(continued, false, "continuation must NOT fire once a tool call has started streaming");
+});
+
+test("mid-stream continuation: a clean stop with reasoning-only output (no answer) triggers a continuation", async () => {
+  const initial = streamFrom([
+    ROLE,
+    reasoning("the model thinks through the problem here..."),
+    finishStopNoContent,
+  ]);
+  let continueArg = "__unset__";
+  const stream = createRecoverableStream(initial, async () => null, {
+    finalize: () => {},
+    now: steppingClock(),
+    continueStream: async (soFar: string) => {
+      continueArg = soFar;
+      return streamFrom([content("Here is the actual answer."), "data: [DONE]\n\n"]);
+    },
+  });
+  const out = await collectText(stream);
+  const scan = scanOpenAiSseText(out);
+  assert.equal(continueArg, "", "nothing usable was emitted — the re-request has an empty prefill");
+  assert.equal(
+    scan.text,
+    "Here is the actual answer.",
+    "the client gets a real answer instead of silence"
+  );
+  assert.equal(scan.terminal, true);
+});
+
+test("mid-stream continuation: a clean stop with truly empty output (no text, no reasoning) is left unchanged", async () => {
+  const initial = streamFrom([ROLE, finishStopNoContent]);
+  let continued = false;
+  const stream = createRecoverableStream(initial, async () => null, {
+    finalize: () => {},
+    now: steppingClock(),
+    continueStream: async () => {
+      continued = true;
+      return streamFrom([content("nope"), "data: [DONE]\n\n"]);
+    },
+  });
+  await collectText(stream);
+  assert.equal(
+    continued,
+    false,
+    "no reasoning trace means there is nothing to act on — do not guess"
+  );
+});
+
+test("mid-stream continuation: finish_reason 'length' with reasoning-only output does NOT trigger a continuation", async () => {
+  // Regression guard for a blocker found in cross-review: widening the gate to any
+  // terminal marker (instead of the literal finish_reason "stop") would wrongly spend a
+  // continuation attempt on a token-limit cutoff, which is out of this fix's scope.
+  const initial = streamFrom([
+    ROLE,
+    reasoning("the model was still thinking when it hit the token limit..."),
+    finishLengthNoContent,
+  ]);
+  let continued = false;
+  const stream = createRecoverableStream(initial, async () => null, {
+    finalize: () => {},
+    now: steppingClock(),
+    continueStream: async () => {
+      continued = true;
+      return streamFrom([content("nope"), "data: [DONE]\n\n"]);
+    },
+  });
+  await collectText(stream);
+  assert.equal(continued, false, "finish_reason 'length' is out of scope for this fix");
+});
+
+test("mid-stream continuation: real content alongside reasoning at a clean stop is left unchanged (non-regression)", async () => {
+  const initial = streamFrom([
+    ROLE,
+    reasoning("thinking..."),
+    content("The real answer."),
+    finishStopNoContent,
+  ]);
+  let continued = false;
+  const stream = createRecoverableStream(initial, async () => null, {
+    finalize: () => {},
+    now: steppingClock(),
+    continueStream: async () => {
+      continued = true;
+      return streamFrom([content("nope"), "data: [DONE]\n\n"]);
+    },
+  });
+  const scan = scanOpenAiSseText(await collectText(stream));
+  assert.equal(continued, false, "real content was delivered — nothing to recover");
+  assert.equal(scan.text, "The real answer.");
 });
