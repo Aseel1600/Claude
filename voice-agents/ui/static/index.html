@@ -214,6 +214,51 @@ h1 { margin-top: 8px; font-family: var(--display); font-size: clamp(24px, 3vw, 3
 .canvas-edge .from { color: var(--copper); font-family: var(--mono); font-size: 11px; }
 .canvas-edge .to { color: var(--paper); }
 .canvas-edge .arrow { color: var(--muted); font-family: var(--mono); }
+.orchestra-canvas { display: grid; justify-items: center; padding: 6px 2px 2px; }
+.canvas-source { padding: 0 0 12px; text-align: center; }
+.canvas-source .cn-name { color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.canvas-trunk { position: relative; display: grid; justify-items: center; }
+.trunk-line { width: 1px; height: 18px; background: var(--line); }
+.trunk-line.active { background: var(--copper); box-shadow: 0 0 8px rgba(196,122,85,.5); }
+.canvas-hub-row { position: relative; display: grid; justify-items: center; padding: 8px 0 0; }
+.canvas-hub { position: relative; display: grid; justify-items: center; }
+.hub-diamond { width: 56px; height: 56px; border: 1px solid var(--copper); background: var(--copper-soft); transform: rotate(45deg); display: grid; place-items: center; box-shadow: 0 0 24px rgba(196,122,85,.28); }
+.hub-diamond span { transform: rotate(-45deg); font-family: var(--display); color: var(--copper); font-size: 12px; letter-spacing: .04em; }
+.canvas-hub-label { margin-top: 14px; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.canvas-hub-label.active { color: var(--copper); }
+.canvas-bus { position: relative; width: 100%; max-width: 720px; margin-top: 14px; }
+.bus-rail { position: relative; height: 1px; background: var(--line); }
+.bus-rail.active { background: var(--copper); box-shadow: 0 0 12px rgba(196,122,85,.45); }
+.bus-job { position: absolute; top: -3px; display: grid; justify-items: center; transform: translateX(-50%); cursor: pointer; border: 0; background: transparent; padding: 0; min-height: 24px; }
+.bus-job .job-dot { width: 7px; height: 7px; border: 1px solid var(--mint); background: var(--basalt); transform: rotate(45deg); }
+.bus-job .job-dot.coral { border-color: var(--coral); }
+.bus-job .job-dot.amber { border-color: var(--amber); }
+.bus-job .job-name { margin-top: 8px; font-family: var(--mono); font-size: 8px; color: var(--muted); white-space: nowrap; text-transform: uppercase; letter-spacing: .05em; }
+.bus-job:hover .job-dot { box-shadow: 0 0 8px rgba(113,209,195,.6); }
+.canvas-agents { position: relative; width: 100%; max-width: 760px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+.canvas-agent { position: relative; display: grid; justify-items: center; gap: 9px; padding: 0 4px 4px; border: 0; background: transparent; cursor: pointer; min-width: 0; color: inherit; text-align: center; }
+.canvas-agent .spoke { position: absolute; top: -19px; width: 1px; height: 19px; background: var(--line); }
+.canvas-agent:nth-child(1) .spoke { left: 50%; }
+.canvas-agent:nth-child(2) .spoke { left: 50%; }
+.canvas-agent:nth-child(3) .spoke { left: 50%; }
+.canvas-agent:nth-child(4) .spoke { left: 50%; }
+.canvas-agent .spoke.active { background: var(--copper); box-shadow: 0 0 8px rgba(196,122,85,.45); }
+.agent-diamond { width: 30px; height: 30px; border: 1px solid var(--line); background: var(--basalt-2); transform: rotate(45deg); display: grid; place-items: center; }
+.agent-diamond span { transform: rotate(-45deg); font-family: var(--mono); font-size: 9px; color: var(--copper); }
+.canvas-agent.live .agent-diamond { border-color: var(--mint); }
+.canvas-agent.live .agent-diamond span { color: var(--mint); }
+.canvas-agent.warn .agent-diamond { border-color: var(--amber); }
+.canvas-agent.warn .agent-diamond span { color: var(--amber); }
+.canvas-agent.off .agent-diamond { border-color: var(--coral); }
+.canvas-agent.off .agent-diamond span { color: var(--coral); }
+.canvas-agent.active .agent-diamond { border-color: var(--copper); box-shadow: 0 0 14px rgba(196,122,85,.4); }
+.canvas-agent.active .agent-diamond span { color: var(--copper); }
+.cn-agent-name { font-family: var(--display); font-size: 11px; color: var(--paper); }
+.cn-agent-state { font-family: var(--mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.canvas-agent.live .cn-agent-state { color: var(--mint); }
+.canvas-agent.warn .cn-agent-state { color: var(--amber); }
+.canvas-agent.off .cn-agent-state { color: var(--coral); }
+.canvas-agent.active .cn-agent-state { color: var(--copper); }
 .approval-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
 .approval-row:last-child { border-bottom: 0; }
 .approval-title { font-weight: 600; }
@@ -266,6 +311,9 @@ h1 { margin-top: 8px; font-family: var(--display); font-size: clamp(24px, 3vw, 3
   .kanban-cols { grid-template-columns: 1fr; }
   .device-grid { grid-template-columns: 1fr; }
   .data-table { display: block; overflow-x: auto; }
+  .canvas-agents { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px 8px; }
+  .canvas-agent .spoke { display: none; }
+  .canvas-bus { max-width: 100%; }
 }
 @media (max-width: 520px) {
   .app-shell { grid-template-rows: 56px 1fr; }
@@ -346,6 +394,13 @@ h1 { margin-top: 8px; font-family: var(--display); font-size: clamp(24px, 3vw, 3
         <div class="presence-item"><div class="presence-kicker">Companion</div><div class="presence-value"><i class="status-dot warn" aria-hidden="true"></i>Android / redmi-note-14</div><div class="presence-detail">Voice ready · notifications available</div></div>
         <div class="presence-item"><div class="presence-kicker">Capture</div><div class="presence-value"><i class="status-dot live" aria-hidden="true"></i><span id="capture-state">Mic + camera standby</span></div><div class="presence-detail">No raw recording · opt-in sessions</div></div>
         <div class="presence-item"><div class="presence-kicker">Policy</div><div class="presence-value"><i class="status-dot live" aria-hidden="true"></i><span id="policy-state">L0 / L1 automatic</span></div><div class="presence-detail">L3 / L4 actions require approval</div></div>
+      </section>
+
+      <section class="panel canvas-panel" aria-label="Orchestration Canvas">
+        <div class="panel-head"><h2 class="panel-title">Orchestration canvas</h2><div class="panel-meta" id="canvas-meta">LIVE NETWORK</div></div>
+        <div class="panel-body">
+          <div class="orchestra-canvas" id="orchestra-canvas" aria-label="Agenten-Netzwerk des Orchestrators"></div>
+        </div>
       </section>
 
       <section class="dashboard-grid" id="dashboard-view">
@@ -626,6 +681,42 @@ function renderLiveState(status) {
   }
   setText('metric-jobs-note', running ? running + ' active' : 'standing by');
 }
+function buildCanvasAgents(agentsData) {
+  const actual = Object.entries(agentsData || {}).map(([name, info]) => ({ name, ...info }));
+  const knownNames = new Set(actual.map(agent => agent.name));
+  const source = actual.length ? actual.concat(demoAgents.filter(agent => !knownNames.has(agent.name))) : demoAgents;
+  return source.slice(0, 4);
+}
+function canvasAgentState(agent) {
+  if (agent.stale || agent.status === 'error' || agent.status === 'failed') return 'off';
+  if (agent.status === 'waiting' || agent.status === 'warn' || agent.status === 'running') return 'warn';
+  return 'live';
+}
+function renderCanvas(agentsData, status) {
+  const canvas = document.getElementById('orchestra-canvas');
+  if (!canvas) return;
+  const agents = buildCanvasAgents(agentsData);
+  const running = (status && status.running) || [];
+  const recent = (status && status.recent) || [];
+  const jobs = running.concat(recent).slice(0, 4);
+  const activeAgent = running.length ? 'Media' : '';
+  setText('canvas-meta', agents.length + ' NODES · ' + running.length + ' IN FLIGHT');
+  const spoke = (agent, index) => '<span class="spoke' + (agent.name === activeAgent ? ' active' : '') + '" aria-hidden="true"></span>';
+  const agentNodes = agents.map((agent, index) => {
+    const state = canvasAgentState(agent);
+    const stateLabel = agent.stale ? 'stale' : (agent.status === 'ok' ? 'ready' : (agent.status || 'waiting'));
+    const glyph = String(agent.name || 'A').slice(0, 2).toUpperCase();
+    return '<button type="button" class="canvas-agent ' + state + (agent.name === activeAgent ? ' active' : '') + '" data-canvas-agent="' + index + '" aria-label="Agent ' + escapeHtml(agent.name) + ', Status ' + escapeHtml(stateLabel) + '">' + spoke(agent, index) + '<span class="agent-diamond" aria-hidden="true"><span>' + escapeHtml(glyph) + '</span></span><span class="cn-agent-name">' + escapeHtml(agent.name) + '</span><span class="cn-agent-state">' + escapeHtml(stateLabel) + '</span></button>';
+  }).join('');
+  const jobNodes = jobs.map((job, index) => {
+    const kind = job.status === 'done' ? '' : (job.status === 'failed' || job.status === 'error' ? ' coral' : ' amber');
+    const left = jobs.length === 1 ? 50 : (14 + (index * (72 / (jobs.length - 1))));
+    return '<button type="button" class="bus-job" data-canvas-job="' + index + '" style="left:' + left + '%" aria-label="Job ' + escapeHtml(job.skill || job.id) + ', Status ' + escapeHtml(job.status) + '"><span class="job-dot' + kind + '" aria-hidden="true"></span><span class="job-name">' + escapeHtml((job.skill || job.id).slice(0, 12)) + '</span></button>';
+  }).join('');
+  canvas.innerHTML = '<div class="canvas-source"><span class="cn-name">Sebastian / Command</span></div><div class="canvas-trunk"><div class="trunk-line' + (running.length ? ' active' : '') + '" aria-hidden="true"></div></div><div class="canvas-hub-row"><div class="canvas-hub"><div class="hub-diamond" aria-hidden="true"><span>OR</span></div><span class="canvas-hub-label' + (running.length ? ' active' : '') + '" id="canvas-hub-label">' + (running.length ? 'ORCHESTRATING' : 'LISTENING') + '</span></div></div><div class="canvas-bus"><div class="bus-rail' + (running.length ? ' active' : '') + '" aria-hidden="true">' + jobNodes + '</div></div><div class="canvas-agents">' + agentNodes + '</div>';
+  canvas.querySelectorAll('[data-canvas-agent]').forEach((node, index) => node.addEventListener('click', () => openAgentDrawer(agents[index] || demoAgents[0])));
+  canvas.querySelectorAll('[data-canvas-job]').forEach((node, index) => node.addEventListener('click', () => openJobDrawer(jobs[index].id)));
+}
 async function syncDashboard() {
   try {
     const [agents, status, projects, income] = await Promise.all([
@@ -633,12 +724,12 @@ async function syncDashboard() {
     ]);
     const jobs = [...(status.running || []), ...(status.recent || [])];
     lastData = { agents: agents.agents || {}, jobs, projects: projects.projects || [], income: income.total_income || 0 };
-    renderAgents(lastData.agents); renderMetrics(lastData); renderLiveState(status); renderEvents(buildEvents(status, lastData));
+    renderAgents(lastData.agents); renderMetrics(lastData); renderLiveState(status); renderCanvas(lastData.agents, status); renderEvents(buildEvents(status, lastData));
     setText('last-sync', 'Last sync ' + new Date().toLocaleTimeString('de-DE', { hour12: false }));
     setText('sync-meta', 'live sync · ' + jobs.length + ' jobs indexed');
     document.getElementById('health-dot').className = 'status-dot live'; setText('health-label', 'CORE ONLINE');
   } catch (error) {
-    renderAgents({}); renderMetrics(lastData); renderEvents(demoEvents); document.getElementById('health-dot').className = 'status-dot warn'; setText('health-label', 'DEMO / API WAITING'); setText('sync-meta', 'preview data · backend not reachable');
+    renderAgents({}); renderMetrics(lastData); renderCanvas({}, null); renderEvents(demoEvents); document.getElementById('health-dot').className = 'status-dot warn'; setText('health-label', 'DEMO / API WAITING'); setText('sync-meta', 'preview data · backend not reachable');
   }
 }
 function buildEvents(status, data) {
