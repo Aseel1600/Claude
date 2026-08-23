@@ -84,10 +84,7 @@ import {
   persistDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
 import { buildProviderModelsUrl, getDiscoveryClientVersionOptions } from "./discoveryClientVersion";
-<<<<<<< HEAD
 import { getAdobeModels } from "./adobeFireflyDiscovery";
-=======
->>>>>>> 6d664998f0fda393107e24794d2bf0ca319bcc31
 import {
   parseGeminiModelsList,
   type GeminiDiscoveryModel,
