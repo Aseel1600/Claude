@@ -1012,7 +1012,7 @@
     "apiManager": "API Keys",
     "apiManagerSubtitle": "Manage API keys and access",
     "embeddedServices": "Embedded Services",
-    "embeddedServicesSubtitle": "Manage local proxy services",
+    "embeddedServicesSubtitle": "Optional local services",
     "logs": "Logs",
     "webhooks": "Webhooks",
     "webhooksSubtitle": "Get notified of events",
@@ -8677,7 +8677,7 @@
   },
   "embeddedServices": {
     "title": "Embedded Services",
-    "description": "Local engines managed on demand — CLIProxyAPI, 9Router, Mux, and Bifrost. Accessible on loopback only.",
+    "description": "Optional helpers that run on your machine. Most users can start without them — install one only when an integration needs it.",
     "stateRunning": "Running",
     "stateStopped": "Stopped",
     "stateStarting": "Starting",
