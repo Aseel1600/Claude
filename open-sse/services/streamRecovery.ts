@@ -541,7 +541,24 @@ export function createRecoverableStream(
     }
 
     const scan = scanOpenAiSseText(raw);
-    const suffix = trimContinuationOverlap(emittedText, scan.text);
+    // A continuation whose overlap with what was already emitted falls below the documented
+    // threshold is treated as a suspected restart rather than a real resume — see
+    // STREAM_RECOVERY.MIN_CONTINUATION_OVERLAP_CHARS for the full trade-off rationale. This
+    // is a heuristic, not a proof: it deliberately trades some false-positive rejections of
+    // legitimate low-overlap continuations against never silently gluing two unrelated
+    // fragments into one corrupted message.
+    const overlapResult = trimContinuationOverlap(emittedText, scan.text);
+    const overlapChars = scan.text.length - overlapResult.length;
+    const isSuspectedRestart =
+      emittedText.length > 0 &&
+      scan.text.length > 0 &&
+      overlapChars < STREAM_RECOVERY.MIN_CONTINUATION_OVERLAP_CHARS;
+    if (isSuspectedRestart) {
+      if (await tryContinue(controller)) return true;
+      emitCleanTerminal(controller);
+      return true;
+    }
+    const suffix = overlapResult;
     if (suffix) {
       emit(
         controller,
