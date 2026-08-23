@@ -388,6 +388,8 @@
     "open-sse/services/claudeCodeCompatible.ts": 1563,
     "open-sse/services/combo.ts": 4742,
     "open-sse/services/compression/strategySelector.ts": 1379,
+    "open-sse/services/contextManager.ts": 1001,
+    "_rebaseline_2026_08_22_11113_purify_system_first": "PR #11113 (ggdayup) own growth: open-sse/services/contextManager.ts 1000->1001 (+1, purifyHistory merges the compression notice into the leading system message instead of splicing a second one mid-array — live-confirmed TokenRouter 400s; the +1 is the merge-into-leading branch, not extractable). Covered by tests/unit/context-manager-purify-system-first.test.ts. Owner pre-authorized baseline bumps 2026-08-22.",
     "open-sse/services/rateLimitManager.ts": 1517,
     "open-sse/translator/response/openai-responses.ts": 1652,
     "open-sse/utils/cursorAgentProtobuf.ts": 1956,
