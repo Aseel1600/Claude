@@ -1,3 +1,9 @@
+---
+title: "OpenAI Codex (App-Server) provider"
+version: 3.8.50
+lastUpdated: 2026-08-22
+---
+
 # OpenAI Codex — App-Server provider (`codex-app-server`)
 
 OmniRoute exposes **two** ways to use OpenAI Codex:
