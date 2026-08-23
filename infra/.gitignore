@@ -1,0 +1,5 @@
+# The root .gitignore excludes `deploy.sh` (it targets ad-hoc scripts left in the
+# repo root). This directory ships a real, version-controlled deploy.sh, so
+# re-include it here rather than editing the upstream .gitignore — every file
+# this fork adds stays additive, which is what keeps upstream merges clean.
+!deploy.sh

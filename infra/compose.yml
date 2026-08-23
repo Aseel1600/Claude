@@ -1,0 +1,175 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  OmniRoute — Production stack (Blue/Green + Caddy + Cloudflare Tunnel)
+#
+#  Lives on the VPS at /opt/omniroute/compose.yml
+#  All paths below are relative to that directory.
+#
+#  IMPORTANT — SQLite single-writer discipline:
+#    OmniRoute stores everything in $DATA_DIR/storage.sqlite. There is no
+#    Postgres/MySQL adapter and no leader election, so only ONE slot may run
+#    for any sustained period. deploy.sh keeps blue and green alive together
+#    for the warm-up + stabilization window only (~60-90s), then stops the old
+#    slot. Never `docker compose up -d` the whole file by hand — that would
+#    start both slots permanently.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: omniroute
+
+x-app: &app
+  restart: unless-stopped
+  init: true
+
+  env_file:
+    - .app.env
+
+  expose:
+    - "20128"
+
+  volumes:
+    # Bind mount (not a named volume) so infra/backup.sh can run sqlite3 .backup
+    # against the live file from the host. Must be owned by UID/GID 1000 (`node`).
+    - ./data:/app/data
+
+  # The image already ships a HEALTHCHECK probing /healthz (pure in-memory
+  # lifecycle check, no DB access — see scripts/dev/healthcheck.mjs). It is
+  # restated here only to widen start_period: a cold OmniRoute boot runs
+  # migrations and rebuilds the model catalog and can exceed the image default.
+  healthcheck:
+    test: ["CMD", "node", "healthcheck.mjs"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 60s
+
+  stop_signal: SIGTERM
+  stop_grace_period: 45s
+
+  # NOTE: `read_only: true` from the generic plan is deliberately NOT set.
+  # OmniRoute writes outside the data volume at runtime: the SQLite driver
+  # fallback chain installs better-sqlite3 into ~/.omniroute/runtime, and the
+  # Next.js standalone server writes cache under /app. A read-only rootfs
+  # breaks both. cap_drop + no-new-privileges are kept.
+  cap_drop:
+    - ALL
+
+  security_opt:
+    - no-new-privileges:true
+
+  networks:
+    - backend
+
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ── BLUE ────────────────────────────────────────────────────────────────────
+  app-blue:
+    <<: *app
+    image: ${BLUE_IMAGE}
+    environment:
+      APP_SLOT: blue
+
+  # ── GREEN ───────────────────────────────────────────────────────────────────
+  app-green:
+    <<: *app
+    image: ${GREEN_IMAGE}
+    environment:
+      APP_SLOT: green
+
+  # ── REDIS ───────────────────────────────────────────────────────────────────
+  # Shared rate-limiter / auth-cache / quota store. Optional for OmniRoute, but
+  # strongly recommended here: it keeps that state OUTSIDE the app process, so a
+  # blue→green switch does not reset rate-limit counters. Enable it by setting
+  # REDIS_URL=redis://redis:6379 in .app.env.
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── CADDY ───────────────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+
+    expose:
+      - "8080"
+
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+    networks:
+      - edge
+      - backend
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── CLOUDFLARE TUNNEL ───────────────────────────────────────────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+
+    env_file:
+      - .tunnel.env
+
+    networks:
+      - edge
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    driver: bridge
+  backend:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  redis_data:

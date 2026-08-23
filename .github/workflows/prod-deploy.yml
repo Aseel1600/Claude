@@ -1,0 +1,189 @@
+name: Production Deploy
+
+# Builds the fork's own OmniRoute image and deploys it to the VPS by immutable
+# digest. Runs only for the `prod` branch — upstream's own workflows keep their
+# triggers and are expected to be disabled in this fork (see infra/README.md).
+
+on:
+  push:
+    branches:
+      - prod
+  workflow_dispatch:
+    inputs:
+      skip_deploy:
+        description: "Build and push the image, but do not deploy"
+        required: false
+        type: boolean
+        default: false
+
+# Never let two deployments interleave: deploy.sh takes a flock on the VPS and
+# the second one would simply fail. cancel-in-progress stays false so a running
+# deploy is allowed to finish rather than being killed mid-switch.
+concurrency:
+  group: omniroute-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and push image
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The Next.js production build peaks well above the runner's RAM on a
+      # codebase this size (upstream's own build.yml does the same thing before
+      # `npm run build`). Without the swap file the builder stage dies with
+      # "JavaScript heap out of memory".
+      - name: Add swap for the Next.js build
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 10G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=10240
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      # node_modules + Next build output + Docker layers overflow the default
+      # runner disk. Drop the preinstalled toolchains this build never touches.
+      - name: Reclaim runner disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: Resolve image name and version
+        id: meta
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          # GHCR rejects uppercase in a repository path, and GitHub usernames
+          # are not necessarily lowercase.
+          OWNER_LC="$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="ghcr.io/${OWNER_LC}/omniroute"
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "image=$IMAGE"     >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $IMAGE (OmniRoute $VERSION)"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+
+          # runner-base is the lean flavour and matches upstream's :latest.
+          # Switch to runner-web only if you need the web-cookie providers
+          # (gemini-web, claude-web, claude-turnstile) — it adds ~300 MB of
+          # Chromium. runner-cli additionally bundles CLI agents and docker.io.
+          target: ${{ vars.IMAGE_TARGET || 'runner-base' }}
+
+          # Build ONLY the VPS's architecture. Emulated cross-builds of this
+          # image take hours. Set the DEPLOY_PLATFORM repo variable to
+          # linux/arm64 if `uname -m` on the VPS says aarch64.
+          platforms: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
+
+          build-args: |
+            OMNIROUTE_BUILD_MEMORY_MB=6144
+
+          # The digest below is what actually gets deployed. These tags exist
+          # for humans reading the package page.
+          tags: |
+            ${{ steps.meta.outputs.image }}:prod
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image built"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.image }}@${{ steps.build.outputs.digest }}"
+            echo '```'
+            echo
+            echo "OmniRoute version: **${{ steps.meta.outputs.version }}**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    if: ${{ !inputs.skip_deploy }}
+    runs-on: ubuntu-latest
+
+    # Requires an environment named `production` holding the VPS_* secrets.
+    # Add required reviewers there if you want deploys to be gated by approval.
+    environment:
+      name: production
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY"     > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Deploy immutable digest
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          IMAGE_REF: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          echo "Deploying $IMAGE_REF"
+          # The digest is passed as a positional argument, not interpolated into
+          # the remote script body. deploy.sh re-validates its shape before use.
+          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" \
+              -o BatchMode=yes -o ConnectTimeout=20 \
+              "$VPS_USER@$VPS_HOST" \
+              "/opt/omniroute/deploy.sh '$IMAGE_REF'"
+
+      - name: Report deployed state
+        if: always()
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" \
+              -o BatchMode=yes -o ConnectTimeout=20 \
+              "$VPS_USER@$VPS_HOST" \
+              "/opt/omniroute/deploy.sh --status" || true

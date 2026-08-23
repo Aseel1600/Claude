@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  Caddy — internal reverse proxy in front of the OmniRoute blue/green slots.
+#
+#  Public TLS is terminated by Cloudflare; cloudflared reaches this server over
+#  the private `edge` Docker network, so HTTP here is correct and :8080 is never
+#  published to the VPS host.
+# ──────────────────────────────────────────────────────────────────────────────
+
+{
+	auto_https off
+	admin localhost:2019
+
+	servers {
+		# LLM responses stream for minutes. Caddy has no proxy read/write timeout
+		# by default; this only caps how long a client may take to send headers.
+		timeouts {
+			read_header 30s
+		}
+	}
+}
+
+:8080 {
+	log {
+		output stdout
+		format json
+	}
+
+	route {
+		# /healthz is the container's internal liveness probe and Caddy's own
+		# upstream health probe target. Active health checks are issued directly
+		# against the upstream and do NOT pass through this route, so hiding it
+		# from public traffic costs nothing.
+		#
+		# /api/monitoring/health is intentionally NOT blocked: OmniRoute already
+		# reduces it to {status, setupComplete} for unauthenticated callers
+		# (GHSA-mvf8-qc78-5mxm), and it is the useful external uptime probe.
+		@internal path /healthz
+		respond @internal 404
+
+		import /etc/caddy/active.caddy
+	}
+}

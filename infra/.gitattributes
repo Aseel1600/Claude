@@ -1,0 +1,4 @@
+# Everything in this directory is consumed on the Linux VPS (shell scripts,
+# compose file, Caddy config). Force LF so a Windows checkout cannot ship CRLF
+# and break a shebang or a Caddyfile directive.
+* text eol=lf

@@ -1,0 +1,26 @@
+# active=blue
+#
+# SEED FILE ONLY — infra/deploy.sh rewrites this on every deployment.
+# Do not hand-edit on the VPS; edit deploy.sh::generate_caddy_route instead.
+
+reverse_proxy app-blue:20128 {
+	lb_policy first
+
+	health_uri /healthz
+	health_interval 5s
+	health_timeout 2s
+	health_fails 2
+	health_passes 2
+
+	lb_try_duration 5s
+
+	# -1 disables response buffering: required for SSE (/v1/chat/completions
+	# stream:true) and for the live-monitoring WebSocket.
+	flush_interval -1
+
+	stream_close_delay 5m
+
+	header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+	header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	header_up X-Forwarded-Proto https
+}
