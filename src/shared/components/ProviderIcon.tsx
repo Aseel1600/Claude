@@ -127,7 +127,6 @@ const KNOWN_SVGS = new Set([
   "google",
   "grok",
   "groq",
-  "hackclub",
   "haiper",
   "hcnsec",
   "heroku",
