@@ -1,5 +1,9 @@
 name: Sync Upstream
 
+# GitHub expression string literals must be single-quoted; double quotes are a
+# syntax error there even though YAML accepts them.
+run-name: 🔄 Sync upstream${{ inputs.ref && format(' ({0})', inputs.ref) || '' }} → PR to prod
+
 # Watches diegosouzapw/OmniRoute and opens a PR that merges its newest code
 # into this fork's `prod` branch. Merging that PR pushes `prod`, which triggers
 # Production Deploy.
@@ -29,24 +33,24 @@ concurrency:
 
 jobs:
   sync:
-    name: Merge upstream into prod
+    name: Sync
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout prod
+      - name: 1 Checkout prod
         uses: actions/checkout@v4
         with:
           ref: prod
           # Full history: the merge needs the common ancestor with upstream.
           fetch-depth: 0
 
-      - name: Fetch upstream
+      - name: 2 Fetch upstream
         run: |
           set -euo pipefail
           git remote add upstream https://github.com/diegosouzapw/OmniRoute.git
           git fetch upstream --prune --tags
 
-      - name: Resolve the ref to merge
+      - name: 3 Pick newest release/v* branch
         id: ref
         env:
           INPUT_REF: ${{ inputs.ref }}
@@ -88,11 +92,11 @@ jobs:
 
           echo "$MERGE_REF is $BEHIND commit(s) ahead of prod (version $NEW_VER)"
 
-      - name: Nothing to do
+      - name: 4 Nothing new — stop
         if: steps.ref.outputs.behind == '0'
         run: echo "prod already contains ${{ steps.ref.outputs.merge_ref }} — no PR needed."
 
-      - name: Merge onto a sync branch
+      - name: 5 Merge onto sync branch
         id: merge
         if: steps.ref.outputs.behind != '0'
         run: |
@@ -111,7 +115,7 @@ jobs:
 
           git push --force-with-lease origin "${{ steps.ref.outputs.branch }}"
 
-      - name: Open or update the PR
+      - name: 6 Open or update PR
         if: steps.ref.outputs.behind != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

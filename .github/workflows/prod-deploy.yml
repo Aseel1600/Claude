@@ -1,5 +1,11 @@
 name: Production Deploy
 
+# The run title in the Actions list. Without this GitHub uses the commit
+# message, which says what changed but not what the run is about to do —
+# and every run in the list then looks like a code change rather than a deploy.
+# On a `push` event `inputs.skip_deploy` is empty, so the deploy variant wins.
+run-name: ${{ inputs.skip_deploy && '🔨 Build only — no deploy' || '🚀 Build → GHCR → Deploy VPS' }}
+
 # Builds the fork's own OmniRoute image and deploys it to the VPS by immutable
 # digest. Runs only for the `prod` branch — upstream's own workflows keep their
 # triggers and are expected to be disabled in this fork (see infra/README.md).
@@ -28,7 +34,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and push image
+    name: 1 · Build image → GHCR
     runs-on: ubuntu-latest
 
     permissions:
@@ -41,7 +47,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
 
     steps:
-      - name: Checkout
+      - name: 1.1 Checkout source
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -50,7 +56,7 @@ jobs:
       # codebase this size (upstream's own build.yml does the same thing before
       # `npm run build`). Without the swap file the builder stage dies with
       # "JavaScript heap out of memory".
-      - name: Add swap for the Next.js build
+      - name: 1.2 Add 10GB swap (Next.js build needs it)
         run: |
           sudo swapoff -a || true
           sudo rm -f /mnt/swapfile
@@ -62,14 +68,14 @@ jobs:
 
       # node_modules + Next build output + Docker layers overflow the default
       # runner disk. Drop the preinstalled toolchains this build never touches.
-      - name: Reclaim runner disk
+      - name: 1.3 Free disk space
         run: |
           df -h /
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
                       /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
           df -h /
 
-      - name: Resolve image name and version
+      - name: 1.4 Resolve image name + version
         id: meta
         env:
           OWNER: ${{ github.repository_owner }}
@@ -84,17 +90,17 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building $IMAGE (OmniRoute $VERSION)"
 
-      - name: Set up Buildx
+      - name: 1.5 Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR
+      - name: 1.6 Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: 1.7 Build image and push to GHCR
         id: build
         uses: docker/build-push-action@v6
         with:
@@ -125,7 +131,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Summary
+      - name: 1.8 Print image digest
         run: |
           {
             echo "### Image built"
@@ -138,7 +144,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
-    name: Deploy to VPS
+    name: 2 · Deploy to VPS
     needs: build
     if: ${{ !inputs.skip_deploy }}
     runs-on: ubuntu-latest
@@ -149,12 +155,12 @@ jobs:
       name: production
 
     steps:
-      - name: Checkout
+      - name: 2.1 Checkout source (for infra/)
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Configure SSH
+      - name: 2.2 Configure SSH from secrets
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
@@ -172,7 +178,7 @@ jobs:
       # caddy/active.caddy is deliberately NOT synced: it is generated state
       # owned by deploy.sh and names the currently live slot. Overwriting it
       # from the repo seed would repoint traffic at the wrong container.
-      - name: Sync infra files to the VPS
+      - name: 2.3 Sync infra files to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -199,7 +205,7 @@ jobs:
             rm -rf .staging
             echo "infra files synced"'
 
-      - name: Deploy immutable digest
+      - name: 2.4 Run deploy.sh (blue/green switch)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -215,7 +221,7 @@ jobs:
               "$VPS_USER@$VPS_HOST" \
               "/opt/omniroute/deploy.sh '$IMAGE_REF'"
 
-      - name: Report deployed state
+      - name: 2.5 Report active slot
         if: always()
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
