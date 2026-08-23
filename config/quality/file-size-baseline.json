@@ -388,6 +388,8 @@
     "open-sse/services/claudeCodeCompatible.ts": 1563,
     "open-sse/services/combo.ts": 4742,
     "open-sse/services/compression/strategySelector.ts": 1379,
+    "open-sse/services/contextManager.ts": 1001,
+    "_rebaseline_2026_08_22_11113_purify_system_first": "PR #11113 (ggdayup) own growth: open-sse/services/contextManager.ts 1000->1001 (+1, purifyHistory merges the compression notice into the leading system message instead of splicing a second one mid-array — live-confirmed TokenRouter 400s; the +1 is the merge-into-leading branch, not extractable). Covered by tests/unit/context-manager-purify-system-first.test.ts. Owner pre-authorized baseline bumps 2026-08-22.",
     "open-sse/services/rateLimitManager.ts": 1517,
     "open-sse/translator/response/openai-responses.ts": 1652,
     "open-sse/utils/cursorAgentProtobuf.ts": 1956,
@@ -443,7 +445,8 @@
       "src/shared/components/ModelSelectModal.tsx": 1138,
       "src/shared/constants/providers/apikey/gateways.ts": 1250
     },
-    "src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal.tsx": 1080,
+    "src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal.tsx": 1082,
+    "_rebaseline_2026_08_22_11156_enter_check_disabled": "PR #11156 (rqzbeh) own growth: AddApiKeyModal.tsx 1080->1082 (+2, Enter keydown handler now mirrors the isCheckDisabled condition — owner-requested post-merge polish from #11056; the rest of the diff is Prettier reflow). Covered by tests/unit/ui/add-api-key-modal-enter-key.test.tsx (jsdom render test, Enter dispatch assertions).",
     "src/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections.ts": 1051,
     "src/shared/components/ModelSelectModal.tsx": 1138,
     "src/shared/constants/providers/apikey/gateways.ts": 1298,
