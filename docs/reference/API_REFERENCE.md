@@ -663,7 +663,9 @@ refusal. On success:
   // present only when the key opted into per-key usage limits (daily/weekly USD):
   "personal": { "dailySpentUsd": 1.25, "dailyLimitUsd": 5, "dailyResetAtIso": "…", "weeklySpentUsd": 8, "weeklyLimitUsd": 20, "weeklyResetAtIso": "…" /* … */ },
   // the selected provider quota snapshot, or null when nothing is cached yet:
-  "provider": { "connectionId": "…", "provider": "claude", "plan": "…", "quotas": { /* … */ } }
+  "provider": { "connectionId": "…", "provider": "claude", "plan": "…", "quotas": { /* … */ } },
+  // every connection's snapshot, so a UI can render several providers side by side:
+  "providers": [ { "connectionId": "…", "provider": "claude", /* … */ }, { "provider": "codex", /* … */ } ]
 }
 ```
 

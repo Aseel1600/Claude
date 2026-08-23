@@ -40,12 +40,21 @@ function allowedDeps(overrides: Record<string, unknown> = {}) {
     }),
     getProviderConnections: async () => [
       { id: "conn-claude", provider: "claude", isActive: true },
+      { id: "conn-codex", provider: "codex", isActive: true },
     ],
     getAllProviderLimitsCache: () => ({
       "conn-claude": {
         plan: "Claude Max",
         quotas: {
           weekly: { used: 25, total: 100, remaining: 75, resetAt: "2026-08-25T03:00:00.000Z" },
+        },
+        message: null,
+        fetchedAt: new Date(NOW).toISOString(),
+      },
+      "conn-codex": {
+        plan: "Codex Pro",
+        quotas: {
+          weekly: { used: 9, total: 100, remaining: 91, resetAt: "2026-08-24T03:00:00.000Z" },
         },
         message: null,
         fetchedAt: new Date(NOW).toISOString(),
@@ -93,6 +102,29 @@ test("om-usage without ?format stays text/plain (the historical contract)", asyn
   const text = await response.text();
   assert.match(text, /Personal quota/);
   assert.match(text, /Provider quota/);
+});
+
+test("om-usage ?format=json returns every connection under providers[], not just the selected one", async () => {
+  // #11191 — a panel needs Codex + Claude side by side; the single `provider`
+  // pick is a terminal presentation choice, the collector had them all.
+  const response = await handleInternalUsageCommandHttpRequest(
+    new Request("http://localhost/api/usage/om-usage?format=json", {
+      headers: { Authorization: "Bearer sk-allowed" },
+    }),
+    allowedDeps()
+  );
+
+  assert.equal(response.status, 200);
+  const body = (await response.json()) as {
+    allowed: boolean;
+    provider: { provider: string } | null;
+    providers: Array<{ provider: string }>;
+  };
+  assert.equal(body.allowed, true);
+  const names = body.providers.map((s) => s.provider).sort();
+  assert.deepEqual(names, ["claude", "codex"]);
+  // the single-pick field is still present and one of them
+  assert.ok(["claude", "codex"].includes(body.provider?.provider ?? ""));
 });
 
 test("om-usage ?format=json reports a disallowed key as structured allowed:false", async () => {

@@ -546,6 +546,11 @@ export type UsageCommandJson =
       personal: unknown | null;
       /** The selected provider snapshot, or null when nothing is cached. */
       provider: UsageSnapshot | null;
+      /** Every connection's snapshot, so a panel can render Codex / Claude /
+       * OpenCode side by side instead of only the selected one (#11191). The
+       * single-pick in `provider` is a presentation choice for a terminal; the
+       * collector already gathered all of them. */
+      providers: UsageSnapshot[];
     };
 
 export async function buildUsageCommandJson(
@@ -564,11 +569,9 @@ export async function buildUsageCommandJson(
           { now: resolvedDeps.now }
         )
       : null;
-  const provider = selectUsageSnapshot(
-    await collectUsageSnapshots(metadata, resolvedDeps),
-    selection
-  );
-  return { allowed: true, personal, provider };
+  const snapshots = await collectUsageSnapshots(metadata, resolvedDeps);
+  const provider = selectUsageSnapshot(snapshots, selection);
+  return { allowed: true, personal, provider, providers: snapshots };
 }
 
 export async function buildUsageCommandText(
