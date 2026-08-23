@@ -1293,7 +1293,13 @@
       "open": "mở",
       "close": "đóng"
     },
-    "noResults": "Không có kết quả"
+    "noResults": "Không có kết quả",
+    "healthVerdictReady": "OmniRoute đã sẵn sàng",
+    "healthVerdictActionRequired": "Cần hành động để khôi phục hoạt động đầy đủ",
+    "healthVerdictCoolingDown": "Đang nguội sau các thay đổi gần đây",
+    "advancedDiagnosticsTitle": "Chẩn đoán nâng cao",
+    "hide": "Ẩn",
+    "show": "Hiện"
   },
   "webhooks": {
     "title": "Webhook",
