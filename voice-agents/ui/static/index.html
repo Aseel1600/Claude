@@ -640,6 +640,7 @@ const demoEvents = [
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
 function authHeaders(headers = {}) { const result = { ...headers }; if (token) result['X-Access-Token'] = token; return result; }
 async function getJson(path) { const response = await fetch(API + path, { headers: authHeaders() }); if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); }
+async function postJson(path, body) { const response = await fetch(API + path, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body || {}) }); if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); }
 function setText(id, value) { const element = document.getElementById(id); if (element) element.textContent = value; }
 function updateClock() { setText('clock', new Date().toLocaleTimeString('de-DE', { hour12: false })); }
 function statusClass(status, stale) { if (stale || status === 'error' || status === 'failed') return 'off'; if (status === 'waiting' || status === 'warn' || status === 'running') return 'warn'; return 'live'; }
@@ -900,7 +901,28 @@ function renderApprovals() {
   document.querySelectorAll('[data-approve]').forEach(button => button.addEventListener('click', () => { const row = button.closest('.approval-row'); row.innerHTML = '<div class="approval-title">Freigegeben ✓</div><div class="approval-detail">Aktion wurde als erledigt markiert (lokal).</div>'; }));
   document.querySelectorAll('[data-deny]').forEach(button => button.addEventListener('click', () => { const row = button.closest('.approval-row'); row.innerHTML = '<div class="approval-title">Abgelehnt</div><div class="approval-detail">Aktion wurde verworfen und bleibt im Inbox-Log.</div>'; }));
 }
-function loadApprovals() { renderApprovals(); }
+async function loadApprovals() {
+  const list = document.getElementById('approval-list');
+  if (!token) { renderApprovals(); return; }
+  let cards = [];
+  try { const data = await getJson('/kanban?column=todo'); cards = data.cards || []; } catch (error) { renderApprovals(); return; }
+  setText('approval-view-count', cards.length + ' WAITING');
+  if (!cards.length) { list.innerHTML = '<div class="empty">Keine offenen Aktionen — alle Karten sind entschieden.</div>'; return; }
+  list.innerHTML = cards.map(card => '<div class="approval-row" data-card="' + escapeHtml(card.id) + '"><div><div class="approval-title">' + escapeHtml(card.title) + '</div><div class="approval-detail">' + escapeHtml(card.note || 'Keine Notiz.') + '<br><span class="status-pill amber">' + escapeHtml(card.source || 'kanban') + '</span></div></div><div class="approval-actions"><button class="copper-button" type="button" data-approve="' + escapeHtml(card.id) + '">Freigeben</button><button class="deny-button" type="button" data-deny="' + escapeHtml(card.id) + '">Ablehnen</button></div></div>').join('');
+  document.querySelectorAll('[data-approve]').forEach(button => button.addEventListener('click', () => resolveApproval(button, 'done')));
+  document.querySelectorAll('[data-deny]').forEach(button => button.addEventListener('click', () => resolveApproval(button, 'archive')));
+}
+async function resolveApproval(button, column) {
+  const row = button.closest('.approval-row');
+  const cardId = row.getAttribute('data-card');
+  button.disabled = true;
+  try {
+    await postJson('/kanban/' + encodeURIComponent(cardId) + '/move', { column });
+    row.innerHTML = '<div class="approval-title">' + (column === 'done' ? 'Freigegeben ✓' : 'Abgelehnt') + '</div><div class="approval-detail">Kanban-Karte nach ' + (column === 'done' ? 'done (erledigt)' : 'archive (verworfen)') + ' verschoben.</div>';
+  } catch (error) {
+    row.innerHTML = '<div class="approval-title">Fehler</div><div class="approval-detail">' + escapeHtml(error.message) + '</div>';
+  }
+}
 const services = [['OmniRoute', '20128', 'core router'], ['UI', '20129', 'dieser Control Room'], ['ComfyUI', '8188', 'V60B1 · DirectML'], ['Kokoro-DE', '8881', 'martin'], ['Voicebox', '17493', 'Qwen 0.6B'], ['Ollama', '11434', 'lokale Modelle'], ['LiveKit', '7880', 'Voice-Sessions']];
 async function loadSettings() {
   setText('token-state', token ? 'Token gesetzt — Live-Daten aktiv' : 'kein Token gesetzt — Preview-Modus');

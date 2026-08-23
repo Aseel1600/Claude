@@ -185,6 +185,41 @@ with sync_playwright() as p:
         page.locator('.nav-item[data-view="memory"]').click()
         page.wait_for_timeout(700)
         check("token: kanban lädt", page.locator(".kanban-col").count() >= 3)
+
+        # --- Approvals wiring: real kanban cards, approve moves card to done ---
+        import json as _json
+        from urllib import request as _req
+
+        def _api(method, path, body=None):
+            data = _json.dumps(body).encode() if body is not None else None
+            req = _req.Request(BASE + path, data=data, headers={"X-Access-Token": UI_TOKEN, "Content-Type": "application/json"}, method=method)
+            with _req.urlopen(req, timeout=15) as resp:
+                return _json.loads(resp.read().decode())
+
+        appr_card_id = None
+        try:
+            created = _api("POST", "kanban", {"title": "TEST-Approval Karte", "note": "Verdrahtungs-Test", "source": "e2e-test"})
+            appr_card_id = created["card"]["id"]
+            check("approvals: test-karte angelegt", bool(appr_card_id))
+            page.locator('.nav-item[data-view="approvals"]').click()
+            page.wait_for_timeout(800)
+            appr_row = page.locator(f'[data-card="{appr_card_id}"]')
+            check("approvals: test-karte in inbox sichtbar", appr_row.count() == 1)
+            appr_row.locator("[data-approve]").click()
+            page.wait_for_timeout(600)
+            check("approvals: freigeben zeigt erfolg", "Freigegeben" in appr_row.inner_text())
+            state = page.evaluate("(cid) => fetch('/kanban', { headers: { 'X-Access-Token': localStorage.getItem('ui_token') } }).then(r => r.json()).then(d => { const c = (d.cards || []).find(x => x.id === cid); return c ? c.column : null; })", appr_card_id)
+            check("approvals: karte nach done verschoben", state == "done", f"| column={state}")
+        except Exception as e:
+            check("approvals: verdrahtung", False, str(e)[:120])
+        finally:
+            if appr_card_id:
+                try:
+                    _api("DELETE", "kanban/" + appr_card_id)
+                    gone = _api("GET", "kanban")["cards"]
+                    check("approvals: test-karte aufgeräumt", not any(c["id"] == appr_card_id for c in gone))
+                except Exception as e:
+                    check("approvals: test-karte aufgeräumt", False, str(e)[:120])
     else:
         check("token: UI_ACCESS_TOKEN in .env gefunden", False, "kein Token in .env gefunden")
 
