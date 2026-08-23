@@ -51,10 +51,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-git remote get-url upstream >/dev/null 2>&1 \
-    || { echo "no 'upstream' remote. Add it with:" >&2
-         echo "  git remote add upstream https://github.com/diegosouzapw/OmniRoute.git" >&2
-         exit 1; }
+UPSTREAM_URL="https://github.com/diegosouzapw/OmniRoute.git"
+
+# A plain `git clone` of the fork sets up `origin` and nothing else, so on a
+# fresh machine this remote is always missing. Adding it is unambiguous — there
+# is exactly one repository this fork can track — so do it instead of failing
+# with instructions the user would only copy back in.
+if ! git remote get-url upstream >/dev/null 2>&1; then
+    echo "==> No 'upstream' remote; adding $UPSTREAM_URL"
+    git remote add upstream "$UPSTREAM_URL"
+fi
 
 echo "==> Fetching upstream"
 git fetch upstream --prune --tags
