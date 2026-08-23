@@ -1,6 +1,6 @@
 import type { RegistryEntry } from "../../shared.ts";
 
-// g4f.space/api/nvidia — no-key reverse proxy to NVIDIA NIM (gpt4free project,
+// g4f.space/api/nvidia — hosted OpenAI-compatible gateway to NVIDIA NIM,
 // issue #6650). The existing `nvidia` entry requires signup; this is the genuine
 // no-key gap the reporter flagged. Free tier is rate-limited to 5 req/min
 // (confirmed live via 429 upsell to g4f.dev/members.html).

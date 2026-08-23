@@ -1,5 +1,5 @@
 /**
- * Issue #6674 — Add Naga.ac and ChatAnywhere as gpt4free-ecosystem aggregator providers.
+ * Issue #6674 — Add Naga.ac and ChatAnywhere as hosted aggregator providers.
  *
  * Verifies both providers are wired end-to-end the same way as the other aggregator
  * gateway providers (g4f-groq, freetheai):
@@ -34,12 +34,14 @@ interface ApikeyMetaShape {
 
 const { REGISTRY } = await import("../../open-sse/config/providerRegistry.ts");
 const { getExecutor, DefaultExecutor } = await import("../../open-sse/executors/index.ts");
-const { AGGREGATOR_PROVIDER_IDS, providerAllowsOptionalApiKey } = await import(
-  "../../src/shared/constants/providers.ts"
-);
+const { AGGREGATOR_PROVIDER_IDS, providerAllowsOptionalApiKey } =
+  await import("../../src/shared/constants/providers.ts");
 const { APIKEY_PROVIDERS } = await import("../../src/shared/constants/providers/apikey/index.ts");
 
-const PROVIDERS: Record<string, { id: string; authType: string; baseUrl: string; website: string }> = {
+const PROVIDERS: Record<
+  string,
+  { id: string; authType: string; baseUrl: string; website: string }
+> = {
   "naga-ac": {
     id: "naga-ac",
     authType: "optional",
@@ -77,10 +79,7 @@ for (const [id, info] of Object.entries(PROVIDERS)) {
   });
 
   test(`#6674 ${id} is classified as an aggregator/gateway provider`, () => {
-    assert.ok(
-      AGGREGATOR_PROVIDER_IDS.has(id),
-      `${id} must be listed in AGGREGATOR_PROVIDER_IDS`
-    );
+    assert.ok(AGGREGATOR_PROVIDER_IDS.has(id), `${id} must be listed in AGGREGATOR_PROVIDER_IDS`);
   });
 
   test(`#6674 ${id} has provider metadata with free-tier info`, () => {
@@ -101,4 +100,12 @@ test("#6674 naga-ac allows optional (no-key) API key validation", () => {
 
 test("#6674 chatanywhere requires an API key (not optional)", () => {
   assert.equal(providerAllowsOptionalApiKey("chatanywhere"), false);
+});
+
+test("hosted g4f.space gateway metadata does not claim gpt4free source provenance", () => {
+  for (const id of ["g4f-groq", "g4f-gemini", "g4f-pollinations", "g4f-ollama", "g4f-nvidia"]) {
+    const metadata = APIKEY_PROVIDERS[id as keyof typeof APIKEY_PROVIDERS];
+    assert.equal(metadata?.website, "https://g4f.space", `${id} must remain a hosted gateway`);
+    assert.doesNotMatch(metadata?.freeNote ?? "", /gpt4free/i);
+  }
 });

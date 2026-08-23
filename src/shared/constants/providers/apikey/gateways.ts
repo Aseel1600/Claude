@@ -29,7 +29,8 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://freebuff.com",
     hasFree: true,
     serviceKinds: ["llm"],
-    authHint: "Enter Freebuff / Codebuff Auth Token (obtained via CLI login or automated harvester).",
+    authHint:
+      "Enter Freebuff / Codebuff Auth Token (obtained via CLI login or automated harvester).",
     freeNote: "Free Codebuff / Freebuff AI models.",
     apiHint: "Token is authenticated against Codebuff upstream session pool.",
     passthroughModels: true,
@@ -662,7 +663,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://g4f.space",
     hasFree: false,
     freeNote:
-      "No-key reverse proxy to Groq (gpt4free project) — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
+      "Hosted g4f.space gateway to Groq — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
     passthroughModels: true,
     authHint:
       "Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key.",
@@ -677,7 +678,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://g4f.space",
     hasFree: false,
     freeNote:
-      "No-key reverse proxy to Gemini (gpt4free project) — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
+      "Hosted g4f.space gateway to Gemini — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
     passthroughModels: true,
     authHint:
       "Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key.",
@@ -692,7 +693,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://g4f.space",
     hasFree: false,
     freeNote:
-      "No-key reverse proxy to Pollinations (gpt4free project) — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
+      "Hosted g4f.space gateway to Pollinations — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
     passthroughModels: true,
     authHint:
       "Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key.",
@@ -707,7 +708,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://g4f.space",
     hasFree: false,
     freeNote:
-      "No-key hosted Ollama gateway (gpt4free project) — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
+      "Hosted g4f.space gateway to Ollama — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
     passthroughModels: true,
     authHint:
       "Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key.",
@@ -722,7 +723,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://g4f.space",
     hasFree: false,
     freeNote:
-      "No-key reverse proxy to NVIDIA NIM (gpt4free project) — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
+      "Hosted g4f.space gateway to NVIDIA NIM — the anonymous free tier is gone; keyless calls return insufficient_credits until you bake proof-of-work credits. A g4f.dev member key is required.",
     passthroughModels: true,
     authHint:
       "Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key.",

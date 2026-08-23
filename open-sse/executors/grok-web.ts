@@ -6,10 +6,15 @@
  * format and Grok's internal protocol.
  *
  * Derived from:
- *   - grok2api-merged (model mappings, payload structure, statsig, processor)
- *   - GrokProxy / GrokBridge (cookie auth, streaming token extraction)
- *   - grok-web-api (response types, chat options)
+ *   - https://github.com/520mmxx/grok2api-merged (model mappings, payload, Statsig,
+ *     processor), whose MIT lineage includes TQZHR/grok2api, chenyme/grok2api and
+ *     miuzhaii/grok2api-pro
+ *   - https://github.com/CNFlyCat/GrokProxy and https://github.com/lianying1716/GrokBridge
+ *     (cookie auth and streaming token extraction; GrokBridge derives from GrokProxy)
+ *   - https://github.com/imjustprism/grok-web-api (response types and chat options)
  *   - Grok API Research Report (headers, Cloudflare bypass techniques)
+ *
+ * Exact source snapshots and preserved MIT notices: THIRD_PARTY_NOTICES.md.
  */
 
 import {
