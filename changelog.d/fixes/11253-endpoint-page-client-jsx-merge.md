@@ -1,0 +1,1 @@
+- fix(dashboard): restore the misplaced page-header JSX in `EndpointPageClient.tsx` to `APIPageClient`'s own return instead of the `ProviderModelsModal` model-row callback, fixing the broken JSX merge that made the dashboard typecheck/lint gates fail to parse the file (#11253)

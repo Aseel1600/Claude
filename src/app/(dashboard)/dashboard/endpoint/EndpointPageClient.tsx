@@ -1250,6 +1250,21 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
 
   return (
     <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2 mb-2">
+        <h1 className="text-2xl font-bold">{t("endpoint.title")}</h1>
+        <p className="text-text-muted">{t("endpoint.subtitle")}</p>
+        <div className="flex items-center gap-3 mt-2">
+          <code className="text-sm bg-card-subtle px-3 py-1 rounded-md text-text-main font-mono">
+            {displayApiUrl}
+          </code>
+          <a href="#test" className="text-sm text-action font-medium hover:underline">
+            {t("endpoint.testEndpoint")}
+          </a>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-text-muted">
+        <span>{t("endpoint.advancedProtocols")}</span>
+      </div>
       <SegmentedControl
         options={ENDPOINT_TABS.map((tab) => ({ ...tab, label: t(tab.labelKey) }))}
         value={activeEndpointTab}
@@ -2360,19 +2375,7 @@ function ProviderModelsModal({
         <div className="flex flex-col gap-1">
           {groupModels.map((m) => {
             const copyKey = `modal-${m.id}`;
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 mb-2">
-        <h1 className="text-2xl font-bold">{t("endpoint.title")}</h1>
-        <p className="text-text-muted">{t("endpoint.subtitle")}</p>
-        <div className="flex items-center gap-3 mt-2">
-          <code className="text-sm bg-card-subtle px-3 py-1 rounded-md text-text-main font-mono">{useDisplayBaseUrl()}/v1</code>
-          <a href="#test" className="text-sm text-action font-medium hover:underline">{t("endpoint.testEndpoint")}</a>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 text-xs text-text-muted">
-        <span>{t("endpoint.advancedProtocols")}</span>
-      </div>
+            return (
               <div
                 key={m.id}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface/60 group"
