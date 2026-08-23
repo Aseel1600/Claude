@@ -772,6 +772,7 @@ REQUEST_TIMEOUT_MS (global override)
 | `KIMI_WEB_BASE_URL`                       | `https://www.kimi.ai` | Base URL for the Kimi Web (international kimi.ai Connect-RPC) executor (`kimi-web.ts`); override only for mirror/proxy endpoints.                               |
 | `KIMI_WEB_CHAT_URL`                       | `<KIMI_WEB_BASE_URL>/apiv2/kimi.gateway.chat.v1.ChatService/Chat` | Full chat endpoint for the Kimi Web executor (`kimi-web.ts`).                                                                       |
 | `OMNIROUTE_LOGIN_BROWSER_PATH`            | _(auto-detected)_    | Path to a system Chrome/Edge executable for the Adobe Firefly interactive browser sign-in (`adobeFireflyBrowserLogin.ts`); overrides per-OS auto-detection.     |
+| `OMNIROUTE_STANDALONE_DIR`                | _.build/ standalone output_ | Build-time override for the standalone output directory consumed by the post-build colocation step (`scripts/build/colocate-standalone.mjs`); build tooling, not runtime. |
 
 Combo target attempts inherit the resolved upstream request timeout (`FETCH_TIMEOUT_MS`, or
 `REQUEST_TIMEOUT_MS` when it supplies the fetch default). Set `targetTimeoutMs` in a combo,
