@@ -1226,7 +1226,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(build):** make the publish and boot gates agree on dependency-based `sql.js` packaging, align the lazy `better-sqlite3` install with the declared optional dependency, and stop requiring a tarball path that the artifact gate forbids ([#11266](https://github.com/diegosouzapw/OmniRoute/pull/11266) — thanks @backryun) (reported in [#11242](https://github.com/diegosouzapw/OmniRoute/issues/11242) — thanks @tchopra91) (related [#10296](https://github.com/diegosouzapw/OmniRoute/issues/10296) — thanks @RaviTharuma)
 - **fix(resilience):** let OpenCode Go quota preflight use fresh dashboard snapshots when its live quota endpoint has no data, map the three quota windows consistently, ignore expired or unknown windows, and honor the sibling-selection preflight flag without changing the default-off behavior ([#11267](https://github.com/diegosouzapw/OmniRoute/pull/11267) — thanks @backryun) (reported in [#11234](https://github.com/diegosouzapw/OmniRoute/issues/11234) — thanks @mravathar)
 - **fix(build):** keep the native `better-sqlite3` addon out of Next.js build workers with one shared `OMNIROUTE_BUILDING` guard and a build-only stub; raise the default build heap, cap worker pools, enforce LF shell scripts and disable Next.js telemetry across local, CI and Docker builds without downgrading Node or changing runtime database selection ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952) — thanks @arminanton), re-derived from the closed ([#10060](https://github.com/diegosouzapw/OmniRoute/pull/10060) — thanks @davenamovich)
-- **fix(copilot):** match GitHub Copilot CLI `1.0.81-6` request identity, use the raw GitHub token for entitled-model discovery, filter live catalogs by chat capability instead of a hardcoded allowlist, add the newly entitled Claude/Gemini/GPT/Grok/MAI models, and route every Claude-named GitHub or GHE model through native `/v1/messages` ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952) — thanks @arminanton); builds on the native Copilot messages foundation (thanks @yidecode)
+- **fix(copilot):** match GitHub Copilot CLI `1.0.81-6` request identity, use the raw GitHub token for entitled-model discovery, filter live catalogs by chat capability instead of a hardcoded allowlist, add the newly entitled Claude/Gemini/GPT/Grok/MAI models, and route every Claude-named GitHub or GHE model through native `/v1/messages` ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952) — thanks @arminanton); builds on the native Copilot messages foundation ([#7223](https://github.com/diegosouzapw/OmniRoute/pull/7223) — thanks @yidecode)
 - **fix(provider compatibility):** reject models-listing for Claude-Code-compatible connections before cached fallbacks can turn the unsupported request into an empty HTTP 200, and preserve raw no-auth model-override keys while resolving their sibling aliases so hidden-model and protocol overrides both survive ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952) — thanks @arminanton), re-derived from the closed ([#10795](https://github.com/diegosouzapw/OmniRoute/pull/10795) — thanks @rqzbeh) and reported in ([#7620](https://github.com/diegosouzapw/OmniRoute/issues/7620) — thanks @ahbeeahkao)
 - **fix(codex-app-server):** default Codex-owned command/file execution to the `workspace-write` sandbox and deny its approval prompts unless the operator opts in; bind env-sourced capability tokens only to the matching env URL or an operator-local host; and stop the authenticated `/readyz` probe from following redirects ([#11281](https://github.com/diegosouzapw/OmniRoute/pull/11281)) — thanks @hartmark
 - **fix(security):** refuse verbatim upstream-error passthrough when the body echoes a credential, redact relayed OCR and moderation errors, and cover the concrete `cookie`, `storageState` and `runtimeKey` call-log fields without hiding ordinary capability metadata ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952)) — thanks @arminanton
@@ -1516,6 +1516,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 
 
 
+
 ### 🙌 Contributors
 
 Thanks to everyone whose work landed in v3.8.50:
@@ -1760,7 +1761,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@xz-dev](https://github.com/xz-dev) | #8367, #8908, #9199, #9205, #9262, #9290, #9313, #9555, #9569, #9629, #9788, #9983, #10066, #10072, #10079, #10162, #10243, #10247, #10712, #10716, #10723, #10806, #10953, #10963 |
 | [@yansigit](https://github.com/yansigit) | #9834, #9909, #9911, #9917, #9921, #10065 |
 | [@yawar-aquil](https://github.com/yawar-aquil) | #10668 |
-| [@yidecode](https://github.com/yidecode) | direct commit / report |
+| [@yidecode](https://github.com/yidecode) | #7223 |
 | [@yourspraveen](https://github.com/yourspraveen) | #11165, #11176 |
 | [@yulinlina](https://github.com/yulinlina) | #10013 |
 | [@YunyunZhai](https://github.com/YunyunZhai) | #10946 |
