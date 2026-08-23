@@ -8,6 +8,7 @@ import type { ConnectionFields } from "@/lib/db/encryption";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
 import { toNumber } from "@/shared/utils/numeric";
+import { isCompatibleProviderConnectionId } from "@/shared/utils/compatibleProviderId";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 import { getTokenLimit } from "../contextManager";
 import {
@@ -180,9 +181,31 @@ function hasProviderSpecificSessionData(conn: VirtualFactoryConn): boolean {
   return hasUsableWebSessionCredential(conn.provider, conn.providerSpecificData);
 }
 
+/**
+ * #11180: a custom compatible connection (`openai-compatible-*` /
+ * `anthropic-compatible-*`) may legitimately carry no credential at all,
+ * because it points at a self-hosted backend the operator started without one
+ * (`llama-server --host 0.0.0.0` with no `--api-key`, Ollama, vLLM). For those
+ * IDs "no credential" is the normal configuration rather than an unconfigured
+ * connection, so the credential gate must not silently drop them from every
+ * `auto/*` pool while direct `<provider>/<model>` calls keep working.
+ *
+ * Deliberately narrow: only the four generated compatible-provider ID shapes
+ * qualify. A first-party provider with an empty key really is unconfigured and
+ * stays filtered out, and the no-auth registry allowlist below is untouched.
+ */
+function isKeylessEligibleConnection(conn: VirtualFactoryConn): boolean {
+  return isCompatibleProviderConnectionId(conn.provider);
+}
+
 function hasUsableConnectionCredential(conn: VirtualFactoryConn): boolean {
   const hasApiKey = typeof conn.apiKey === "string" && conn.apiKey.trim().length > 0;
-  return hasApiKey || hasUsableOAuthToken(conn) || hasProviderSpecificSessionData(conn);
+  return (
+    hasApiKey ||
+    hasUsableOAuthToken(conn) ||
+    hasProviderSpecificSessionData(conn) ||
+    isKeylessEligibleConnection(conn)
+  );
 }
 
 const SYNTHETIC_NOAUTH_CONNECTION_ID = RESILIENCE_NOAUTH_CONNECTION_ID;
