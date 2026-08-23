@@ -1300,13 +1300,7 @@
       "open": "mở",
       "close": "đóng"
     },
-    "noResults": "Không có kết quả",
-    "healthVerdictReady": "OmniRoute đã sẵn sàng",
-    "healthVerdictActionRequired": "Cần hành động để khôi phục hoạt động đầy đủ",
-    "healthVerdictCoolingDown": "Đang nguội sau các thay đổi gần đây",
-    "advancedDiagnosticsTitle": "Chẩn đoán nâng cao",
-    "hide": "Ẩn",
-    "show": "Hiện"
+    "noResults": "Không có kết quả"
   },
   "webhooks": {
     "title": "Webhook",
@@ -2918,6 +2912,7 @@
       "interpreter": "Tác nhân lập trình tự trị Open Interpreter CLI",
       "omp": "Tác nhân lập trình Oh My Pi trên terminal",
       "letta": "Tác nhân Letta CLI có bộ nhớ lâu dài và khả năng dùng công cụ",
+      "prime-agent": "Prime Agent — bộ khung lập trình RLM tự cải tiến hỗ trợ API tương thích OpenAI",
       "warp": "Terminal Warp AI hỗ trợ nhà cung cấp tùy chỉnh",
       "agent-deck": "Trình điều phối đa tác nhân Agent Deck"
     },
@@ -4627,6 +4622,13 @@
     "retry": "Thử lại",
     "allOperational": "Tất cả hệ thống đang hoạt động bình thường",
     "issuesDetected": "Phát hiện sự cố hệ thống",
+    "healthVerdictReady": "OmniRoute đã sẵn sàng",
+    "healthVerdictActionRequired": "Cần hành động để khôi phục hoạt động đầy đủ",
+    "healthVerdictCoolingDown": "Đang nguội sau các thay đổi gần đây",
+    "healthSubtitle": "Kiểm tra tình trạng hệ thống",
+    "advancedDiagnosticsTitle": "Chẩn đoán nâng cao",
+    "hide": "Ẩn",
+    "show": "Hiện",
     "updatedAt": "Đã cập nhật {time}",
     "latency": "Độ trễ",
     "latencyP50": "p50",
