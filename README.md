@@ -7,7 +7,7 @@
 
 # 🚀 OmniRoute — The Free AI Gateway
 
-<img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 346 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with automatic fallback while a healthy target is available. RTK + Caveman stacked compression saves 15–95% tokens on eligible workloads (~89% in the documented stacked example). 346 AI providers · 90+ free tiers · ~1.51B free tokens/mo · 19 routing strategies · $0 to start."/>
+<img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 345 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with automatic fallback while a healthy target is available. RTK + Caveman stacked compression saves 15–95% tokens on eligible workloads (~89% in the documented stacked example). 345 AI providers · 90+ free tiers · ~1.51B free tokens/mo · 19 routing strategies · $0 to start."/>
 
 </div>
 
@@ -63,7 +63,7 @@
 
 |                           | v3.8.49 |        **v3.8.50**        | `v3.8.51+`  |
 | ------------------------- | :-----: | :-----------------------: | :---------: |
-| 🌐 Providers              |   290   |          **346**          | more queued |
+| 🌐 Providers              |   290   |          **345**          | more queued |
 | 🧠 Unique chat model IDs  |  1185   |         **1271**          |      —      |
 | 🖼️ Modality Bridge        |    —    | 🆕 vision + audio + video |      —      |
 | 📡 Radar free catalog     |    —    |         🆕 opt-in         |      —      |
@@ -101,7 +101,7 @@
   <tr>
     <td align="right"><b>⚙️ Features</b></td>
     <td align="center"><a href="#-combos--the-flagship">🎯 Combos</a></td>
-    <td align="center"><a href="#-346-ai-providers--153-catalog-marked-free">🌐 Providers</a></td>
+    <td align="center"><a href="#-345-ai-providers--153-catalog-marked-free">🌐 Providers</a></td>
     <td align="center"><a href="#-full-cli--a2a--mcp">🔌 CLI &amp; MCP</a></td>
   </tr>
   <tr>
@@ -210,7 +210,7 @@ curl http://localhost:20128/v1/chat/completions \
 
 </div>
 
-<img src="./docs/diagrams/promise-pillars.svg" width="100%" alt="The Promise — One endpoint and 346 providers. Automatic fallback keeps routing while another healthy target is available. Six pillars: resilient fallback across 346 providers · up to 95% token savings on eligible workloads · $0 to start with 90+ free tiers and 54 recurring/keyless free-forever providers · 35 CLI/agent integrations through one config · OpenAI, Claude, Gemini and Responses API compatibility at /v1 · production controls including circuit breakers, TLS stealth, MCP 110 tools, A2A, memory, guardrails, evals and 36,000+ static test declarations."/>
+<img src="./docs/diagrams/promise-pillars.svg" width="100%" alt="The Promise — One endpoint and 345 providers. Automatic fallback keeps routing while another healthy target is available. Six pillars: resilient fallback across 345 providers · up to 95% token savings on eligible workloads · $0 to start with 90+ free tiers and 54 recurring/keyless free-forever providers · 35 CLI/agent integrations through one config · OpenAI, Claude, Gemini and Responses API compatibility at /v1 · production controls including circuit breakers, TLS stealth, MCP 110 tools, A2A, memory, guardrails, evals and 36,000+ static test declarations."/>
 
 <br/>
 <br/>
@@ -461,7 +461,7 @@ All **19** strategies — mix & match per combo step:
 
 </div>
 
-<img src="./docs/diagrams/comparison-table.svg" width="100%" alt="What sets OmniRoute apart — a dated feature snapshot vs 9router, OpenRouter, CLIProxyAPI and LiteLLM across 13 capabilities. OmniRoute: 346 providers, 90+ free tiers built in, 19 routing strategies, 12-engine token compression, built-in MCP server with 110 tools, A2A agent protocol, persistent memory, guardrails, cloud agents, TLS fingerprint stealth, Desktop/Termux/PWA and 43 i18n UI locales. OmniRoute is MIT-licensed and self-hostable. Competitor capabilities and counts may change; see the linked methodology."/>
+<img src="./docs/diagrams/comparison-table.svg" width="100%" alt="What sets OmniRoute apart — a dated feature snapshot vs 9router, OpenRouter, CLIProxyAPI and LiteLLM across 13 capabilities. OmniRoute: 345 providers, 90+ free tiers built in, 19 routing strategies, 12-engine token compression, built-in MCP server with 110 tools, A2A agent protocol, persistent memory, guardrails, cloud agents, TLS fingerprint stealth, Desktop/Termux/PWA and 43 i18n UI locales. OmniRoute is MIT-licensed and self-hostable. Competitor capabilities and counts may change; see the linked methodology."/>
 
 <sub>📊 Full methodology &amp; per-feature detail vs 9router, OpenRouter, CLIProxyAPI &amp; LiteLLM → [`docs/comparison/OMNIROUTE_VS_ALTERNATIVES.md`](docs/comparison/OMNIROUTE_VS_ALTERNATIVES.md)</sub>
 
@@ -559,7 +559,7 @@ the current catalog at **[radar.omniroute.online/planos](https://radar.omniroute
 - **🖼️ New endpoints** — `/v1/ocr` (Mistral OCR) and `/v1/audio/translations` (Whisper-style) round out the media surface. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🎨 Image / video / audio generation** — one API for media: xAI Grok Imagine & Novita AI video, ComfyUI, Freepik, Adobe Firefly, Segmind and ElevenLabs. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🌍 Deployment & ops** — reverse-proxy `basePath`, browser-language auto-detect, per-key device tracking, root-less MITM trust, zh-TW localization. → [Environment](docs/reference/ENVIRONMENT.md)
-- **🤝 More providers & agents** — Cursor Cloud Agent, Grok Build (xAI) with browser + OAuth login, Ollama first-class card, Claude Opus 5 & Sonnet 5, Kimi official partnership (Code/Web/Moonshot), Zed, Requesty, SenseNova, Yuanbao, Agnes AI… and a refreshed **346-provider catalog**. → [Providers](docs/reference/PROVIDER_REFERENCE.md)
+- **🤝 More providers & agents** — Cursor Cloud Agent, Grok Build (xAI) with browser + OAuth login, Ollama first-class card, Claude Opus 5 & Sonnet 5, Kimi official partnership (Code/Web/Moonshot), Zed, Requesty, SenseNova, Yuanbao, Agnes AI… and a refreshed **345-provider catalog**. → [Providers](docs/reference/PROVIDER_REFERENCE.md)
 - **📡 Routing transparency** — every response carries an `X-OmniRoute-Decision` header naming the strategy/provider/latency that served it, a new `cache-optimized` combo strategy + Auto-Combo `cacheAffinity` factor route repeat requests back to the connection holding the cached prefix, and a read-only `/v1/auto-combo/{channel}/candidates` endpoint exposes an `auto/*` channel's live candidate pool. → [Auto-Combo](docs/routing/AUTO-COMBO.md)
 - **⚡ Local performance & infra** — one-click local Redis, Cloudflare Workers / Deno Deploy relay deployers, Bifrost & Mux as supervised embedded services. → [Embedded Services](docs/frameworks/EMBEDDED-SERVICES.md)
 - **🔎 First-class search** — X Search and Firecrawl through `POST /v1/search` and MCP, with a credential-free DuckDuckGo fallback when no search provider is configured. → [API Reference](docs/reference/API_REFERENCE.md)
@@ -649,11 +649,11 @@ of your shell history. → [CLI Integrations](docs/guides/CLI-INTEGRATIONS.md)
 
 <div align="center">
 
-## 🌐 346 AI Providers — 153 Catalog-Marked Free
+## 🌐 345 AI Providers — 153 Catalog-Marked Free
 
 </div>
 
-> **346 providers**, including **153 registered providers carrying `hasFree: true` discovery metadata**, plus **446 per-model free-budget catalog rows** and **54 recurring/keyless free-forever providers**. The provider flag and per-model budget catalog are distinct denominators; definitions and pool-deduped calculations are documented in the [Provider Reference](docs/reference/PROVIDER_REFERENCE.md) and [Free Tiers](docs/reference/FREE_TIERS.md).
+> **345 providers**, including **153 registered providers carrying `hasFree: true` discovery metadata**, plus **446 per-model free-budget catalog rows** and **54 recurring/keyless free-forever providers**. The provider flag and per-model budget catalog are distinct denominators; definitions and pool-deduped calculations are documented in the [Provider Reference](docs/reference/PROVIDER_REFERENCE.md) and [Free Tiers](docs/reference/FREE_TIERS.md).
 
 <div align="center">
 
@@ -1317,14 +1317,14 @@ Métricas de validação: **1,070 vídeos rastreados** · no YouTube, 450 longos
         <img src="https://github.com/backryun.png" width="40" style="border-radius:50%" alt="backryun"/><br/>
         <b>backryun</b>
       </a><br/>
-      <sub>🥇 220 GitHub-attributed commits</sub>
+      <sub>🥇 219 GitHub-attributed commits · tied #1</sub>
     </td>
     <td align="center" width="160">
       <a href="https://github.com/oyi77">
         <img src="https://github.com/oyi77.png" width="40" style="border-radius:50%" alt="Paijo"/><br/>
         <b>Paijo</b>
       </a><br/>
-      <sub>🥈 219 GitHub-attributed commits</sub>
+      <sub>🥇 219 GitHub-attributed commits · tied #1</sub>
     </td>
     <td align="center" width="160">
       <a href="https://github.com/rdself">
@@ -1348,20 +1348,20 @@ Métricas de validação: **1,070 vídeos rastreados** · no YouTube, 450 longos
       <sub>🏅 70 GitHub-attributed commits</sub>
     </td>
     <td align="center" width="160">
-      <a href="https://github.com/hartmark">
-        <img src="https://github.com/hartmark.png" width="40" style="border-radius:50%" alt="Markus Hartung"/><br/>
-        <b>Markus Hartung</b>
-      </a><br/>
-      <sub>🏅 67 GitHub-attributed commits</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="160">
       <a href="https://github.com/maxmad64bis">
         <img src="https://github.com/maxmad64bis.png" width="40" style="border-radius:50%" alt="Dizzle"/><br/>
         <b>Dizzle</b>
       </a><br/>
-      <sub>🏅 65 GitHub-attributed commits</sub>
+      <sub>🏅 69 GitHub-attributed commits</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="160">
+      <a href="https://github.com/hartmark">
+        <img src="https://github.com/hartmark.png" width="40" style="border-radius:50%" alt="Markus Hartung"/><br/>
+        <b>Markus Hartung</b>
+      </a><br/>
+      <sub>🏅 68 GitHub-attributed commits</sub>
     </td>
     <td align="center" width="160">
       <a href="https://github.com/JxnLexn">
@@ -1466,9 +1466,9 @@ A heartfelt thank-you to the people who fund OmniRoute out of their own pocket �
 
 </div>
 
-[![Contributors](https://contrib.rocks/image?repo=diegosouzapw/OmniRoute&max=632&columns=20&anon=1)](https://github.com/diegosouzapw/OmniRoute/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=diegosouzapw/OmniRoute&max=635&columns=20&anon=1)](https://github.com/diegosouzapw/OmniRoute/graphs/contributors)
 
-<sub>Audited at v3.8.50 tip <code>8f390eff</code> on 2026-08-23: <b>632 people</b> — 399 identities appear as commit authors and another 233 appear only in explicit <code>Co-authored-by</code> trailers. Formula: all reachable commits; exact e-mail identities plus numeric/non-numeric GitHub noreply variants of the same handle are joined; bots, service accounts and placeholder identities are excluded. No <code>.mailmap</code> exists, and ambiguous same-name identities are deliberately not merged, so this is a conservative, reproducible Git-metadata count rather than a GitHub profile count.</sub>
+<sub>Audited at reconciled v3.8.50 candidate <code>dbd9bc00</code> on 2026-08-23: <b>635 people</b> — 402 identities appear as commit authors and another 233 appear only in explicit <code>Co-authored-by</code> trailers. Formula: all reachable commits; exact e-mail identities plus numeric/non-numeric GitHub noreply variants of the same handle are joined; bots, service accounts and placeholder identities are excluded. No <code>.mailmap</code> exists, and ambiguous same-name identities are deliberately not merged, so this is a conservative, reproducible Git-metadata count rather than a GitHub profile count.</sub>
 
 ### How to Contribute
 

@@ -15,11 +15,23 @@
  * connection's burst cannot starve others (#9654).
  */
 
-import { CORS_HEADERS } from "../utils/cors";
-import { createLogger } from "../utils/logger";
-import { createHmac } from "crypto";
-import v8 from "node:v8";
 import { trackRequest } from "../../lib/gracefulShutdown";
+import { CORS_HEADERS } from "../utils/cors";
+import { defaultHeapPressureCheck } from "./chatAdmissionPressure";
+import { resolveSessionId } from "./chatAdmissionSession";
+import {
+  ChatAdmissionTelemetry,
+  type ChatAdmissionShedReason,
+  type ChatAdmissionShedSink,
+} from "./chatAdmissionTelemetry";
+
+export { resolveSessionId } from "./chatAdmissionSession";
+export { CHAT_ADMISSION_HEAP_SHED_RATIO, defaultHeapPressureCheck } from "./chatAdmissionPressure";
+export type {
+  ChatAdmissionShedEvent,
+  ChatAdmissionShedReason,
+  ChatAdmissionShedSink,
+} from "./chatAdmissionTelemetry";
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(String(value), 10);
@@ -85,24 +97,6 @@ export const CHAT_HEAVY_ESTIMATED_TOKENS = parsePositiveInt(
 );
 
 /**
- * Heap-pressure shed ratio for the structural admission gate (#10183, #10268).
- *
- * 3.8.48 only shed a heavy request once `heapUsed / heapLimit >= shedRatio` (0.75).
- * 3.8.49 (#9654/#9940) replaced that heap-conditional shed with an unconditional
- * `CHAT_MAX_HEAVY_IN_FLIGHT=1` structural lease, so a second concurrent "heavy"
- * request (coding-agent fan-out is the common trigger) was hard-rejected with a
- * retryable 503 even on a host with ample free RAM. This restores the heap
- * condition as an ADDITIONAL gate layered on top of the bounded-concurrency /
- * per-connection-lane protection from #9654 (that protection stays in force —
- * this constant only decides whether a *busy* lease is still shed with a 503 or
- * admitted anyway because the heap has real headroom).
- */
-export const CHAT_ADMISSION_HEAP_SHED_RATIO = (() => {
-  const parsed = Number(process.env.OMNIROUTE_CHAT_ADMISSION_HEAP_SHED_RATIO);
-  return Number.isFinite(parsed) && parsed > 0 && parsed <= 1 ? parsed : 0.75;
-})();
-
-/**
  * Bounded extra capacity for the "healthy heap" fast path (#10437).
  *
  * The #10183/#10268 fix above admits a busy heavyweight request immediately whenever
@@ -121,22 +115,6 @@ export const CHAT_ADMISSION_HEALTHY_HEADROOM = parseNonNegativeInt(
   CHAT_MAX_HEAVY_IN_FLIGHT
 );
 
-/**
- * Live `heapUsed / heap_size_limit` pressure probe, injectable for deterministic
- * tests (`admitChatStructure({ heapPressureCheck })`). Defaults to the real V8
- * heap statistics. Any read failure is treated as "not under pressure" so a
- * transient stats error never turns into a false structural shed.
- */
-export function defaultHeapPressureCheck(): boolean {
-  try {
-    const heapUsed = process.memoryUsage().heapUsed;
-    const heapLimit = v8.getHeapStatistics().heap_size_limit;
-    if (!Number.isFinite(heapLimit) || heapLimit <= 0) return false;
-    return heapUsed / heapLimit >= CHAT_ADMISSION_HEAP_SHED_RATIO;
-  } catch {
-    return false;
-  }
-}
 /**
  * Optional per-deployment history cap. `0` (the default) disables it.
  *
@@ -170,47 +148,6 @@ interface AdmissionWaiter {
 }
 
 /**
- * Why a structural shed (503 `chat_admission_busy`) happened (#11244):
- * - `queue_timeout`: the bounded wait expired with no heavyweight capacity freed
- *   (includes the `queueMs=0` legacy immediate-reject path — capacity was busy at
- *   the instant the request arrived).
- * - `queued_bytes_budget`: the queued-bytes heap valve (#9654 / U3) refused to
- *   park the waiter because the buffered-body budget was already exhausted.
- *
- * A client abort mid-wait is deliberately NOT a shed: capacity was never denied,
- * the caller simply left (its 503 is dropped on the dead connection).
- */
-export type ChatAdmissionShedReason = "queue_timeout" | "queued_bytes_budget";
-
-/**
- * One structural-shed observation, emitted to the shed sink at warn level.
- * `lane` is the opaque fairness key — the HMAC fingerprint produced by
- * `resolveSessionId` (or "anonymous"/"default"), never a raw credential.
- */
-export interface ChatAdmissionShedEvent {
-  reason: ChatAdmissionShedReason;
-  activeHeavy: number;
-  waiting: number;
-  queuedBytes: number;
-  lane: string;
-}
-
-export type ChatAdmissionShedSink = (event: ChatAdmissionShedEvent) => void;
-
-const shedLog = createLogger("chat-admission");
-
-/**
- * Default shed sink (#11244): exactly one structured warn per structural shed.
- * The 503 returns BEFORE request logging, so without this line a shed left no
- * trace anywhere. No raw credentials — `lane` is already the HMAC fingerprint,
- * and the shared logger's redaction hook (logRedaction.ts) is the safety net.
- * Nothing is logged for admitted requests (noise).
- */
-function defaultChatAdmissionShedSink(event: ChatAdmissionShedEvent): void {
-  shedLog.warn(event, "structural chat admission shed (chat_admission_busy)");
-}
-
-/**
  * Process-local heavyweight reservation. The capacity check and increment execute in one
  * synchronous JavaScript turn, making acquisition atomic within an OmniRoute process.
  * Unavailable capacity is a bounded wait (see `acquireHeavyWithin`) and only then a
@@ -232,12 +169,7 @@ export class ChatAdmissionController {
   /** Keys in creation order; #fairCursor scans them round-robin. */
   #fairKeys: string[] = [];
   #fairCursor = 0;
-  /** #11244: in-memory shed history (total + per reason). The 503 chat_admission_busy
-   * response returns before request logging, so without these counters a structural
-   * shed was invisible. Same in-memory lifetime as the rest of the snapshot state. */
-  #shedTotal = 0;
-  #shedsByReason = new Map<string, number>();
-  readonly #onShed: ChatAdmissionShedSink;
+  readonly #telemetry: ChatAdmissionTelemetry;
 
   constructor(
     readonly maxHeavyInFlight = 1,
@@ -246,9 +178,7 @@ export class ChatAdmissionController {
      * the bypass entirely — every busy request then falls through to the same
      * bounded-wait/shed path used under real heap pressure. */
     readonly healthyHeadroom = CHAT_ADMISSION_HEALTHY_HEADROOM,
-    /** #11244: sink notified once per structural shed. Defaults to the shared pino
-     * logger (warn); tests inject a capture/no-op sink. */
-    onShed: ChatAdmissionShedSink = defaultChatAdmissionShedSink
+    onShed?: ChatAdmissionShedSink
   ) {
     if (!Number.isSafeInteger(maxHeavyInFlight) || maxHeavyInFlight < 1) {
       throw new RangeError("maxHeavyInFlight must be a positive integer");
@@ -259,7 +189,7 @@ export class ChatAdmissionController {
     if (!Number.isSafeInteger(healthyHeadroom) || healthyHeadroom < 0) {
       throw new RangeError("healthyHeadroom must be a non-negative integer");
     }
-    this.#onShed = onShed;
+    this.#telemetry = new ChatAdmissionTelemetry(onShed);
   }
 
   get activeHeavy(): number {
@@ -318,14 +248,12 @@ export class ChatAdmissionController {
 
   /** Total structural sheds since process start (#11244). */
   get shedTotal(): number {
-    return this.#shedTotal;
+    return this.#telemetry.total;
   }
 
   /** Structural sheds by reason since process start (#11244). */
   get shedsByReason(): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const [reason, count] of this.#shedsByReason) out[reason] = count;
-    return out;
+    return this.#telemetry.byReason;
   }
 
   /**
@@ -336,9 +264,7 @@ export class ChatAdmissionController {
    * fingerprint), never a raw credential.
    */
   recordShed(reason: ChatAdmissionShedReason, lane = "default"): void {
-    this.#shedTotal += 1;
-    this.#shedsByReason.set(reason, (this.#shedsByReason.get(reason) ?? 0) + 1);
-    this.#onShed({
+    this.#telemetry.record({
       reason,
       activeHeavy: this.#activeHeavy,
       waiting: this.waitingCount,
@@ -525,54 +451,6 @@ const defaultAdmissionController = new ChatAdmissionController(CHAT_MAX_HEAVY_IN
  * guarantee that one connection's burst cannot starve others — without any
  * per-key capacity being allocated.
  */
-
-export function resolveSessionId(request: Request): string {
-  // Fairness scheduling key ONLY (never a capacity shard): hashed so raw key
-  // material never appears in diagnostics. Reuses the internal-bypass auth
-  // extraction: bearer token from Authorization, x-api-key (Anthropic-style),
-  // or Google API key header.
-  // CodeQL: Intentionally HMAC-SHA256 with a fixed context key, NOT password hashing. The
-  // digest is a deterministic, non-reversible per-key fairness key for the shared admission
-  // budget — never stored or used for password-style verification.
-  const authHeader = request.headers.get("authorization") || "";
-  const bearerMatch = /^bearer\s+(\S+)$/i.exec(authHeader.trim());
-  if (bearerMatch) {
-    // Fingerprint for the admission-budget bucket key, not a password/credential hash — keyed
-    // with a fixed context label so it reads as a domain-separated digest, not a bare hash.
-    return (
-      "key_" +
-      createHmac("sha256", "omniroute-admission-fingerprint-v1")
-        .update(bearerMatch[1])
-        .digest("hex")
-        .slice(0, 16)
-    );
-  }
-  const xApiKey = request.headers.get("x-api-key") || "";
-  if (xApiKey.trim().length > 0) {
-    // Fingerprint for the admission-budget bucket key, not a password/credential hash — keyed
-    // with a fixed context label so it reads as a domain-separated digest, not a bare hash.
-    return (
-      "key_" +
-      createHmac("sha256", "omniroute-admission-fingerprint-v1")
-        .update(xApiKey.trim())
-        .digest("hex")
-        .slice(0, 16)
-    );
-  }
-  const xGoogApiKey = request.headers.get("x-goog-api-key") || "";
-  if (xGoogApiKey.trim().length > 0) {
-    // Fingerprint for the admission-budget bucket key, not a password/credential hash — keyed
-    // with a fixed context label so it reads as a domain-separated digest, not a bare hash.
-    return (
-      "key_" +
-      createHmac("sha256", "omniroute-admission-fingerprint-v1")
-        .update(xGoogApiKey.trim())
-        .digest("hex")
-        .slice(0, 16)
-    );
-  }
-  return "anonymous";
-}
 
 export class PerConnectionAdmissionController {
   readonly #controller: ChatAdmissionController;

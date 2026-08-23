@@ -34,7 +34,7 @@ import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 export async function executeSpeechCombo(
   comboName: string,
   body: Record<string, unknown>,
-  auth: {
+  _auth: {
     request: Request;
     policy: { apiKeyInfo?: { id?: string; name?: string } | null };
   },

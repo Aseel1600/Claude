@@ -2272,12 +2272,7 @@ export async function getProviderCredentialsWithQuotaPreflight(
     // one of the following is true:
     //   • a per-connection override on this row
     //   • a per-(provider, window) default in resilience settings
-    //   • the legacy `quotaPreflightEnabled` flag in providerSpecificData
-    //   • the operator-enabled quota cutoff (resilience.quotaPreflight.enabled /
-    //     QUOTA_PREFLIGHT_CUTOFF_ENABLED) — #11234: it previously only armed the
-    //     auto-strategy candidate builder and the per-target cutoff for pinned
-    //     connections, so priority combos over sibling connections (no pinned
-    //     connectionId) never filtered an exhausted sister
+    //   • a legacy per-connection or operator-enabled global quota cutoff (#11234)
     //   • the global default is stricter than the factory no-op level
     //     (factory = 2% remaining, basically "right before 429" — anything
     //     stricter means the operator wants enforcement everywhere)
@@ -2299,12 +2294,11 @@ export async function getProviderCredentialsWithQuotaPreflight(
 
     const hasConnectionOverrides = Object.keys(perConnectionWindowOverrides).length > 0;
     const legacyForceEnable = isQuotaPreflightEnabled(credentials as Record<string, unknown>);
-    const globalCutoffEnabled = resilience.quotaPreflight.enabled === true;
     if (
       !hasConnectionOverrides &&
       !providerHasDefaults &&
       !legacyForceEnable &&
-      !globalCutoffEnabled &&
+      resilience.quotaPreflight.enabled !== true &&
       !globalDefaultIsRestrictive
     ) {
       const committed = await commitLease();
