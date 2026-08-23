@@ -99,7 +99,7 @@ test("buildUrl uses chat/completions endpoint for gemini models", () => {
   };
   // Gemini has no native shim on Copilot — it stays on /chat/completions.
   assert.strictEqual(
-    executor.buildUrl("gemini-3.5-flash", true, 0, credentials),
+    executor.buildUrl("gemini-3.7-flash", true, 0, credentials),
     "https://ghe.company.com/chat/completions"
   );
 });

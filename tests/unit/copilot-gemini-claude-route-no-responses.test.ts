@@ -55,7 +55,7 @@ describe("GithubExecutor — Gemini/Claude must never hit /responses (port 9rout
 
   it("routes registered Gemini Copilot models to chat/completions", () => {
     const exec = new GithubExecutor();
-    for (const id of ["gemini-3.1-pro-preview", "gemini-3.5-flash"]) {
+    for (const id of ["gemini-3.1-pro-preview", "gemini-3.7-flash"]) {
       assert.equal(exec.buildUrl(id, false), CHAT_URL, `${id} must route to chat/completions`);
     }
   });

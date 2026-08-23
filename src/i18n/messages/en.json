@@ -1874,7 +1874,16 @@
     "directDownloadHint": "Or download the respective installer format directly:",
     "releaseNotes": "Release Notes",
     "readMore": "Read More",
-    "noAuthLabel": "No Auth"
+    "noAuthLabel": "No Auth",
+    "readinessEyebrow": "Get ready to route",
+    "readinessTitle": "Send your first request",
+    "readinessSubtitle": "Four small steps. OmniRoute checks readiness as you go.",
+    "readinessStep1": "Connect a provider",
+    "readinessStep2": "Configure endpoint authentication",
+    "readinessStep3": "Copy your endpoint",
+    "readinessStep4": "Send a test request",
+    "readinessContinue": "Continue setup",
+    "readinessDismiss": "Dismiss for now"
   },
   "analytics": {
     "title": "Analytics",
