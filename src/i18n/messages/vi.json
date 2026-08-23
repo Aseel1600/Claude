@@ -13871,10 +13871,10 @@
     "contextWindowMismatch": "Yêu cầu vượt quá cửa sổ ngữ cảnh của nhà cung cấp"
   },
   "cheaperInferenceSponsorBanner": {
-    "title": "Cheaper Inference là một Người bạn Mã nguồn mở của OmniRoute",
-    "description": "Một cổng kết nối được xếp hạng theo chi phí, bán lại hàng chục mô hình tiên tiến sau một điểm cuối duy nhất tương thích với OpenAI, định tuyến mỗi yêu cầu đến nhà cung cấp đủ điều kiện rẻ nhất, không bao giờ vượt quá giá niêm yết.",
+    "title": "Cheaper Inference là Đối tác Mã nguồn Mở của OmniRoute",
+    "description": "Một cổng xếp hạng theo chi phí, bán lại hàng chục mô hình tiên phong sau một endpoint tương thích OpenAI — định tuyến mỗi yêu cầu đến nhà cung cấp đủ điều kiện rẻ nhất, không bao giờ vượt giá niêm yết.",
     "cta": "Lấy khóa API",
     "partnerLinkNote": "Liên kết đối tác",
-    "dismissAriaLabel": "Bỏ qua"
+    "dismissAriaLabel": "Đóng"
   }
 }
