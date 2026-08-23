@@ -974,7 +974,14 @@
     "batchFileUsedByCount": "{count, plural, one {# batch} other {# batch}}",
     "batchFilePreview": "Bản xem trước",
     "batchFilePreviewTruncated": "Hiển thị {shown} dòng đầu tiên (tổng cộng {total} dòng)",
-    "batchFileDownloadFull": "Tải xuống toàn bộ tệp"
+    "batchFileDownloadFull": "Tải xuống toàn bộ tệp",
+    "batchHeaderSubtitle": "Chạy nhiều yêu cầu như một job duy nhất",
+    "batchStep1": "1 · Tải lên JSONL",
+    "batchStep1Desc": "Thêm yêu cầu",
+    "batchStep2": "2 · Tạo batch",
+    "batchStep2Desc": "Chạy job",
+    "batchStep3": "3 · Nhận kết quả",
+    "batchStep3Desc": "Tải xuống đầu ra"
   },
   "disabled": "Đã tắt",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Định tuyến các yêu cầu đã hết ngân sách đến nhà cung cấp/mô hình dự phòng khẩn cấp miễn phí.",
