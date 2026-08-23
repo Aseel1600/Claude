@@ -179,6 +179,61 @@ h1 { margin-top: 8px; font-family: var(--display); font-size: clamp(24px, 3vw, 3
 .drawer-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
 .empty { color: var(--muted); padding: 10px 0; line-height: 1.45; }
 .live-data { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.view-section[hidden] { display: none; }
+#dashboard-view[hidden] { display: none; }
+.view-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; }
+.view-grid.two { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { text-align: left; color: var(--muted); font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.data-table td { padding: 10px; border-bottom: 1px solid var(--line-soft); font-size: 13px; vertical-align: top; }
+.data-table tr:last-child td { border-bottom: 0; }
+.data-table tr.clickable { cursor: pointer; }
+.data-table tr.clickable:hover td { background: var(--copper-soft); }
+.mono-table { font-family: var(--mono); font-size: 11px; }
+.status-pill { display: inline-block; font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 7px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.status-pill.mint { color: var(--mint); border-color: var(--mint); }
+.status-pill.copper { color: var(--copper); border-color: var(--copper); }
+.status-pill.amber { color: var(--amber); border-color: var(--amber); }
+.status-pill.coral { color: var(--coral); border-color: var(--coral); }
+.filter-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.filter-chip { min-height: 30px; padding: 6px 11px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-family: var(--mono); font-size: 10px; text-transform: lowercase; }
+.filter-chip.active { color: var(--paper); border-color: var(--copper); background: var(--copper-soft); }
+.device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 12px; }
+.device-card { border: 1px solid var(--line); background: var(--basalt-2); padding: 14px; }
+.device-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.device-name { font-family: var(--display); font-size: 13px; }
+.device-meta { color: var(--muted); font-family: var(--mono); font-size: 10px; margin-top: 7px; line-height: 1.5; }
+.cap-list { display: grid; gap: 6px; margin-top: 12px; }
+.cap-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 9px; align-items: center; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.cap-name { color: var(--paper); }
+.cap-level { color: var(--copper); }
+.cap-state { color: var(--mint); }
+.canvas-flow { display: grid; gap: 0; }
+.canvas-edge { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.canvas-edge:last-child { border-bottom: 0; }
+.canvas-edge .from { color: var(--copper); font-family: var(--mono); font-size: 11px; }
+.canvas-edge .to { color: var(--paper); }
+.canvas-edge .arrow { color: var(--muted); font-family: var(--mono); }
+.approval-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
+.approval-row:last-child { border-bottom: 0; }
+.approval-title { font-weight: 600; }
+.approval-detail { color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.4; }
+.approval-actions { display: flex; gap: 7px; }
+.deny-button { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 7px 11px; font-size: 12px; }
+.deny-button:hover { color: var(--coral); border-color: var(--coral); }
+.kanban-cols { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.kanban-col { border: 1px solid var(--line); min-width: 0; }
+.kanban-col-head { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.kanban-card { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); font-size: 12px; line-height: 1.4; }
+.kanban-card:last-child { border-bottom: 0; }
+.setting-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.setting-row:last-child { border-bottom: 0; }
+.setting-label { font-size: 13px; }
+.setting-hint { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.service-list { display: grid; gap: 8px; }
+.service-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.service-row:last-child { border-bottom: 0; }
+.service-name { font-family: var(--mono); font-size: 11px; }
 @media (max-width: 1050px) {
   .app-body { grid-template-columns: 68px minmax(0,1fr); }
   .rail { padding-inline: 10px; }
@@ -205,6 +260,12 @@ h1 { margin-top: 8px; font-family: var(--display); font-size: clamp(24px, 3vw, 3
   .command-mode { display: none; }
   .command-send { width: 39px; padding: 0; font-size: 0; }
   .command-send::after { content: '→'; font-size: 20px; }
+}
+@media (max-width: 820px) {
+  .view-grid.two { grid-template-columns: 1fr; }
+  .kanban-cols { grid-template-columns: 1fr; }
+  .device-grid { grid-template-columns: 1fr; }
+  .data-table { display: block; overflow-x: auto; }
 }
 @media (max-width: 520px) {
   .app-shell { grid-template-rows: 56px 1fr; }
@@ -361,6 +422,129 @@ h1 { margin-top: 8px; font-family: var(--display); font-size: clamp(24px, 3vw, 3
         </div>
       </section>
 
+      <section class="view-section" id="view-devices" hidden aria-label="Device plane">
+        <div class="view-grid two">
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Device plane</h2><div class="panel-meta" id="device-count">SYNCING</div></div>
+            <div class="panel-body"><div class="device-grid" id="device-grid" aria-live="polite"></div></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Capabilities</h2><div class="panel-meta">POLICY L0–L4</div></div>
+            <div class="panel-body"><div class="cap-list" id="cap-list" aria-live="polite"></div></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view-section" id="view-jobs" hidden aria-label="Job trace">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Job trace</h2>
+            <div class="filter-row" id="job-filters" role="group" aria-label="Job-Filter">
+              <button class="filter-chip active" data-filter="all" type="button">alle</button>
+              <button class="filter-chip" data-filter="running" type="button">running</button>
+              <button class="filter-chip" data-filter="done" type="button">done</button>
+              <button class="filter-chip" data-filter="failed" type="button">failed</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="empty" id="job-empty">Lade Jobs …</div>
+            <table class="data-table" id="job-table" hidden>
+              <thead><tr><th>id</th><th>skill</th><th>status</th><th>trigger</th><th>created</th></tr></thead>
+              <tbody id="job-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view-section" id="view-projects" hidden aria-label="Projekte">
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Projekt-Portfolio</h2><div class="panel-meta" id="project-count">SYNCING</div></div>
+          <div class="panel-body">
+            <div class="empty" id="project-empty">Lade Projekte …</div>
+            <table class="data-table" id="project-table" hidden>
+              <thead><tr><th>projekt</th><th>kind</th><th>status</th><th>note</th></tr></thead>
+              <tbody id="project-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view-section" id="view-memory" hidden aria-label="Memory und Kontext">
+        <div class="view-grid two">
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Kanban board</h2><div class="panel-meta" id="kanban-count">SYNCING</div></div>
+            <div class="panel-body"><div class="kanban-cols" id="kanban-cols" aria-live="polite"></div></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Memory sources</h2><div class="panel-meta">PERSISTENT</div></div>
+            <div class="panel-body">
+              <div class="coach-callout"><strong>Lokales Gedächtnis</strong><p>Persistente Fakten liegen unter <span class="mono-table">C:\ÂI Agentsystem\memory\</span> (INDEX, credentials, architecture, status) und im Kanban-Board. Jeder Agent liest sie vor Aufgaben und trägt neue Fakten ein.</p></div>
+              <div class="canvas-flow" id="memory-notes"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view-section" id="view-artifacts" hidden aria-label="Artefakte">
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Artifact registry</h2><div class="panel-meta" id="artifact-count">SYNCING</div></div>
+          <div class="panel-body">
+            <div class="empty" id="artifact-empty">Lade Artefakte …</div>
+            <table class="data-table" id="artifact-table" hidden>
+              <thead><tr><th>typ</th><th>id</th><th>erstellt</th><th>quelle</th></tr></thead>
+              <tbody id="artifact-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view-section" id="view-ledger" hidden aria-label="Ledger">
+        <div class="view-grid two">
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Ledger summary</h2><div class="panel-meta" id="ledger-count">SYNCING</div></div>
+            <div class="panel-body"><div class="metric-row">
+              <div class="metric"><div class="metric-label">Total income</div><div class="metric-value" id="ledger-total">—</div><div class="metric-note neutral">alle Einträge</div></div>
+              <div class="metric"><div class="metric-label">By day</div><div class="metric-value" id="ledger-day">—</div><div class="metric-note neutral">heute</div></div>
+              <div class="metric"><div class="metric-label">Entries</div><div class="metric-value" id="ledger-entries">—</div><div class="metric-note neutral">Buchungen</div></div>
+            </div></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Einträge</h2><div class="panel-meta">JSONL</div></div>
+            <div class="panel-body">
+              <div class="empty" id="ledger-empty">Lade Ledger …</div>
+              <table class="data-table" id="ledger-table" hidden>
+                <thead><tr><th>zeit</th><th>typ</th><th>betrag</th><th>notiz</th></tr></thead>
+                <tbody id="ledger-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view-section" id="view-approvals" hidden aria-label="Freigaben">
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Approval inbox</h2><div class="panel-meta" id="approval-view-count">0 WAITING</div></div>
+          <div class="panel-body"><div id="approval-list" aria-live="polite"></div></div>
+        </section>
+      </section>
+
+      <section class="view-section" id="view-settings" hidden aria-label="Einstellungen">
+        <div class="view-grid two">
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Zugang & Datenschutz</h2><div class="panel-meta">LOCAL</div></div>
+            <div class="panel-body">
+              <div class="setting-row"><div><div class="setting-label">UI_ACCESS_TOKEN</div><div class="setting-hint" id="token-state">kein Token gesetzt — Preview-Modus</div></div><button class="quiet-button" id="settings-token" type="button">Eingeben</button></div>
+              <div class="setting-row"><div><div class="setting-label">Privacy-Mute</div><div class="setting-hint" id="privacy-hint">Erfassung ist freigegeben</div></div><button class="quiet-button" id="settings-privacy" type="button">Aktivieren</button></div>
+              <div class="setting-row"><div><div class="setting-label">Voice mode</div><div class="setting-hint">Push-to-talk / Text lokal</div></div><span class="status-pill mint">READY</span></div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Services</h2><div class="panel-meta">HEARTBEATS</div></div>
+            <div class="panel-body"><div class="service-list" id="service-list" aria-live="polite"></div></div>
+          </section>
+        </div>
+      </section>
+
       <section class="command-bar" aria-label="Orchestrator command bar">
         <label class="visually-hidden" for="command-input">Auftrag an das Orchester</label>
         <button class="icon-button" id="voice-button" type="button" aria-label="Voice command" aria-pressed="false" title="Voice command">◉</button>
@@ -490,16 +674,156 @@ function trapDrawerFocus(event) {
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
+const viewMeta = { orchestra: ['Live workspace / 01', 'The orchestra is in position.', 'Eine Arbeitsfläche für Sprache, Agenten, Geräte und deine Money-Maker-Pipelines. Sichtbar, lokal, bereit für den nächsten Auftrag.'], devices: ['Device plane / 02', 'Every capability is visible.', 'PC, Android, Kamera und Mikrofon sind Knoten im selben Orchestrator. Jede Fähigkeit einzeln sichtbar, widerrufbar und protokolliert.'], jobs: ['Execution / 03', 'Work should leave a trace.', 'Jeder Job bekommt Status, Übergaben, Ergebnis und einen nächsten Schritt. Klicke eine Zeile für den vollen Trace.'], projects: ['Portfolio / 04', 'Build the machine that compounds.', 'Money-Maker-Projekte werden als Wertstrom und Experiment verfolgt.'], memory: ['Context / 05', 'Useful memory, on purpose.', 'Langzeitkontext bleibt sichtbar, editierbar und an Ergebnisse gebunden.'], artifacts: ['Output / 06', 'Nothing useful disappears.', 'Artefakte, Medien und Ergebnisse bleiben mit ihrem Produktionslauf verknüpft.'], ledger: ['Economics / 07', 'Measure what compounds.', 'Einnahmen, Kosten und Lernschritte gehören in denselben Trace.'], approvals: ['Control / 08', 'Your decision is a system state.', 'Externe und irreversible Aktionen warten sichtbar auf deine Freigabe.'], settings: ['Control / 09', 'Tune the operating system.', 'Präsenz, Stimme, Geräte und Policies werden hier konfiguriert.'] };
 function setView(view) {
   document.querySelectorAll('.nav-item').forEach(item => {
     const selected = item.dataset.view === view;
     item.classList.toggle('active', selected);
     item.toggleAttribute('aria-current', selected);
   });
-  const views = { orchestra: ['Live workspace / 01', 'The orchestra is in position.', 'Eine Arbeitsfläche für Sprache, Agenten, Geräte und deine Money-Maker-Pipelines. Sichtbar, lokal, bereit für den nächsten Auftrag.'], devices: ['Device plane / 02', 'Every capability is visible.', 'PC, Android, Kamera und Mikrofon sind Knoten im selben Orchestrator.'], jobs: ['Execution / 03', 'Work should leave a trace.', 'Jeder Job bekommt Status, Übergaben, Ergebnis und einen nächsten Schritt.'], projects: ['Portfolio / 04', 'Build the machine that compounds.', 'Money-Maker-Projekte werden als Wertstrom und Experiment verfolgt.'], memory: ['Context / 05', 'Useful memory, on purpose.', 'Langzeitkontext bleibt sichtbar, editierbar und an Ergebnisse gebunden.'], artifacts: ['Output / 06', 'Nothing useful disappears.', 'Artefakte, Medien und Ergebnisse bleiben mit ihrem Produktionslauf verknüpft.'], ledger: ['Economics / 07', 'Measure what compounds.', 'Einnahmen, Kosten und Lernschritte gehören in denselben Trace.'], approvals: ['Control / 08', 'Your decision is a system state.', 'Externe und irreversible Aktionen warten sichtbar auf deine Freigabe.'], settings: ['Control / 09', 'Tune the operating system.', 'Präsenz, Stimme, Geräte und Policies werden hier konfiguriert.'] };
-  const chosen = views[view] || views.orchestra;
+  const sections = { orchestra: 'dashboard-view', devices: 'view-devices', jobs: 'view-jobs', projects: 'view-projects', memory: 'view-memory', artifacts: 'view-artifacts', ledger: 'view-ledger', approvals: 'view-approvals', settings: 'view-settings' };
+  const dashboard = document.getElementById('dashboard-view');
+  const isOrchestra = view === 'orchestra';
+  if (dashboard) dashboard.hidden = !isOrchestra;
+  document.querySelectorAll('.view-section').forEach(section => { section.hidden = true; });
+  const target = document.getElementById(sections[view]);
+  if (target) target.hidden = false;
+  const chosen = viewMeta[view] || viewMeta.orchestra;
   setText('view-eyebrow', chosen[0]); setText('view-title', chosen[1]); setText('view-lead', chosen[2]);
+  if (view !== 'orchestra' && viewLoaders[view]) viewLoaders[view]();
   document.getElementById('main-content').focus({ preventScroll: true });
+}
+const demoCapabilities = [
+  ['pc.mic.capture', 'L0', 'aktiv'], ['pc.camera.snapshot', 'L1', 'bereit'], ['pc.screen.snapshot', 'L2', 'bereit'],
+  ['pc.files.read', 'L0', 'aktiv'], ['pc.files.write', 'L1', 'aktiv'], ['pc.browser.open', 'L2', 'bereit'],
+  ['android.mic.stream', 'L1', 'bereit'], ['android.camera.capture', 'L1', 'bereit'], ['android.notification.reply', 'L2', 'bereit'],
+  ['android.screen.share', 'L3', 'freigabe'], ['android.accessibility.execute', 'L4', 'off']
+];
+const demoDevices = [
+  { name: 'Windows workstation', state: 'live', meta: 'Local gateway · 12 cores · RX 6800 XT · 16 GB VRAM', caps: ['pc.mic.capture', 'pc.camera.snapshot', 'pc.screen.snapshot', 'pc.files.read'] },
+  { name: 'Android · redmi-note-14', state: 'warn', meta: 'Companion vorbereitet · Voice + Notifications', caps: ['android.mic.stream', 'android.camera.capture', 'android.notification.reply', 'android.screen.share'] },
+  { name: 'Cameras', state: 'live', meta: 'Standby · opt-in sessions only', caps: ['pc.camera.snapshot'] },
+  { name: 'Microphones', state: 'live', meta: 'Mehrere Eingänge erkannt · kein Roh-Recording', caps: ['pc.mic.capture'] }
+];
+function renderCapabilities() {
+  document.getElementById('cap-list').innerHTML = demoCapabilities.map(cap => '<div class="cap-row"><span class="cap-name">' + escapeHtml(cap[0]) + '</span><span class="cap-level">' + escapeHtml(cap[1]) + '</span><span class="cap-state">' + escapeHtml(cap[2]) + '</span></div>').join('');
+}
+function renderDevices(agents) {
+  const heartbeat = Object.entries(agents || {});
+  const liveNodes = heartbeat.filter(([, info]) => !info.stale).length;
+  setText('device-count', (4 + liveNodes) + ' NODES');
+  const rows = demoDevices.map(device => '<div class="device-card"><div class="device-head"><span class="device-name">' + escapeHtml(device.name) + '</span><span class="status-pill ' + (device.state === 'live' ? 'mint' : 'amber') + '">' + escapeHtml(device.state) + '</span></div><div class="device-meta">' + escapeHtml(device.meta) + '</div><div class="cap-list">' + device.caps.map(cap => '<div class="cap-row"><span class="cap-name">' + escapeHtml(cap) + '</span><span class="cap-level">' + escapeHtml(demoCapabilities.find(c => c[0] === cap)?.[1] || 'L0') + '</span><span class="cap-state">' + escapeHtml(demoCapabilities.find(c => c[0] === cap)?.[2] || 'bereit') + '</span></div>').join('') + '</div></div>').join('');
+  const heartbeatRows = heartbeat.map(([name, info]) => '<div class="device-card"><div class="device-head"><span class="device-name">' + escapeHtml(name) + '</span><span class="status-pill ' + (info.stale ? 'amber' : 'mint') + '">' + (info.stale ? 'stale' : 'ok') + '</span></div><div class="device-meta">' + escapeHtml(info.detail || 'Agent heartbeat') + '<br>zuletzt ' + escapeHtml(info.last_seen ? new Date(info.last_seen).toLocaleTimeString('de-DE') : '—') + '</div></div>').join('');
+  document.getElementById('device-grid').innerHTML = rows + heartbeatRows;
+}
+async function loadDevices() {
+  renderCapabilities();
+  try { const data = await getJson('/agents'); renderDevices(data.agents || {}); } catch (error) { renderDevices({}); }
+}
+let jobFilter = 'all';
+let jobCache = [];
+async function loadJobs() {
+  try {
+    const data = token ? await getJson('/orca/jobs?limit=50') : await getJson('/orca/status');
+    jobCache = data.jobs || [...(data.running || []), ...(data.recent || [])];
+  } catch (error) { jobCache = []; }
+  renderJobs();
+}
+function renderJobs() {
+  const empty = document.getElementById('job-empty'); const table = document.getElementById('job-table');
+  const list = jobFilter === 'all' ? jobCache : jobCache.filter(job => job.status === jobFilter);
+  if (!list.length) { empty.hidden = false; table.hidden = true; empty.textContent = jobCache.length ? 'Keine Jobs im Status „' + jobFilter + '“.' : 'Noch keine Jobs im Trace. Sende einen Auftrag über die Command Bar.'; return; }
+  empty.hidden = true; table.hidden = false;
+  document.getElementById('job-tbody').innerHTML = list.slice(0, 50).map(job => '<tr class="clickable" data-job="' + escapeHtml(job.id) + '"><td class="mono-table">' + escapeHtml(job.id) + '</td><td>' + escapeHtml(job.skill || '—') + '</td><td><span class="status-pill ' + (job.status === 'done' ? 'mint' : job.status === 'failed' || job.status === 'error' ? 'coral' : job.status === 'running' ? 'copper' : 'amber') + '">' + escapeHtml(job.status || 'queued') + '</span></td><td>' + escapeHtml(job.trigger || '—') + '</td><td class="mono-table">' + escapeHtml((job.created_at || '').replace('T', ' ').slice(0, 19)) + '</td></tr>').join('');
+  document.querySelectorAll('#job-tbody tr[data-job]').forEach(row => row.addEventListener('click', () => openJobDrawer(row.dataset.job)));
+}
+function setJobFilter(filter) {
+  jobFilter = filter;
+  document.querySelectorAll('#job-filters .filter-chip').forEach(chip => { const active = chip.dataset.filter === filter; chip.classList.toggle('active', active); chip.setAttribute('aria-pressed', String(active)); });
+  renderJobs();
+}
+async function openJobDrawer(jobId) {
+  try {
+    const data = await getJson('/orca/jobs/' + encodeURIComponent(jobId));
+    const job = data.job || {};
+    let result = '';
+    try { const parsed = JSON.parse(job.result || '{}'); result = parsed.response || JSON.stringify(parsed).slice(0, 240); } catch (e) { result = job.result || ''; }
+    openDrawer('Job trace', job.skill || jobId, job.error ? 'Fehler: ' + job.error : 'Status: ' + (job.status || '—'), [['id', jobId], ['skill', job.skill || '—'], ['status', job.status || '—'], ['trigger', job.trigger || '—'], ['erstellt', (job.created_at || '').replace('T', ' ').slice(0, 19)], ['ergebnis', result || '—']], 'Schließen');
+  } catch (error) { openDrawer('Job trace', jobId, 'Details nicht verfügbar.', [['error', error.message]], 'Schließen'); }
+}
+async function loadProjects() {
+  let projects = [];
+  try { if (token) { const data = await getJson('/projects'); projects = data.projects || []; } } catch (error) { projects = []; }
+  const empty = document.getElementById('project-empty'); const table = document.getElementById('project-table');
+  setText('project-count', projects.length + ' PROJEKTE');
+  if (!projects.length) { empty.hidden = false; table.hidden = true; empty.textContent = token ? 'Keine Projekte im Registry.' : 'Kein Token — Projekte im Preview verborgen. Zugang über „Zugang“ setzen.'; return; }
+  empty.hidden = true; table.hidden = false;
+  document.getElementById('project-tbody').innerHTML = projects.map(project => '<tr><td>' + escapeHtml(project.name || '—') + '</td><td>' + escapeHtml(project.kind || '—') + '</td><td><span class="status-pill ' + (project.status === 'läuft' || project.status === 'aktiv' ? 'mint' : 'amber') + '">' + escapeHtml(project.status || '—') + '</span></td><td>' + escapeHtml(project.note || '') + '</td></tr>').join('');
+}
+async function loadMemory() {
+  let cards = [];
+  try { if (token) { const data = await getJson('/kanban'); cards = data.cards || []; } } catch (error) { cards = []; }
+  setText('kanban-count', cards.length + ' KARTEN');
+  const demo = [
+    { column: 'todo', title: 'YT-Upload aktivieren', note: 'client_secrets.json fehlt' },
+    { column: 'todo', title: 'PWA vom Handy testen', note: 'P3 · Tailscale/LAN' },
+    { column: 'todo', title: 'electron-Shell für Phase 3', note: 'P4' },
+    { column: 'done', title: 'Kokoro-Tempo fixen', note: 'Commit 0244aa9dc' },
+    { column: 'done', title: 'run_money_printer.cmd bauen', note: 'Commit 3bd4fe540' }
+  ];
+  const source = cards.length ? cards : demo;
+  const columns = ['todo', 'done', 'archive'];
+  document.getElementById('kanban-cols').innerHTML = columns.map(column => '<div class="kanban-col"><div class="kanban-col-head">' + column + ' · ' + source.filter(card => card.column === column).length + '</div>' + source.filter(card => card.column === column).slice(0, 6).map(card => '<div class="kanban-card">' + escapeHtml(card.title || card.id) + (card.note ? '<div class="setting-hint">' + escapeHtml(card.note) + '</div>' : '') + '</div>').join('') || '<div class="kanban-card">leer</div>' + '</div>').join('');
+  document.getElementById('memory-notes').innerHTML = '<div class="canvas-edge"><span class="from">INDEX</span><span class="arrow">→</span><span class="to">memory/INDEX.md · Dateien-Index</span></div><div class="canvas-edge"><span class="from">CREDS</span><span class="arrow">→</span><span class="to">memory/credentials.md · Zugang (nie in Logs)</span></div><div class="canvas-edge"><span class="from">ARCH</span><span class="arrow">→</span><span class="to">memory/architecture.md · System + Ports</span></div><div class="canvas-edge"><span class="from">STATUS</span><span class="arrow">→</span><span class="to">memory/status.md · Stand + nächste Tasks</span></div>';
+}
+async function loadArtifacts() {
+  let artifacts = [];
+  try { if (token) { const data = await getJson('/artifacts?limit=50'); artifacts = data.artifacts || []; } } catch (error) { artifacts = []; }
+  const empty = document.getElementById('artifact-empty'); const table = document.getElementById('artifact-table');
+  setText('artifact-count', artifacts.length + ' ARTEFAKTE');
+  if (!artifacts.length) { empty.hidden = false; table.hidden = true; empty.textContent = token ? 'Noch keine Artefakte in der Registry.' : 'Kein Token — Artifact-Registry im Preview verborgen. Zugang über „Zugang“ setzen.'; return; }
+  empty.hidden = true; table.hidden = false;
+  document.getElementById('artifact-tbody').innerHTML = artifacts.map(artifact => '<tr><td><span class="status-pill mint">' + escapeHtml(artifact.type || 'file') + '</span></td><td class="mono-table">' + escapeHtml(artifact.artifactId || '—') + '</td><td class="mono-table">' + escapeHtml((artifact.createdAt || '').slice(0, 10)) + '</td><td class="mono-table">' + escapeHtml((artifact.source || artifact.path || '').split('\\').slice(-2).join('/')) + '</td></tr>').join('');
+}
+async function loadLedger() {
+  let summary = { total_income: 0, by_day: {}, count: 0 }; let entries = [];
+  try { if (token) { summary = await getJson('/ledger/summary'); const data = await getJson('/ledger?limit=30'); entries = data.entries || []; } } catch (error) { summary = { total_income: 0, by_day: {}, count: 0 }; entries = []; }
+  const today = new Date().toISOString().slice(0, 10);
+  setText('ledger-count', summary.count + ' EINTRÄGE');
+  setText('ledger-total', Number(summary.total_income || 0).toFixed(0) + ' €');
+  setText('ledger-day', Number((summary.by_day || {})[today] || 0).toFixed(0) + ' €');
+  setText('ledger-entries', String(entries.length || 0).padStart(2, '0'));
+  const empty = document.getElementById('ledger-empty'); const table = document.getElementById('ledger-table');
+  if (!entries.length) { empty.hidden = false; table.hidden = true; empty.textContent = token ? 'Noch keine Ledger-Einträge.' : 'Kein Token — Ledger im Preview verborgen. Zugang über „Zugang“ setzen.'; return; }
+  empty.hidden = true; table.hidden = false;
+  document.getElementById('ledger-tbody').innerHTML = entries.map(entry => '<tr><td class="mono-table">' + escapeHtml((entry.ts || '').replace('T', ' ').slice(0, 19)) + '</td><td>' + escapeHtml(entry.type || '—') + '</td><td class="mono-table">' + (entry.type === 'income' ? '<span class="status-pill mint">+' + Number(entry.amount || 0).toFixed(2) + ' ' + escapeHtml(entry.currency || '€') + '</span>' : '—') + '</td><td>' + escapeHtml(entry.note || '') + '</td></tr>').join('');
+}
+const demoApprovals = [
+  { title: 'YouTube-Upload freigeben', detail: 'youtube/upload wartet auf client_secrets.json. Erst nach OAuth-Freigabe und deiner Bestätigung wird das Artefakt veröffentlicht.', level: 'L4 · external' },
+  { title: 'TikTok Content API beantragen', detail: 'App-Review 1–6 Wochen. Antrag parallel stellen, dann Upload-Helper testen.', level: 'L4 · external' },
+  { title: 'Money-printer Pipeline starten', detail: 'run_money_printer.cmd ist bereit. Ein Klick startet Script → Voice → Visuals → Edit → Artifact.', level: 'L2 · local' }
+];
+function renderApprovals() {
+  setText('approval-view-count', demoApprovals.length + ' WAITING');
+  document.getElementById('approval-list').innerHTML = demoApprovals.map((item, index) => '<div class="approval-row"><div><div class="approval-title">' + escapeHtml(item.title) + '</div><div class="approval-detail">' + escapeHtml(item.detail) + '<br><span class="status-pill amber">' + escapeHtml(item.level) + '</span></div></div><div class="approval-actions"><button class="copper-button" type="button" data-approve="' + index + '">Freigeben</button><button class="deny-button" type="button" data-deny="' + index + '">Ablehnen</button></div></div>').join('');
+  document.querySelectorAll('[data-approve]').forEach(button => button.addEventListener('click', () => { const row = button.closest('.approval-row'); row.innerHTML = '<div class="approval-title">Freigegeben ✓</div><div class="approval-detail">Aktion wurde als erledigt markiert (lokal).</div>'; }));
+  document.querySelectorAll('[data-deny]').forEach(button => button.addEventListener('click', () => { const row = button.closest('.approval-row'); row.innerHTML = '<div class="approval-title">Abgelehnt</div><div class="approval-detail">Aktion wurde verworfen und bleibt im Inbox-Log.</div>'; }));
+}
+function loadApprovals() { renderApprovals(); }
+const services = [['OmniRoute', '20128', 'core router'], ['UI', '20129', 'dieser Control Room'], ['ComfyUI', '8188', 'V60B1 · DirectML'], ['Kokoro-DE', '8881', 'martin'], ['Voicebox', '17493', 'Qwen 0.6B'], ['Ollama', '11434', 'lokale Modelle'], ['LiveKit', '7880', 'Voice-Sessions']];
+async function loadSettings() {
+  setText('token-state', token ? 'Token gesetzt — Live-Daten aktiv' : 'kein Token gesetzt — Preview-Modus');
+  document.getElementById('settings-token').textContent = token ? 'Entfernen' : 'Eingeben';
+  const states = {};
+  await Promise.all(services.map(async ([name]) => { try { const response = await fetch(API + '/health'); states[name] = response.ok; } catch (e) { states[name] = false; } }));
+  document.getElementById('service-list').innerHTML = services.map(([name, port, role]) => '<div class="service-row"><i class="status-dot ' + (states[name] === false ? 'off' : 'live') + '" aria-hidden="true"></i><span class="service-name">' + escapeHtml(name) + '</span><span class="mono-table">' + escapeHtml(port) + ' · ' + escapeHtml(role) + '</span></div>').join('');
+}
+const viewLoaders = { devices: loadDevices, jobs: loadJobs, projects: loadProjects, memory: loadMemory, artifacts: loadArtifacts, ledger: loadLedger, approvals: loadApprovals, settings: loadSettings };
+function syncPrivacyUI() {
+  const muted = privacyMuted;
+  setText('privacy-hint', muted ? 'Alle Erfassung stummgeschaltet' : 'Erfassung ist freigegeben');
+  const button = document.getElementById('settings-privacy');
+  if (button) { button.textContent = muted ? 'Deaktivieren' : 'Aktivieren'; }
 }
 async function sendCommand() {
   const input = document.getElementById('command-input'); const text = input.value.trim(); if (!text) return;
@@ -512,8 +836,28 @@ document.querySelector('.skip-link').addEventListener('click', event => { event.
 document.getElementById('drawer-close').addEventListener('click', closeDrawer); document.getElementById('drawer-primary').addEventListener('click', closeDrawer); document.getElementById('drawer-secondary').addEventListener('click', closeDrawer); document.getElementById('drawer-backdrop').addEventListener('click', event => { if (event.target.id === 'drawer-backdrop') closeDrawer(); }); document.getElementById('drawer-backdrop').addEventListener('keydown', trapDrawerFocus);
 document.getElementById('command-send').addEventListener('click', sendCommand); document.getElementById('command-input').addEventListener('keydown', event => { if (event.key === 'Enter') sendCommand(); });
 document.getElementById('voice-button').addEventListener('click', () => { const button = document.getElementById('voice-button'); const active = button.classList.toggle('active'); button.setAttribute('aria-pressed', String(active)); button.setAttribute('aria-label', active ? 'Voice command aktiv, Aufnahme stoppen' : 'Voice command'); setText('capture-state', active ? 'Mic session active' : 'Mic + camera standby'); setText('voice-state', active ? 'LISTENING' : 'VOICE READY'); setText('core-state', active ? 'LISTENING' : 'STANDBY'); });
-document.getElementById('mute-button').addEventListener('click', event => { privacyMuted = !privacyMuted; event.currentTarget.textContent = privacyMuted ? '×' : '◉'; event.currentTarget.setAttribute('aria-pressed', String(privacyMuted)); event.currentTarget.setAttribute('aria-label', privacyMuted ? 'Privacy-Mute aktiv, Aufnahme freigeben' : 'Privacy-Mute'); setText('policy-state', privacyMuted ? 'PRIVACY / MUTED' : 'L0 / L1 automatic'); setText('capture-state', privacyMuted ? 'All capture muted' : 'Mic + camera standby'); });
-document.getElementById('token-button').addEventListener('click', () => { const value = window.prompt('UI_ACCESS_TOKEN eingeben. Der Wert bleibt lokal im Browser.'); if (value === null) return; token = value.trim(); if (token) localStorage.setItem('ui_token', token); else localStorage.removeItem('ui_token'); });
+function togglePrivacy() {
+  privacyMuted = !privacyMuted;
+  const muteButton = document.getElementById('mute-button');
+  if (muteButton) { muteButton.textContent = privacyMuted ? '×' : '◉'; muteButton.setAttribute('aria-pressed', String(privacyMuted)); muteButton.setAttribute('aria-label', privacyMuted ? 'Privacy-Mute aktiv, Aufnahme freigeben' : 'Privacy-Mute'); }
+  setText('policy-state', privacyMuted ? 'PRIVACY / MUTED' : 'L0 / L1 automatic');
+  setText('capture-state', privacyMuted ? 'All capture muted' : 'Mic + camera standby');
+  syncPrivacyUI();
+}
+document.getElementById('mute-button').addEventListener('click', togglePrivacy);
+function setAccessToken(value) {
+  token = value.trim();
+  if (token) localStorage.setItem('ui_token', token); else localStorage.removeItem('ui_token');
+  syncDashboard();
+  const activeView = document.querySelector('.nav-item.active')?.dataset.view || 'orchestra';
+  if (activeView !== 'orchestra' && viewLoaders[activeView]) viewLoaders[activeView]();
+  setText('token-state', token ? 'Token gesetzt — Live-Daten aktiv' : 'kein Token gesetzt — Preview-Modus');
+  document.getElementById('settings-token').textContent = token ? 'Entfernen' : 'Eingeben';
+}
+document.getElementById('token-button').addEventListener('click', () => { const value = window.prompt('UI_ACCESS_TOKEN eingeben. Der Wert bleibt lokal im Browser.'); if (value === null) return; setAccessToken(value); });
+document.getElementById('settings-token').addEventListener('click', () => { const value = window.prompt('UI_ACCESS_TOKEN eingeben oder leer lassen zum Entfernen.'); if (value === null) return; setAccessToken(value); });
+document.getElementById('settings-privacy').addEventListener('click', togglePrivacy);
+document.querySelectorAll('#job-filters .filter-chip').forEach(chip => chip.addEventListener('click', () => setJobFilter(chip.dataset.filter)));
 document.getElementById('coach-accept').addEventListener('click', () => { openDrawer('Lean experiment', 'WIP-Limit für den nächsten Lauf', 'Der Coach schlägt ein kleines, messbares Experiment vor. Es wird erst aktiv, wenn du es bestätigst.', [['hypothesis', 'weniger Kontextwechsel'], ['measure', 'completed steps / run'], ['status', 'ready to add']], 'Add to Kanban'); });
 document.getElementById('coach-dismiss').addEventListener('click', () => { setText('coach-copy', 'Verstanden. Der Coach bleibt still, bis neue Laufzeitdaten eine konkrete Beobachtung rechtfertigen.'); });
 document.getElementById('pipeline-button').addEventListener('click', () => openDrawer('Value stream', 'Money-printer-realistic', 'Script → Voice → Visuals → Edit → QA → Publish. Der Array-Pfad erzeugt die B-Roll in einem Lauf.', [['status', 'artifact ready'], ['frames', '12'], ['format', '1080×1920'], ['next', 'publishing gate']], 'Inspect pipeline'));
