@@ -1,7 +1,7 @@
 ---
 title: "Environment Variables Reference"
 version: 3.8.50
-lastUpdated: 2026-08-18
+lastUpdated: 2026-08-23
 ---
 
 # Environment Variables Reference
@@ -592,11 +592,6 @@ Built-in credentials for **localhost development**. For remote deployments, regi
 | `BLACKBOX_WEB_VALIDATED_TOKEN`    | Blackbox Web            | Frontend `tk` token to send as `validated` on `/api/chat`. Required when Blackbox enforces token matching; otherwise OmniRoute falls back to a random UUID. See issue #2252.                                                                    |
 | `VISION_BRIDGE_BASE_URL`          | Vision Bridge guardrail | OpenAI-compatible base URL for non-Anthropic vision-bridge calls. Defaults to the legacy OpenAI URL env or api.openai.com. Point at OmniRoute's `/v1` self-loop or any OpenAI-compat endpoint (Gemini OpenAI-compat, OpenRouter). Issue #2232. When the URL is OmniRoute's own `/v1`, the describe sub-request sends `x-omniroute-admission-bypass: internal` and authenticates with the resolved self-loop credential (`sk_omniroute` sentinel in local mode, or `OMNIROUTE_API_KEY` / `ROUTER_API_KEY` — #1350) so `REQUIRE_API_KEY=true` deployments work. |
 | `VISION_BRIDGE_API_KEY`           | Vision Bridge guardrail | API key for the URL above. Overrides per-provider OpenAI / Google env vars for non-Anthropic vision-bridge calls. Anthropic models keep their dedicated Anthropic key path. Issue #2232.                                                        |
-| `RAYCAST_BEARER_TOKEN`            | Raycast Pro              | Optional manual override for the Raycast access token (normally captured via macOS Auto-Import). No OAuth client_id/secret — reverse-engineered, local/personal use only.                        |
-| `RAYCAST_DEVICE_ID`               | Raycast Pro              | Optional manual override for the Raycast device ID used to sign requests.                                                                                                                        |
-| `RAYCAST_AID`                     | Raycast Pro              | Optional manual override for the Raycast account/app ID; falls back to the device ID when unset.                                                                                                 |
-| `RAYCAST_SIG_SECRET`              | Raycast Pro              | Optional override for the request-signing HMAC secret. Defaults to a community-extracted value in `open-sse/services/raycast.ts`.                                                                |
-
 > [!WARNING]
 >
 > 1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
@@ -1018,8 +1013,6 @@ desktop install.
 | `MODEL_CATALOG_INCLUDE_NAMES`                  | `true`                                 | `src/shared/constants/featureFlagDefinitions.ts`                                   | Include display-friendly `name` fields in `/v1/models` responses. Disable for clients that expect IDs only. |
 | `NANOBANANA_POLL_TIMEOUT_MS`                   | `120000`                               | `open-sse/handlers/imageGeneration.ts`                                             | Max wait for NanoBanana image generation jobs.                                                              |
 | `NANOBANANA_POLL_INTERVAL_MS`                  | `2500`                                 | `open-sse/handlers/imageGeneration.ts`                                             | NanoBanana job polling frequency.                                                                           |
-| `DESIGNER_WEB_POLL_TIMEOUT_MS`                 | `60000`                                | `open-sse/handlers/imageGeneration/providers/designerWeb.ts`                       | Max wait for microsoft-designer-web image generation jobs.                                                  |
-| `DESIGNER_WEB_POLL_INTERVAL_MS`                | `2000`                                 | `open-sse/handlers/imageGeneration/providers/designerWeb.ts`                       | microsoft-designer-web job polling frequency.                                                               |
 | `ADOBE_FIREFLY_SUBMIT_BASE_DELAY_MS`           | `8000`                                 | `open-sse/services/adobeFireflyUpscale.ts`                                         | Base delay for the Adobe Firefly upscale submit-retry exponential backoff.                                  |
 | `AWS_REGION`                                   | _(unset)_                              | `src/lib/providers/validation.ts`, `open-sse/handlers/audioSpeech.ts`              | Region used to construct AWS Bedrock endpoints (Kiro, audio).                                               |
 | `AWS_DEFAULT_REGION`                           | _(unset)_                              | `src/lib/providers/validation.ts`, `open-sse/handlers/audioSpeech.ts`              | Fallback when `AWS_REGION` is not set.                                                                      |

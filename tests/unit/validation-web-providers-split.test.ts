@@ -1,4 +1,4 @@
-// Characterization of the validation.ts web-provider split (god-file decomposition): the 13 web-cookie
+// Characterization of the validation.ts web-provider split (god-file decomposition): the web-cookie
 // validators + the Meta AI request builder moved into co-located leaf modules (validation/metaAi.ts,
 // webProvidersA.ts, webProvidersB.ts). Behavior-preserving move — the locks here are: each module
 // exposes its validators, webProvidersB consumes metaAi, and buildMetaAiValidationBody still emits a
@@ -12,10 +12,9 @@ const B = await import("../../src/lib/providers/validation/webProvidersB.ts");
 const meta = await import("../../src/lib/providers/validation/metaAi.ts");
 const HOST = await import("../../src/lib/providers/validation.ts");
 
-test("webProvidersA exposes its six validators (deepseek/qwen/grok/chatgpt/perplexity/blackbox)", () => {
+test("webProvidersA exposes its validators (deepseek/grok/chatgpt/perplexity/blackbox)", () => {
   for (const name of [
     "validateDeepSeekWebProvider",
-    "validateQwenWebProvider",
     "validateGrokWebProvider",
     "validateChatGptWebProvider",
     "validatePerplexityWebProvider",

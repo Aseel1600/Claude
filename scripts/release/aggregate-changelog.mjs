@@ -20,7 +20,8 @@
 //   allowed). Credit format stays the repo norm: "(#PR — thanks @user)".
 //
 // Usage:
-//   node scripts/release/aggregate-changelog.mjs [--dry-run]
+//   node scripts/release/aggregate-changelog.mjs --version <version> [--dry-run]
+//     --version  exact CHANGELOG release section to update (for example, 3.8.50);
 //     --dry-run  print the would-be CHANGELOG.md to stdout and list fragments;
 //                touch nothing.
 //
@@ -44,6 +45,12 @@ export const SECTIONS = Object.freeze({
 
 const SKIP_FILES = new Set(["README.md", ".gitkeep"]);
 
+function assertTargetVersion(version) {
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error('target version is required (for example, { version: "3.8.50" })');
+  }
+}
+
 /**
  * Validate one fragment's text. Returns null when OK, or a human-readable error.
  * Pure — unit-tested.
@@ -57,6 +64,15 @@ export function validateFragmentText(text) {
     return 'fragment must start with a markdown bullet ("- ")';
   }
   if (/^(<{7}|={7}|>{7})/m.test(body)) return "fragment contains merge-conflict markers";
+  if (/#(?:PRNUM|PENDING)\b|\/pull\/(?:PRNUM|PENDING)(?:[/?#)]|$)/i.test(body)) {
+    return "fragment contains an unresolved PR placeholder";
+  }
+  for (const match of body.matchAll(
+    /\[([^\]\n]+)\]\(https:\/\/github\.com\/diegosouzapw\/OmniRoute\/pull\/(\d+)\/?(?:[?#][^)]*)?\)/g
+  )) {
+    const expected = `#${match[2]}`;
+    if (match[1].trim() !== expected) return `pull link label must be "${expected}"`;
+  }
   return null;
 }
 
@@ -88,27 +104,72 @@ export function collectFragments(root) {
 }
 
 /**
- * Append bullets at the END of a living-section heading's bullet block (before the
- * next "##"/"###" heading). Operates on the FIRST occurrence of the heading — in this
- * repo's CHANGELOG the living cycle section always appears first. Pure — unit-tested.
- * Throws when a needed heading is missing (the release captain adds the heading; the
- * script never invents structure).
+ * Append bullets at the END of a target version's section-heading blocks. Pure — unit-tested.
+ * The version is mandatory because Unreleased and released sections intentionally reuse the
+ * same headings.
  */
-export function insertBullets(changelogText, bulletsBySection) {
+export function insertBullets(changelogText, bulletsBySection, { version } = {}) {
+  assertTargetVersion(version);
+
   let lines = changelogText.split("\n");
+  const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const targetHeading = new RegExp(`^## \\[${escapedVersion}\\](?:\\s|$)`);
+  const targetMatches = lines.flatMap((line, index) => (targetHeading.test(line) ? [index] : []));
+  if (targetMatches.length === 0) {
+    throw new Error(`target version [${version}] not found in CHANGELOG.md`);
+  }
+  if (targetMatches.length > 1) {
+    throw new Error(`target version [${version}] appears ${targetMatches.length} times`);
+  }
+
+  const targetStart = targetMatches[0];
+  let targetEnd = lines.findIndex((line, index) => index > targetStart && /^##\s/.test(line));
+  if (targetEnd === -1) targetEnd = lines.length;
+
+  const insertions = [];
+  const targetBody = `\n${lines
+    .slice(targetStart + 1, targetEnd)
+    .join("\n")
+    .trimEnd()}\n`;
+  const seenFragmentText = new Map();
   for (const [section, heading] of Object.entries(SECTIONS)) {
-    const bullets = (bulletsBySection[section] || []).map((b) => b.text ?? b);
+    const entries = bulletsBySection[section] || [];
+    const bullets = entries.map((entry) => {
+      const text = String(entry.text ?? entry).trimEnd();
+      const file = entry.file || `${section} fragment`;
+      const firstFile = seenFragmentText.get(text);
+      if (firstFile) {
+        throw new Error(`duplicate fragment content in ${firstFile} and ${file}`);
+      }
+      seenFragmentText.set(text, file);
+      if (targetBody.includes(`\n${text}\n`)) {
+        throw new Error(`fragment content is already present in [${version}]: ${file}`);
+      }
+      return text;
+    });
     if (bullets.length === 0) continue;
-    const headIdx = lines.findIndex((l) => l.trim() === heading);
-    if (headIdx === -1) {
+    const headingMatches = lines.flatMap((line, index) =>
+      index > targetStart && index < targetEnd && line.trim() === heading ? [index] : []
+    );
+    if (headingMatches.length === 0) {
       throw new Error(
-        `heading "${heading}" not found in CHANGELOG.md — add it to the living section before aggregating ${section} fragments`
+        `heading "${heading}" not found inside target version [${version}] before aggregating ${section} fragments`
       );
     }
+    if (headingMatches.length > 1) {
+      throw new Error(
+        `heading "${heading}" appears ${headingMatches.length} times inside target version [${version}]`
+      );
+    }
+    insertions.push({ headIdx: headingMatches[0], bullets });
+  }
+
+  // Work from the bottom up so earlier insertions cannot invalidate later section indexes.
+  for (const { headIdx, bullets } of insertions.sort((a, b) => b.headIdx - a.headIdx)) {
     // End of this section's block: last non-empty line before the next heading.
-    let nextHead = lines.length;
-    for (let i = headIdx + 1; i < lines.length; i++) {
-      if (/^##/.test(lines[i])) {
+    let nextHead = targetEnd;
+    for (let i = headIdx + 1; i < targetEnd; i++) {
+      if (/^#{2,3}\s/.test(lines[i])) {
         nextHead = i;
         break;
       }
@@ -125,7 +186,8 @@ export function insertBullets(changelogText, bulletsBySection) {
  * Aggregate fragments into CHANGELOG.md. Returns a summary object. When dryRun is
  * true nothing is written or deleted.
  */
-export function aggregate({ root = ROOT, dryRun = false } = {}) {
+export function aggregate({ root = ROOT, version, dryRun = false } = {}) {
+  assertTargetVersion(version);
   const collected = collectFragments(root);
   if (collected.invalid.length > 0) {
     const detail = collected.invalid.map((i) => `  ✗ ${i.file}: ${i.error}`).join("\n");
@@ -134,7 +196,7 @@ export function aggregate({ root = ROOT, dryRun = false } = {}) {
   const total = collected.features.length + collected.fixes.length + collected.maintenance.length;
   const changelogPath = join(root, "CHANGELOG.md");
   const before = readFileSync(changelogPath, "utf8");
-  const after = total === 0 ? before : insertBullets(before, collected);
+  const after = insertBullets(before, collected, { version });
   if (!dryRun && total > 0) {
     writeFileSync(changelogPath, after);
     for (const section of Object.keys(SECTIONS)) {
@@ -144,24 +206,67 @@ export function aggregate({ root = ROOT, dryRun = false } = {}) {
   return { total, collected, changed: total > 0, after };
 }
 
-function main() {
-  const dryRun = process.argv.includes("--dry-run");
-  const result = aggregate({ dryRun });
+function parseCliArgs(argv) {
+  let version;
+  let dryRun = false;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (arg === "--version") {
+      if (version !== undefined) throw new Error("--version may only be provided once");
+      const value = argv[++i];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--version <version> is required");
+      }
+      version = value;
+      continue;
+    }
+    throw new Error(`unknown argument: ${arg}`);
+  }
+  if (!version) throw new Error("--version <version> is required");
+  return { version, dryRun };
+}
+
+export function main(
+  argv = process.argv.slice(2),
+  { root = ROOT, stdout = process.stdout, stderr = process.stderr } = {}
+) {
+  let args;
+  let result;
+  try {
+    args = parseCliArgs(argv);
+    result = aggregate({ root, ...args });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    stderr.write(`[aggregate-changelog] error: ${message}\n`);
+    return 2;
+  }
+
+  const log = args.dryRun ? stderr : stdout;
+  if (args.dryRun) {
+    stdout.write(result.after);
+    if (!result.after.endsWith("\n")) stdout.write("\n");
+  }
   if (result.total === 0) {
-    console.log("[aggregate-changelog] no fragments to aggregate — nothing to do.");
+    log.write("[aggregate-changelog] no fragments to aggregate — nothing to do.\n");
     return 0;
   }
   for (const section of Object.keys(SECTIONS)) {
     for (const { file } of result.collected[section]) {
-      console.log(`[aggregate-changelog] ${dryRun ? "would aggregate" : "aggregated"} ${file}`);
+      log.write(
+        `[aggregate-changelog] ${args.dryRun ? "would aggregate" : "aggregated"} ${file}\n`
+      );
     }
   }
-  console.log(
-    `[aggregate-changelog] ${result.total} fragment(s) → CHANGELOG.md${dryRun ? " (dry-run, nothing written)" : " (fragments deleted — commit CHANGELOG.md + deletions together)"}`
+  log.write(
+    `[aggregate-changelog] ${result.total} fragment(s) → CHANGELOG.md${args.dryRun ? " (dry-run, nothing written)" : " (fragments deleted — commit CHANGELOG.md + deletions together)"}\n`
   );
   return 0;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  process.exit(main());
+  process.exitCode = main();
 }

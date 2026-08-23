@@ -16,7 +16,7 @@ import type { FreeModelBudget } from "./freeModelCatalog.ts";
  * rewrites file timestamps on every deploy, which would report a months-old
  * catalog as "updated today". Bump this whenever the entries below change.
  */
-export const FREE_CATALOG_CURATED_AT = "2026-08-18";
+export const FREE_CATALOG_CURATED_AT = "2026-08-23";
 
 export const FREE_MODEL_BUDGETS: FreeModelBudget[] = [
   { provider: "chatgpt-web", modelId: "gpt-5.6-luna-free", displayName: "GPT-5.6 Luna (Free)", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-uncapped", poolKey: "chatgpt-web-free", tos: "caution" },
@@ -159,11 +159,6 @@ export const FREE_MODEL_BUDGETS: FreeModelBudget[] = [
   { provider: "duckduckgo-web", modelId: "mistral-small-2603", displayName: "Mistral Small 4", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "duckduckgo-web", tos: "avoid" },
   { provider: "duckduckgo-web", modelId: "tinfoil/gpt-oss-120b", displayName: "gpt-oss 120B", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "duckduckgo-web", tos: "avoid" },
   { provider: "duckduckgo-web", modelId: "tinfoil/gemma4-31b", displayName: "Gemma 4 31B", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "duckduckgo-web", tos: "avoid" },
-  { provider: "felo-web", modelId: "felo-chat", displayName: "Felo Chat", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "felo-web", tos: "avoid" },
-  { provider: "felo-web", modelId: "felo-search", displayName: "Felo Search", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "felo-web", tos: "avoid" },
-  { provider: "felo-web", modelId: "felo-scholar", displayName: "Felo Scholar", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "felo-web", tos: "avoid" },
-  { provider: "felo-web", modelId: "felo-social", displayName: "Felo Social", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "felo-web", tos: "avoid" },
-  { provider: "felo-web", modelId: "felo-document", displayName: "Felo Document", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "felo-web", tos: "avoid" },
   { provider: "fireworks", modelId: "deepseek-v4-flash", displayName: "DeepSeek V4 Flash", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "fireworks", tos: "avoid" },
   { provider: "fireworks", modelId: "deepseek-v4-pro", displayName: "DeepSeek V4 Pro", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "fireworks", tos: "avoid" },
   { provider: "fireworks", modelId: "glm-5p1", displayName: "GLM 5.1", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "fireworks", tos: "avoid" },
@@ -362,10 +357,6 @@ export const FREE_MODEL_BUDGETS: FreeModelBudget[] = [
   { provider: "qoder", modelId: "deepseek-v4-pro", displayName: "DeepSeek-V4-Pro", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "qoder", tos: "caution" },
   { provider: "qoder", modelId: "deepseek-v4-flash", displayName: "DeepSeek-V4-Flash", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "qoder", tos: "caution" },
   { provider: "qoder", modelId: "minimax-m3", displayName: "MiniMax-M3", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "qoder", tos: "caution" },
-  { provider: "qwen-web", modelId: "qwen3.8-max", displayName: "Qwen3.8 Max", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
-  { provider: "qwen-web", modelId: "qwen3.7-max", displayName: "Qwen3.7 Max", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
-  { provider: "qwen-web", modelId: "qwen3.7-plus", displayName: "Qwen3.7 Plus", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
-  { provider: "qwen-web", modelId: "qwen3.6-plus", displayName: "Qwen3.6 Plus", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
   { provider: "reka", modelId: "reka-flash-3", displayName: "Reka Flash 3", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-monthly", poolKey: "reka", tos: "caution" },
   { provider: "reka", modelId: "reka-edge-2603", displayName: "Reka Edge 2603", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-monthly", poolKey: "reka", tos: "caution" },
   { provider: "sambanova", modelId: "MiniMax-M2.7", displayName: "MiniMax-M2.7", monthlyTokens: 6000000, creditTokens: 0, freeType: "recurring-daily", poolKey: "sambanova", tos: "caution" },

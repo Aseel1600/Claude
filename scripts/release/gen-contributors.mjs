@@ -65,7 +65,10 @@ export function parseContributors(sectionText) {
     if (!agg.has(handle)) agg.set(handle, new Set());
     for (const r of refs) agg.get(handle).add(r);
   };
-  const handlesIn = (s) => [...s.matchAll(/@([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+  // A slash is a contributor separator only when another @handle follows it. This prevents
+  // GitHub App identities such as `@app/dependabot` from being truncated and credited as `@app`.
+  const handlesIn = (s) =>
+    [...s.matchAll(/@([A-Za-z0-9_-]+)(?=$|[\s,;:.)\]}>]|\/\s*@)/g)].map((m) => m[1]);
   const refsIn = (s) => [...s.matchAll(/#(\d+)/g)].map((m) => Number(m[1]));
 
   for (const raw of sectionText.split("\n")) {
@@ -98,7 +101,9 @@ export function parseContributors(sectionText) {
     }
 
     // (3) "Extracted from #N by @X" (links already collapsed by the preprocessing above)
-    for (const em of line.matchAll(/[Ee]xtracted from #(\d+)\s+by\s+@([A-Za-z0-9_-]+)/g)) {
+    for (const em of line.matchAll(
+      /[Ee]xtracted from #(\d+)\s+by\s+@([A-Za-z0-9_-]+)(?![A-Za-z0-9_/-])/g
+    )) {
       add(em[2], [Number(em[1])]);
     }
   }

@@ -2343,8 +2343,9 @@ async function imageUrlToCachedImageUrl(
 async function registerWebSocket(ctx: ResolverContext): Promise<string | null> {
   // chatgpt.com migrated from POST /backend-api/register-websocket to a
   // GET-only endpoint under /backend-api/celsius/ws/user. The response shape
-  // also changed from `{ wss_url }` → `{ websocket_url }`. Newer codebases
-  // (g4f, etc.) all hit the celsius path; the legacy path now 404s.
+  // also changed from `{ wss_url }` → `{ websocket_url }`. The live browser
+  // flow captured for this integration uses the celsius path; the legacy path
+  // now returns 404.
   // Keep the legacy path as a fallback for older deployments.
   const candidates = [
     { url: `${CHATGPT_BASE}/backend-api/celsius/ws/user`, method: "GET" as const },

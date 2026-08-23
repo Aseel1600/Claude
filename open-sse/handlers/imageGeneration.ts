@@ -50,10 +50,8 @@ import {
   extractMarkdownImageUrls,
   CHATGPT_WEB_IMAGE_ID_RE,
 } from "./imageGeneration/providers/chatgptWeb.ts";
-import { handleGeminiWebImageGeneration } from "./imageGeneration/providers/geminiWeb.ts";
 import { handleNvidiaNimImageGeneration } from "./imageGeneration/providers/nvidiaNim.ts";
 import { handleSegmindImageGeneration } from "./imageGeneration/providers/segmind.ts";
-import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/designerWeb.ts";
 import { handleCursorAgentImageGeneration } from "./imageGeneration/providers/cursorAgentImage.ts";
 import { handleMinimaxImageGeneration } from "./imageGeneration/providers/minimax.ts";
 import { handleAdobeFireflyImageGeneration } from "./imageGeneration/providers/adobeFirefly.ts";
@@ -521,19 +519,6 @@ export async function handleImageGeneration({
     });
   }
 
-  // #10466: Gemini Web session image generation (Nano Banana)
-  if (providerConfig.format === "gemini-web") {
-    return handleGeminiWebImageGeneration({
-      model,
-      provider,
-      body,
-      credentials,
-      log,
-      signal,
-      clientHeaders,
-    });
-  }
-
   if (providerConfig.format === "cursor-agent-image") {
     return handleCursorAgentImageGeneration({
       model,
@@ -543,17 +528,6 @@ export async function handleImageGeneration({
       credentials,
       log,
       peerLocality,
-    });
-  }
-
-  if (providerConfig.format === "designer-web") {
-    return handleDesignerWebImageGeneration({
-      model,
-      provider,
-      providerConfig,
-      body,
-      credentials,
-      log,
     });
   }
 

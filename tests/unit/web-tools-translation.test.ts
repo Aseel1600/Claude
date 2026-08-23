@@ -11,7 +11,7 @@ import {
 // Regression coverage for the shared web-cookie tool-call translation helpers
 // (#3259). These functions back tool-calling for the 8 pure-API web executors
 // (adapta-web, blackbox-web, duckduckgo-web, inner-ai, muse-spark-web,
-// perplexity-web, qwen-web, t3-chat-web), so the translation contract must hold.
+// perplexity-web and t3-chat-web), so the translation contract must hold.
 //
 // #9343 — bare-JSON tools are disabled; only explicit <tool> or <tool_call>
 // envelopes with nonce binding are accepted.

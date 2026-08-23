@@ -1,19 +1,17 @@
 /**
  * Guards the executor override signatures fixed for TS 7 readiness.
  *
- * Three executors declared a *private/protected* `buildHeaders()` helper whose signature
+ * One executor declared a *private/protected* `buildHeaders()` helper whose signature
  * has nothing to do with `BaseExecutor.buildHeaders(credentials, stream?, clientHeaders?,
  * model?, health?)`:
  *
- *   hailuo-web  (token: string, yy: string)
  *   lmarena     (_model: string, credentials: unknown, _body: unknown)
- *   qwen-web    (token: string, cookieHeader: string, chatId?: string)
  *
- * They were name collisions, not overrides — each shadowed the inherited member with an
+ * It was a name collision, not an override — it shadowed the inherited member with an
  * incompatible signature (TS2416). `BaseExecutor` calls `this.buildHeaders(credentials,
  * false)` from `countTokens()`, so the shadow sat on a live dispatch path; it was never
  * reached only because `buildCountTokensUrl()` returns null unless `config.format` is
- * `"claude"`, and none of these three is. Latent rather than live — but one `format`
+ * `"claude"`, and this executor is not. Latent rather than live — but one `format`
  * change away from passing a credentials object where a token string was expected.
  *
  * The helpers are renamed, so these assertions pin both halves: the inherited method is
@@ -23,14 +21,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { BaseExecutor } from "../../open-sse/executors/base.ts";
-import { HailuoWebExecutor } from "../../open-sse/executors/hailuo-web.ts";
 import { LMArenaExecutor } from "../../open-sse/executors/lmarena.ts";
-import { QwenWebExecutor } from "../../open-sse/executors/qwen-web.ts";
 
 const CASES = [
-  { name: "hailuo-web", make: () => new HailuoWebExecutor(), helper: "buildStreamHeaders" },
   { name: "lmarena", make: () => new LMArenaExecutor(), helper: "buildRequestHeaders" },
-  { name: "qwen-web", make: () => new QwenWebExecutor(), helper: "buildApiHeaders" },
 ];
 
 for (const { name, make, helper } of CASES) {

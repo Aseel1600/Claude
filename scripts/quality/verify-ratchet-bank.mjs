@@ -63,7 +63,7 @@ export function verifyFrozenMap(before = {}, after = {}, label = "frozen") {
     if (typeof prev !== "number") {
       // note key
       if (!has) problems.push(`${label}: note "${key}" was deleted — notes must be preserved`);
-      else if (after[key] !== prev)
+      else if (!jsonEqual(after[key], prev))
         problems.push(`${label}: note "${key}" was rewritten — notes must be preserved verbatim`);
       continue;
     }

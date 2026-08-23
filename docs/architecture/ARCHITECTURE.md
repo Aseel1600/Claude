@@ -17,7 +17,7 @@ It provides a single OpenAI-compatible endpoint (`/v1/*`) and routes traffic acr
 
 Core capabilities:
 
-- OpenAI-compatible API surface for CLI/tools (349 providers, 107 executors)
+- OpenAI-compatible API surface for CLI/tools (349 providers, 102 executors)
 - Request/response translation across provider formats
 - Model combo fallback (multi-model sequence)
 - Structured combo steps (`provider + model + connection`) with runtime ordering by `compositeTiers`
@@ -980,7 +980,7 @@ All other providers (including custom compatible nodes) use the `DefaultExecutor
 | KIE               | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Devin Desktop     | openai           | Imported API key      | ✅ (Connect→SSE) | ✅         | ❌            | ⚠️ Per request     |
 | GitLab Duo        | openai           | OAuth (GitLab)        | ✅               | ✅         | ✅            | ❌                 |
-| Devin CLI | openai | Local CLI login | ✅ | ✅ | ❌ | ✅ Task API |
+| Devin CLI         | openai           | Local CLI login       | ✅               | ✅         | ❌            | ✅ Task API        |
 | Codex Cloud       | openai-responses | OAuth                 | ✅               | ❌         | ✅            | ✅ Rate limits     |
 | Jules             | openai           | OAuth                 | ✅               | ✅         | ✅            | ✅ Task API        |
 | AgentRouter       | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |

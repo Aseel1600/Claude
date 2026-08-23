@@ -1,10 +1,9 @@
 /**
  * AWS Polly TTS handler.
  *
- * Extracted out of `open-sse/handlers/audioSpeech.ts` (frozen at its
- * file-size ratchet baseline — config/quality/file-size-baseline.json) to
- * make room for the new EdgeTTS WebSocket branch (#6668). Pure provider
- * adapter, no behavior change vs. the original inline implementation.
+ * Extracted out of `open-sse/handlers/audioSpeech.ts` to keep this provider
+ * adapter isolated and the handler within its file-size ratchet baseline.
+ * No behavior changed from the original inline implementation.
  *
  * POST /v1/speech signed with AWS SigV4. The configured apiKey stores AWS
  * Secret Access Key; providerSpecificData.accessKeyId stores AWS Access Key

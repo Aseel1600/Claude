@@ -93,6 +93,25 @@ test("returns 400 when combo has no speech-capable targets", async () => {
   assert.ok(!bodyStr.includes("at "), "Error response does not leak stack traces");
 });
 
+test("returns 400 when a combo only references the removed EdgeTTS provider", async () => {
+  await createCombo({
+    name: "removed-edgetts-combo",
+    strategy: "priority",
+    models: ["edgetts/en-US-AriaNeural"],
+  });
+
+  const response = await executeSpeechCombo(
+    "removed-edgetts-combo",
+    { model: "removed-edgetts-combo", input: "" },
+    createMockAuth(),
+    Date.now()
+  );
+  assert.equal(response.status, 400);
+  const bodyStr = JSON.stringify(await response.json());
+  assert.ok(bodyStr.includes("No speech-capable targets"));
+  assert.ok(!bodyStr.includes("at "), "Error response does not leak stack traces");
+});
+
 test("returns 400 when combo has no usable targets", async () => {
   await createCombo({ name: "empty-combo", strategy: "priority", models: [] });
 

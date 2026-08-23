@@ -840,10 +840,8 @@ async function maybeSyntheticNoAuthFallback(
   allowedConnections: string[] | null = null
 ) {
   if (!providerCanUseSyntheticNoAuthFallback(providerId)) return null;
-  // #9057: a key pinned to specific connections via allowedConnections must
-  // NOT receive the synthetic "noauth" connection — the synthetic id is
-  // never in an explicit allowlist, so returning it would let a restricted
-  // key reach free providers (felo-chat, etc.) that it should not access.
+  // #9057: a key pinned by allowedConnections must not receive synthetic no-auth;
+  // its synthetic id can never match an explicit allowlist.
   if (Array.isArray(allowedConnections) && allowedConnections.length > 0) return null;
   if (excludedConnectionIds.has(SYNTHETIC_NOAUTH_CONNECTION_ID)) return null;
   if (
@@ -1710,7 +1708,8 @@ export async function getProviderCredentials(
       if (terminalConnections.length === connections.length) {
         return buildAllExpiredCredentials(terminalConnections);
       }
-      invalidateManagedLease(options, "CONNECTION_INELIGIBLE");      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+      invalidateManagedLease(options, "CONNECTION_INELIGIBLE");
+      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
       return null;
     }
 

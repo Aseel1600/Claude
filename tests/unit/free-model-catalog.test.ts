@@ -85,8 +85,6 @@ test("2026-06-17 refresh: discontinued providers dropped, new free providers add
   for (const dead of ["chutes", "phind", "kluster", "gitlawb", "aimlapi", "theoldllm"]) {
     assert.ok(!providers.has(dead), `${dead} should be removed (discontinued)`);
   }
-  // qwen-web is kept because it uses its own cookie/web path.
-  assert.ok(providers.has("qwen-web"), "qwen-web must stay (cookie path still free)");
   // discovered in the refresh — must be present
   for (const fresh of ["kilo-gateway", "opencode-zen", "glm-cn"]) {
     assert.ok(providers.has(fresh), `${fresh} should be added`);

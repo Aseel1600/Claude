@@ -29,7 +29,6 @@ import {
 import { toValidationErrorResult } from "./validation/transport";
 import {
   validateDeepSeekWebProvider,
-  validateQwenWebProvider,
   validateGrokWebProvider,
   validateChatGptWebProvider,
   validatePerplexityWebProvider,
@@ -165,7 +164,11 @@ export async function validateFreebuffProvider({ apiKey }: { apiKey: string }) {
       return { valid: false, error: "Invalid or expired Freebuff Auth Token", unsupported: false };
     }
     const errText = await res.text().catch(() => "");
-    return { valid: false, error: `Freebuff validation returned ${res.status}: ${errText.slice(0, 100)}`, unsupported: false };
+    return {
+      valid: false,
+      error: `Freebuff validation returned ${res.status}: ${errText.slice(0, 100)}`,
+      unsupported: false,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { valid: false, error: `Freebuff validation network error: ${msg}`, unsupported: false };
@@ -303,7 +306,6 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     "deepseek-web": validateDeepSeekWebProvider,
     "zai-web": validateZaiWebProvider,
     "grok-web": validateGrokWebProvider,
-    "qwen-web": validateQwenWebProvider,
     "kimi-web": validateKimiWebProvider,
     "chatgpt-web": validateChatGptWebProvider,
     "chatgpt-web-codex": validateChatGptWebCodexProvider,

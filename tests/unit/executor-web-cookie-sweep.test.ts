@@ -17,8 +17,8 @@
  * The duckduckgo-web executor was the first known case. To prevent any
  * future executor from regressing on the same contract, this sweep test
  * imports every executor in `WEB_COOKIE_PROVIDERS` + `NOAUTH_PROVIDERS`
- * (26 web-cookie + 2 noauth = 28 total), calls `execute()` with a minimal
- * but valid input, and asserts the wrapper shape. Tests use the
+ * at runtime, calls `execute()` with a minimal but valid input, and asserts the
+ * wrapper shape. Tests use the
  * pre-aborted signal path or empty-creds path so no real upstream call
  * is needed.
  *
@@ -62,7 +62,6 @@ const FAKE_CREDS: Record<string, string> = {
   "v0-vercel-web": "fake-audit-sweep",
   "kimi-web": "fake-audit-sweep",
   "doubao-web": "sessionid=fake-audit-sweep; ttwid=fake-audit-sweep; s_v_web_id=verify_fake",
-  "qwen-web": "fake-audit-sweep",
   "duckduckgo-web": "",
   "veoaifree-web": "",
 };

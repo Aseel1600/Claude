@@ -61,6 +61,15 @@ test("rewriting a note is rejected — the notes are the audit trail", () => {
   assert.match(r.problems[0], /rewritten/);
 });
 
+test("an unchanged structured rebaseline note is compared by value", () => {
+  const before = { _rebaseline_x: { reason: "why", previous: 10, current: 9 } };
+  const after = JSON.parse(JSON.stringify(before));
+  const r = verifyFrozenMap(before, after);
+  assert.deepEqual(r.problems, []);
+  assert.deepEqual(r.removed, []);
+  assert.deepEqual(r.lowered, []);
+});
+
 // --- file-size baseline as a whole ---
 
 const fsBefore = () => ({

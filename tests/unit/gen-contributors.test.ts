@@ -22,6 +22,7 @@ const FIXTURE = `# Changelog
 
 - **feat(a):** thing one. ([#100](https://github.com/x/y/pull/100) — thanks @alice)
 - **feat(b):** uses \`@toon-format/toon\` and \`@dnd-kit\`. ([#101](https://github.com/x/y/pull/101) — thanks @bob)
+- **deps:** bot-authored update. ([#103](https://github.com/x/y/pull/103) — thanks @app/dependabot)
 
 ### 🔧 Bug Fixes
 
@@ -70,8 +71,15 @@ test("noise handles and the maintainer are excluded from the contributor map", (
   const agg = parseContributors(extractVersionSection(FIXTURE, "3.9.0"));
   assert.ok(!agg.has("toon-format"), "package scope is not a contributor");
   assert.ok(!agg.has("dnd-kit"), "package scope is not a contributor");
+  assert.ok(!agg.has("app"), "the @app/dependabot GitHub App prefix is not a contributor");
   assert.ok(!agg.has("diegosouzapw"), "maintainer is rendered separately, not in the map");
   assert.ok(NOISE_HANDLES.has("toon-format"));
+});
+
+test("GitHub App identities are not truncated in extracted-from credits", () => {
+  const agg = parseContributors("- **deps:** extracted. Extracted from #104 by @app/dependabot.");
+  assert.ok(!agg.has("app"));
+  assert.equal(agg.size, 0);
 });
 
 test("renderContributors emits an alphabetical table with maintainer last", () => {

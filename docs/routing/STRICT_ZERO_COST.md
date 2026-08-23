@@ -1,7 +1,7 @@
 ---
 title: "STRICT_ZERO_COST"
 version: 3.8.50
-lastUpdated: 2026-08-20
+lastUpdated: 2026-08-23
 ---
 
 # STRICT_ZERO_COST
@@ -116,24 +116,25 @@ no waiting out the TTL after a 402/403/quota-exhausted response.
 `freeAccessPolicy`: a candidate can be economically `SAFE` and still excluded here for
 contractual reasons, or left in when this guard is off even with `freeAccessPolicy: "strict"` on.
 
-## What passes today
+## Current catalog eligibility
 
 Run `npx tsx scripts/ad-hoc/dry-run-strict-zero-cost.ts` against a live instance's
-`GET /v1/auto-combo/{channel}/candidates` output for a real before/after — the script now reads
-each candidate's real `connectionId`, so it also proves the connection-safety fix live, not just
-in unit tests. As of 2026-08-20, only `freeType: "keyless"` candidates pass in practice (7 of 29
-live candidates on this instance: `opencode/big-pickle`, `opencode/deepseek-v4-flash-free`, and
-5 `felo-web` models — all confirmed arriving with the genuine no-auth `connectionId`, never a
-real connection) — no currently-catalogued `recurring-*` provider both has a usage adapter
-registered in `USAGE_FETCHER_PROVIDERS` **and** `hardStopGuaranteed: true` declared (e.g. `groq`
-has neither the adapter registered here nor is fetched offline in this dry run; `kiro` lacks
-`hardStopGuaranteed`). This is not a bug: it's the honest state of two independently-curated
-metadata sets that happen not to overlap yet, not a limitation of the filter itself.
+`GET /v1/auto-combo/{channel}/candidates` output for a real before/after. The script reads each
+candidate's actual `connectionId`, so it verifies connection safety rather than inferring it
+from the static catalog.
 
-With `excludeTosAvoid: true` added on top of the same live pool, the count drops from 7 to 0 —
-every one of the 7 surviving candidates is curated `tos: "avoid"` today (`felo-web`, `opencode`).
-This is a real, expected trade-off of turning the ToS guard on, not a bug: the guard is
-`false` by default for exactly this reason (see "ToS guard" above).
+The v3.8.50 catalog snapshot on 2026-08-23 contains **19 `keyless` model entries** whose provider
+also has a no-auth catalog path: `aihorde` (3), `duckduckgo-web` (6), `opencode` (7), and
+`uncloseai` (3). This is a static eligibility ceiling, **not** a claim that all 19 will appear or
+pass on a particular installation: health, model discovery, candidate construction, and the
+synthetic no-auth `connectionId` are still checked at runtime. No current quota-based entry can
+bypass the independent usage-adapter, hard-stop, freshness, and remaining-allowance checks
+described above.
+
+With `excludeTosAvoid: true`, the static no-auth/keyless ceiling becomes **6 entries**: the three
+`aihorde` models (`tos: "ok"`) and three `uncloseai` models (`tos: "caution"`). The 13
+`duckduckgo-web`/`opencode` entries are curated `tos: "avoid"`. The guard remains `false` by
+default because economic safety and contractual policy are intentionally independent.
 
 ## Enabling
 

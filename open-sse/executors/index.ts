@@ -46,11 +46,9 @@ import { DeepSeekWebWithAutoRefreshExecutor } from "./deepseek-web-with-auto-ref
 import { AdaptaWebExecutor } from "./adapta-web.ts";
 import { CopilotWebExecutor } from "./copilot-web.ts";
 import { CopilotM365WebExecutor } from "./copilot-m365-web.ts";
-import { MicrosoftDesignerWebExecutor } from "./microsoft-designer-web.ts";
 import { AdobeFireflyExecutor } from "./adobe-firefly.ts";
 import { VeoAIFreeWebExecutor } from "./veoaifree-web.ts";
 import { DuckDuckGoWebExecutor } from "./duckduckgo-web.ts";
-import { FeloWebExecutor } from "./felo-web.ts";
 import { T3ChatWebExecutor } from "./t3-chat-web.ts";
 import { ClaudeWebExecutor } from "./claude-web.ts";
 import { InnerAiExecutor } from "./inner-ai.ts";
@@ -63,9 +61,6 @@ import { V0VercelWebExecutor } from "./v0-vercel-web.ts";
 import { CheaperInferenceExecutor } from "./cheaperinference.ts";
 import { KimiWebExecutor } from "./kimi-web.ts";
 import { DoubaoWebExecutor } from "./doubao-web.ts";
-import { QwenWebExecutor } from "./qwen-web.ts";
-import { RaycastExecutor } from "./raycast.ts";
-import { HailuoWebExecutor } from "./hailuo-web.ts";
 import { ZaiWebExecutor } from "./zai-web.ts";
 import { KimiExecutor } from "./kimi.ts";
 import { MoonshotExecutor } from "./moonshot.ts";
@@ -162,16 +157,12 @@ const executors = {
   "copilot-web": new CopilotWebExecutor(),
   "copilot-m365-web": new CopilotM365WebExecutor(),
   copilot: new CopilotWebExecutor(), // Alias
-  "microsoft-designer-web": new MicrosoftDesignerWebExecutor(),
-  msdesigner: new MicrosoftDesignerWebExecutor(), // Alias
   "adobe-firefly": new AdobeFireflyExecutor(),
   firefly: new AdobeFireflyExecutor(), // Alias
   "veoaifree-web": new VeoAIFreeWebExecutor(),
   "veo-free": new VeoAIFreeWebExecutor(), // Alias
   "duckduckgo-web": new DuckDuckGoWebExecutor(),
   ddgw: new DuckDuckGoWebExecutor(), // Alias
-  "felo-web": new FeloWebExecutor(),
-  felo: new FeloWebExecutor(), // Alias
   "t3-web": new T3ChatWebExecutor(),
   t3chat: new T3ChatWebExecutor(), // Alias
   "inner-ai": new InnerAiExecutor(),
@@ -203,10 +194,6 @@ const executors = {
   cinf: new CheaperInferenceExecutor("cheaperinference"), // Alias
   "doubao-web": new DoubaoWebExecutor(),
   db: new DoubaoWebExecutor(), // Alias
-  "qwen-web": new QwenWebExecutor(),
-  raycast: new RaycastExecutor(),
-  rc: new RaycastExecutor(), // Alias
-  "hailuo-web": new HailuoWebExecutor(),
   "zai-web": new ZaiWebExecutor(),
   zw: new ZaiWebExecutor(), // Alias
   theoldllm: new TheOldLlmExecutor(),
@@ -231,7 +218,6 @@ const executors = {
   xai: new XaiExecutor(),
   "xai-oauth": new XaiExecutor("xai-oauth"),
   xao: new XaiExecutor("xai-oauth"),
-  qw: new QwenWebExecutor(), // Alias
   "conol-web": new ConolWebExecutor(),
   cnl: new ConolWebExecutor(), // Alias
 };
@@ -331,11 +317,9 @@ export { DevinCliAgenticExecutor } from "./devin-cli-agentic.ts";
 export { AuggieExecutor } from "./auggie.ts";
 export { CopilotWebExecutor } from "./copilot-web.ts";
 export { CopilotM365WebExecutor } from "./copilot-m365-web.ts";
-export { MicrosoftDesignerWebExecutor } from "./microsoft-designer-web.ts";
 export { AdobeFireflyExecutor } from "./adobe-firefly.ts";
 export { VeoAIFreeWebExecutor } from "./veoaifree-web.ts";
 export { DuckDuckGoWebExecutor } from "./duckduckgo-web.ts";
-export { FeloWebExecutor } from "./felo-web.ts";
 export { ClaudeWebExecutor } from "./claude-web.ts";
 export { DeepSeekWebExecutor } from "./deepseek-web.ts";
 export { DeepSeekWebWithAutoRefreshExecutor } from "./deepseek-web-with-auto-refresh.ts";
@@ -343,8 +327,6 @@ export { AdaptaWebExecutor } from "./adapta-web.ts";
 export { YuanbaoWebExecutor } from "./yuanbao-web.ts";
 export { T3ChatWebExecutor } from "./t3-chat-web.ts";
 export { InnerAiExecutor } from "./inner-ai.ts";
-export { QwenWebExecutor } from "./qwen-web.ts";
-export { HailuoWebExecutor } from "./hailuo-web.ts";
 export { TheOldLlmExecutor } from "./theoldllm.ts";
 export { ChipotleExecutor } from "./chipotle.ts";
 export { LMArenaExecutor } from "./lmarena.ts";
