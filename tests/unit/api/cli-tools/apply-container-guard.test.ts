@@ -14,19 +14,8 @@ import path from "node:path";
  * off for the whole suite would hide a regression in the guard itself.
  */
 
-// These temp dirs must NOT sit under a bind mount, because the apply route
-// classifies a config target as container-ephemeral by walking /proc/mounts
-// (hasBindMountAt): any ancestor mount point makes the write look persistent.
-// On most hosts os.tmpdir() (/tmp) is not its own mount, so a temp dir there
-// correctly classifies as ephemeral. Some environments mount os.tmpdir() itself
-// (e.g. a sandbox where TMPDIR=/mnt/.../tmp is a distinct filesystem), which
-// would make every temp dir look bind-mounted and flip the container-guard
-// tests from the expected 422 to a 200. Root the temp dirs under the repo
-// working directory (verified not to be a mount boundary) so the suite is
-// hermetic on both CI and such sandboxes.
-const TMP_BASE = fs.mkdtempSync(path.join(process.cwd(), ".tmp-apply-guard-"));
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(TMP_BASE, "omniroute-apply-guard-data-"));
-const TEST_XDG_DIR = fs.mkdtempSync(path.join(TMP_BASE, "omniroute-apply-guard-xdg-"));
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-apply-guard-data-"));
+const TEST_XDG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-apply-guard-xdg-"));
 const originalDataDir = process.env.DATA_DIR;
 const originalXdg = process.env.XDG_CONFIG_HOME;
 // Fresh DB without a configured password → management auth is open, so these
@@ -102,7 +91,6 @@ describe("POST /api/cli-tools/apply — container guard", () => {
     core.resetDbInstance();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     fs.rmSync(TEST_XDG_DIR, { recursive: true, force: true });
-    fs.rmSync(TMP_BASE, { recursive: true, force: true });
     if (originalDataDir === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = originalDataDir;
     if (originalXdg === undefined) delete process.env.XDG_CONFIG_HOME;
