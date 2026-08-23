@@ -56,6 +56,8 @@ export async function POST(request) {
       customUserAgent,
       baseUrl: bodyBaseUrl,
       region,
+      accessKeyId,
+      sessionToken,
       cx,
     } = validation.data;
 
@@ -68,6 +70,12 @@ export async function POST(request) {
     }
     if (region) {
       providerSpecificData.region = region;
+    }
+    if (accessKeyId) {
+      providerSpecificData.accessKeyId = accessKeyId;
+    }
+    if (sessionToken) {
+      providerSpecificData.sessionToken = sessionToken;
     }
     if (cx) {
       providerSpecificData.cx = cx;

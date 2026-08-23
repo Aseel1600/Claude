@@ -93,6 +93,7 @@ export default function AddApiKeyModal({
   const localProviderMetadata = getLocalProviderMetadata(provider);
   const isLocalSelfHostedProvider = !!localProviderMetadata;
   const isGooglePse = provider === "google-pse-search";
+  const isAwsPolly = provider === "aws-polly";
   const webSessionCredential = getWebSessionCredentialRequirement(provider);
   const isNoAuthWebSessionCredential = webSessionCredential?.kind === "none";
   const isWebSessionCredential = !!webSessionCredential && webSessionCredential.kind !== "none";
@@ -115,6 +116,8 @@ export default function AddApiKeyModal({
     baseUrl: initialBaseUrl || defaultBaseUrl,
     cx: "",
     region: showsRegion ? defaultRegion : "",
+    awsAccessKeyId: "",
+    awsSessionToken: "",
     apiRegion: "international",
     validationModelId: defaultValidationModelIdForProvider(provider), // #5446 item 4 — Modal probe model pre-fill
     routingTags: "",
@@ -166,13 +169,15 @@ export default function AddApiKeyModal({
   const [bulkWarnings, setBulkWarnings] = useState<string[]>([]);
   const apiCredentialLabel = isModal
     ? providerText(t, "modalTokenIdLabel", "Token ID")
-    : isQoder
-      ? t("personalAccessTokenLabel")
-      : webSessionCredential
-        ? getWebSessionCredentialLabel(t, webSessionCredential, apiKeyOptional)
-        : apiKeyOptional
-          ? `${t("apiKeyLabel")} (${t("optional").toLowerCase()})`
-          : t("apiKeyLabel");
+    : isAwsPolly
+      ? providerText(t, "awsPollySecretAccessKeyLabel", "AWS Secret Access Key")
+      : isQoder
+        ? t("personalAccessTokenLabel")
+        : webSessionCredential
+          ? getWebSessionCredentialLabel(t, webSessionCredential, apiKeyOptional)
+          : apiKeyOptional
+            ? `${t("apiKeyLabel")} (${t("optional").toLowerCase()})`
+            : t("apiKeyLabel");
   const apiCredentialPlaceholder = isModal
     ? "ak-xxxxxxxxxxxxxxxx"
     : isVertex
@@ -231,7 +236,13 @@ export default function AddApiKeyModal({
           validationModelId: formData.validationModelId || undefined,
           customUserAgent: formData.customUserAgent.trim() || undefined,
           baseUrl: formData.baseUrl.trim() || undefined,
-          region: showsRegion ? formData.region.trim() || defaultRegion : undefined,
+          region: isAwsPolly
+            ? formData.region.trim() || "us-east-1"
+            : showsRegion
+              ? formData.region.trim() || defaultRegion
+              : undefined,
+          accessKeyId: isAwsPolly ? formData.awsAccessKeyId.trim() || undefined : undefined,
+          sessionToken: isAwsPolly ? formData.awsSessionToken.trim() || undefined : undefined,
           cx: formData.cx.trim() || undefined,
         }),
       });
@@ -262,7 +273,12 @@ export default function AddApiKeyModal({
 
   const handleSubmit = async () => {
     const credentialInput = resolveCredentialInput();
-    if (!provider || (!isCompatible && !apiKeyOptional && !credentialInput)) return;
+    if (
+      !provider ||
+      (!isCompatible && !apiKeyOptional && !credentialInput) ||
+      (isAwsPolly && !formData.awsAccessKeyId.trim())
+    )
+      return;
 
     setSaving(true);
     setSaveError(null);
@@ -298,7 +314,13 @@ export default function AddApiKeyModal({
               validationModelId: formData.validationModelId || undefined,
               customUserAgent: formData.customUserAgent.trim() || undefined,
               baseUrl: formData.baseUrl.trim() || undefined,
-              region: showsRegion ? formData.region.trim() || defaultRegion : undefined,
+              region: isAwsPolly
+                ? formData.region.trim() || "us-east-1"
+                : showsRegion
+                  ? formData.region.trim() || defaultRegion
+                  : undefined,
+              accessKeyId: isAwsPolly ? formData.awsAccessKeyId.trim() || undefined : undefined,
+              sessionToken: isAwsPolly ? formData.awsSessionToken.trim() || undefined : undefined,
               cx: formData.cx.trim() || undefined,
             }),
           });
@@ -721,6 +743,7 @@ export default function AddApiKeyModal({
                     onClick={handleValidate}
                     disabled={
                       (!isCompatible && !apiKeyOptional && !formData.apiKey) ||
+                      (isAwsPolly && !formData.awsAccessKeyId.trim()) ||
                       (isGooglePse && !formData.cx.trim()) ||
                       validating ||
                       saving
@@ -752,6 +775,56 @@ export default function AddApiKeyModal({
                 spellCheck={false}
                 autoCapitalize="off"
               />
+            )}
+            {isAwsPolly && (
+              <>
+                <Input
+                  label={providerText(t, "awsPollyAccessKeyIdLabel", "AWS Access Key ID")}
+                  value={formData.awsAccessKeyId}
+                  onChange={(e) => setFormData({ ...formData, awsAccessKeyId: e.target.value })}
+                  placeholder="AKIA..."
+                  hint={providerText(
+                    t,
+                    "awsPollyAccessKeyIdHint",
+                    "Used with the secret access key to sign Amazon Polly requests."
+                  )}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                />
+                <Input
+                  label={providerText(t, "awsPollyRegionLabel", "AWS Region")}
+                  value={formData.region}
+                  onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                  placeholder="us-east-1"
+                  hint={providerText(
+                    t,
+                    "awsPollyRegionHint",
+                    "Defaults to us-east-1 when left blank."
+                  )}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                />
+                <Input
+                  label={providerText(
+                    t,
+                    "awsPollySessionTokenLabel",
+                    "AWS Session Token (optional)"
+                  )}
+                  type="password"
+                  value={formData.awsSessionToken}
+                  onChange={(e) => setFormData({ ...formData, awsSessionToken: e.target.value })}
+                  hint={providerText(
+                    t,
+                    "awsPollySessionTokenHint",
+                    "Required only for temporary AWS credentials."
+                  )}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                />
+              </>
             )}
             {isGooglePse && (
               <Input

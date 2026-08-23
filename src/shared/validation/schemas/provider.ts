@@ -588,6 +588,8 @@ export const validateProviderApiKeySchema = z
     customUserAgent: z.string().trim().max(500).optional(),
     baseUrl: z.string().trim().url().optional(),
     region: z.string().trim().max(64).optional(),
+    accessKeyId: z.string().trim().max(500).optional(),
+    sessionToken: z.string().trim().max(5000).optional(),
     cx: z.string().trim().max(500).optional(),
   })
   .superRefine((data, ctx) => {
