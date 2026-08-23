@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Åsidosättningar av hastighetsbegränsning",
     "rateLimitOverridesMaxConcurrentHint": "Åsidosättning av maximalt antal samtidiga förfrågningar för denna anslutning. Åsidosätter gränsen på kontonivå.",
     "rateLimitOverridesMaxConcurrentLabel": "Max samtidiga (hastighetsbegränsning)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Minsta tid (ms) mellan förfrågningar. Åsidosätter standardfördröjningen för hastighetsbegränsaren.",
     "rateLimitOverridesMinTimeLabel": "Minsta intervall (ms)",
     "rateLimitOverridesRpmHint": "Maximalt antal förfrågningar per minut för denna anslutning. Åsidosätter leverantörens standardvärde.",

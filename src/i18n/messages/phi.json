@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Mga Override sa Rate Limit",
     "rateLimitOverridesMaxConcurrentHint": "Override sa max concurrent requests para sa koneksyong ito. Ino-override ang cap sa antas ng account.",
     "rateLimitOverridesMaxConcurrentLabel": "Max Concurrent (Rate Limit)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Minimum na oras (ms) sa pagitan ng mga request. Ino-override ang default na delay ng rate limiter.",
     "rateLimitOverridesMinTimeLabel": "Min Interval (ms)",
     "rateLimitOverridesRpmHint": "Max na request bawat minuto para sa koneksyong ito. Ino-override ang default ng provider.",

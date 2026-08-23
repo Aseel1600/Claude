@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Přepsání limitů četnosti",
     "rateLimitOverridesMaxConcurrentHint": "Přepsání maximálního počtu souběžných požadavků pro toto připojení. Přepisuje limit na úrovni účtu.",
     "rateLimitOverridesMaxConcurrentLabel": "Max. souběžných (limit četnosti)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Minimální doba (ms) mezi požadavky. Přepisuje výchozí prodlevu omezovače četnosti.",
     "rateLimitOverridesMinTimeLabel": "Min. interval (ms)",
     "rateLimitOverridesRpmHint": "Maximální počet požadavků za minutu pro toto připojení. Přepisuje výchozí hodnotu poskytovatele.",

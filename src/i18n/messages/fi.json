@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Pyyntörajojen ohitukset",
     "rateLimitOverridesMaxConcurrentHint": "Samanaikaisten pyyntöjen enimmäismäärän ohitus tälle yhteydelle. Ohittaa tilitason rajoituksen.",
     "rateLimitOverridesMaxConcurrentLabel": "Samanaikaisia enintään (pyyntöraja)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Vähimmäisaika (ms) pyyntöjen välillä. Ohittaa oletusarvoisen pyyntörajoittimen viiveen.",
     "rateLimitOverridesMinTimeLabel": "Vähimmäisväli (ms)",
     "rateLimitOverridesRpmHint": "Pyyntöjen enimmäismäärä minuutissa tälle yhteydelle. Ohittaa tarjoajan oletusarvon.",

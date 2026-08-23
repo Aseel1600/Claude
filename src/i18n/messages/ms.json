@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Ganti Had Kadar",
     "rateLimitOverridesMaxConcurrentHint": "Ganti permintaan serentak maksimum untuk sambungan ini. Menggantikan had tahap akaun.",
     "rateLimitOverridesMaxConcurrentLabel": "Maksimum Serentak (Had Kadar)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Masa minimum (ms) antara permintaan. Menggantikan kelewatan pengehad kadar lalai.",
     "rateLimitOverridesMinTimeLabel": "Selang Minimum (ms)",
     "rateLimitOverridesRpmHint": "Permintaan maksimum seminit untuk sambungan ini. Menggantikan lalai penyedia.",

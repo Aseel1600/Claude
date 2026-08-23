@@ -5855,6 +5855,8 @@
     "rateLimitOverridesSection": "Rate Limit Overrides",
     "rateLimitOverridesMaxConcurrentHint": "Max concurrent requests override for this connection. Overrides the account-level cap.",
     "rateLimitOverridesMaxConcurrentLabel": "Max Concurrent (Rate Limit)",
+    "rateLimitOverridesMaxWaitMsHint": "Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Minimum time (ms) between requests. Overrides the default rate limiter delay.",
     "rateLimitOverridesMinTimeLabel": "Min Interval (ms)",
     "rateLimitOverridesRpmHint": "Max requests per minute for this connection. Overrides the provider default.",

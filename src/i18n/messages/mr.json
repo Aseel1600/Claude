@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "रेट लिमिट ओव्हरराइड्स",
     "rateLimitOverridesMaxConcurrentHint": "या कनेक्शनसाठी कमाल समवर्ती विनंत्या ओव्हरराइड. खाते-पातळीवरील मर्यादा ओव्हरराइड करते.",
     "rateLimitOverridesMaxConcurrentLabel": "कमाल समवर्ती (रेट लिमिट)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "विनंत्यांमधील किमान वेळ (ms). डीफॉल्ट रेट लिमिटर विलंब ओव्हरराइड करते.",
     "rateLimitOverridesMinTimeLabel": "किमान मध्यांतर (ms)",
     "rateLimitOverridesRpmHint": "या कनेक्शनसाठी प्रति मिनिट कमाल विनंत्या. प्रदाता डीफॉल्ट ओव्हरराइड करते.",

@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Hız Sınırı Geçersiz Kılmaları",
     "rateLimitOverridesMaxConcurrentHint": "Bu bağlantı için maksimum eşzamanlı istek geçersiz kılma değeri. Hesap düzeyindeki sınırı geçersiz kılar.",
     "rateLimitOverridesMaxConcurrentLabel": "Maksimum Eşzamanlı (Hız Sınırı)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "İstekler arasındaki minimum süre (ms). Varsayılan hız sınırlayıcı gecikmesini geçersiz kılar.",
     "rateLimitOverridesMinTimeLabel": "Min. Aralık (ms)",
     "rateLimitOverridesRpmHint": "Bu bağlantı için dakika başına maksimum istek sayısı. Sağlayıcı varsayılanını geçersiz kılar.",

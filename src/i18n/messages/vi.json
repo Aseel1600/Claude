@@ -5855,6 +5855,8 @@
     "rateLimitOverridesSection": "Ghi đè giới hạn tốc độ",
     "rateLimitOverridesMaxConcurrentHint": "Ghi đè số yêu cầu đồng thời tối đa cho kết nối này. Ghi đè giới hạn ở cấp tài khoản.",
     "rateLimitOverridesMaxConcurrentLabel": "Đồng thời tối đa (Giới hạn tốc độ)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Thời gian tối thiểu (ms) giữa các yêu cầu. Ghi đè độ trễ bộ giới hạn tốc độ mặc định.",
     "rateLimitOverridesMinTimeLabel": "Khoảng thời gian tối thiểu (ms)",
     "rateLimitOverridesRpmHint": "Số yêu cầu tối đa mỗi phút cho kết nối này. Ghi đè giá trị mặc định của nhà cung cấp.",

@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Rate limit-overschrijvingen",
     "rateLimitOverridesMaxConcurrentHint": "Overschrijving van het maximaal aantal gelijktijdige verzoeken voor deze verbinding. Overschrijft de limiet op accountniveau.",
     "rateLimitOverridesMaxConcurrentLabel": "Max. gelijktijdig (rate limit)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Minimale tijd (ms) tussen verzoeken. Overschrijft de standaardvertraging van de rate limiter.",
     "rateLimitOverridesMinTimeLabel": "Min. interval (ms)",
     "rateLimitOverridesRpmHint": "Maximaal aantal verzoeken per minuut voor deze verbinding. Overschrijft de standaardwaarde van de provider.",

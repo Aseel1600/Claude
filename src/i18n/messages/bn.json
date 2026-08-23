@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "রেট লিমিট ওভাররাইড",
     "rateLimitOverridesMaxConcurrentHint": "এই সংযোগের জন্য সর্বোচ্চ সমবর্তী অনুরোধের ওভাররাইড। অ্যাকাউন্ট-স্তরের সীমা ওভাররাইড করে।",
     "rateLimitOverridesMaxConcurrentLabel": "সর্বোচ্চ সমবর্তী (রেট লিমিট)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "অনুরোধগুলোর মধ্যে ন্যূনতম সময় (ms)। ডিফল্ট রেট লিমিটারের বিলম্ব ওভাররাইড করে।",
     "rateLimitOverridesMinTimeLabel": "ন্যূনতম ব্যবধান (ms)",
     "rateLimitOverridesRpmHint": "এই সংযোগের জন্য প্রতি মিনিটে সর্বোচ্চ অনুরোধ। প্রদানকারীর ডিফল্ট ওভাররাইড করে।",

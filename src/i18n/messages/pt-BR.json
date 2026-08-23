@@ -5839,6 +5839,8 @@
     "rateLimitOverridesSection": "Substituições de Limite de Taxa",
     "rateLimitOverridesMaxConcurrentHint": "Sobrescrição do máximo de requisições concorrentes para esta conexão. Sobrescreve o limite de nível de conta.",
     "rateLimitOverridesMaxConcurrentLabel": "Máximo Concorrente (Limite de Taxa)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Tempo mínimo (ms) entre solicitações. Substitui o atraso padrão do limitador de taxa.",
     "rateLimitOverridesMinTimeLabel": "Min Intervalo (ms)",
     "rateLimitOverridesRpmHint": "Máximo de requisições por minuto para esta conexão. Substitui o padrão do provedor.",

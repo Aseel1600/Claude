@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "రేట్ పరిమితి ఓవర్‌రైడ్‌లు",
     "rateLimitOverridesMaxConcurrentHint": "ఈ కనెక్షన్ కోసం గరిష్ట ఏకకాల అభ్యర్థనల ఓవర్‌రైడ్. ఖాతా-స్థాయి పరిమితిని ఓవర్‌రైడ్ చేస్తుంది.",
     "rateLimitOverridesMaxConcurrentLabel": "గరిష్ట ఏకకాల అభ్యర్థనలు (రేట్ పరిమితి)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "అభ్యర్థనల మధ్య కనీస సమయం (ms). డిఫాల్ట్ రేట్ లిమిటర్ ఆలస్యాన్ని ఓవర్‌రైడ్ చేస్తుంది.",
     "rateLimitOverridesMinTimeLabel": "కనీస విరామం (ms)",
     "rateLimitOverridesRpmHint": "ఈ కనెక్షన్ కోసం నిమిషానికి గరిష్ట అభ్యర్థనలు. ప్రొవైడర్ డిఫాల్ట్‌ను ఓవర్‌రైడ్ చేస్తుంది.",

@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "속도 제한 재정의",
     "rateLimitOverridesMaxConcurrentHint": "이 연결에 대한 최대 동시 요청 수 재정의입니다. 계정 수준의 제한을 재정의합니다.",
     "rateLimitOverridesMaxConcurrentLabel": "최대 동시 요청 수 (속도 제한)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "요청 간 최소 시간(ms)입니다. 기본 속도 제한기 지연 시간을 재정의합니다.",
     "rateLimitOverridesMinTimeLabel": "최소 간격 (ms)",
     "rateLimitOverridesRpmHint": "이 연결에 대한 분당 최대 요청 수입니다. 제공업체 기본값을 재정의합니다.",

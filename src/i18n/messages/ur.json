@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "ریٹ لمٹ اوور رائیڈز",
     "rateLimitOverridesMaxConcurrentHint": "اس کنکشن کے لیے زیادہ سے زیادہ ہم وقتی درخواستوں کا اوور رائیڈ۔ اکاؤنٹ کی سطح کی حد کو اوور رائیڈ کرتا ہے۔",
     "rateLimitOverridesMaxConcurrentLabel": "زیادہ سے زیادہ ہم وقتی (ریٹ لمٹ)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "درخواستوں کے درمیان کم از کم وقت (ms)۔ پہلے سے طے شدہ ریٹ لمیٹر تاخیر کو اوور رائیڈ کرتا ہے۔",
     "rateLimitOverridesMinTimeLabel": "کم از کم وقفہ (ms)",
     "rateLimitOverridesRpmHint": "اس کنکشن کے لیے فی منٹ زیادہ سے زیادہ درخواستیں۔ فراہم کنندہ کے پہلے سے طے شدہ کو اوور رائیڈ کرتا ہے۔",

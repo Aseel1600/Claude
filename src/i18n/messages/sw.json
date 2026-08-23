@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Ubatilishaji wa Kikomo cha Kasi",
     "rateLimitOverridesMaxConcurrentHint": "Ubatilishaji wa maombi ya juu zaidi yanayofanyika kwa wakati mmoja kwa muunganisho huu. Hubatilisha kikomo cha kiwango cha akaunti.",
     "rateLimitOverridesMaxConcurrentLabel": "Upeo wa Juu wa Wakati Mmoja (Kikomo cha Kasi)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Muda wa chini zaidi (ms) kati ya maombi. Hubatilisha ucheleweshaji wa kikomo cha kasi chaguo-msingi.",
     "rateLimitOverridesMinTimeLabel": "Muda wa Chini (ms)",
     "rateLimitOverridesRpmHint": "Upeo wa juu wa maombi kwa dakika kwa muunganisho huu. Hubatilisha chaguo-msingi la mtoa huduma.",

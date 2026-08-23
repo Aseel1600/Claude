@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "עקיפת מגבלות קצב",
     "rateLimitOverridesMaxConcurrentHint": "עקיפת מספר הבקשות המקביליות המרבי עבור חיבור זה. עוקף את המגבלה ברמת החשבון.",
     "rateLimitOverridesMaxConcurrentLabel": "מקסימום בקשות מקביליות (מגבלת קצב)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "זמן מינימלי (במילישניות) בין בקשות. עוקף את השהיית מגביל הקצב כברירת מחדל.",
     "rateLimitOverridesMinTimeLabel": "מרווח מינימלי (מילישניות)",
     "rateLimitOverridesRpmHint": "מקסימום בקשות לדקה עבור חיבור זה. עוקף את ברירת המחדל של הספק.",

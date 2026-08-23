@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Substituições de limite de taxa",
     "rateLimitOverridesMaxConcurrentHint": "Substituição de pedidos simultâneos máximos para esta ligação. Substitui o limite ao nível da conta.",
     "rateLimitOverridesMaxConcurrentLabel": "Máximo de simultâneos (limite de taxa)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Tempo mínimo (ms) entre pedidos. Substitui o atraso predefinido do limitador de taxa.",
     "rateLimitOverridesMinTimeLabel": "Intervalo mín. (ms)",
     "rateLimitOverridesRpmHint": "Pedidos máximos por minuto para esta ligação. Substitui a predefinição do fornecedor.",

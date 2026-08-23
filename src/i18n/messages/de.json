@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Rate-Limit-Überschreibungen",
     "rateLimitOverridesMaxConcurrentHint": "Überschreibung der maximalen gleichzeitigen Anfragen für diese Verbindung. Überschreibt die Obergrenze auf Kontoebene.",
     "rateLimitOverridesMaxConcurrentLabel": "Max. gleichzeitig (Rate-Limit)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Mindestzeit (ms) zwischen Anfragen. Überschreibt die standardmäßige Rate-Limiter-Verzögerung.",
     "rateLimitOverridesMinTimeLabel": "Min. Intervall (ms)",
     "rateLimitOverridesRpmHint": "Maximale Anfragen pro Minute für diese Verbindung. Überschreibt den Provider-Standard.",

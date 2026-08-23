@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "விகித வரம்பு மேலெழுதுதல்கள்",
     "rateLimitOverridesMaxConcurrentHint": "இந்த இணைப்பிற்கான அதிகபட்ச ஒரே நேரத்தில் நிகழும் கோரிக்கைகளின் மேலெழுதுதல். கணக்கு அளவிலான வரம்பை மேலெழுதுகிறது.",
     "rateLimitOverridesMaxConcurrentLabel": "அதிகபட்ச ஒரே நேரத்தில் நிகழும் கோரிக்கைகள் (விகித வரம்பு)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "கோரிக்கைகளுக்கு இடையிலான குறைந்தபட்ச நேரம் (மில்லிசெகண்ட்). இயல்புநிலை விகித வரம்பியின் தாமதத்தை மேலெழுதுகிறது.",
     "rateLimitOverridesMinTimeLabel": "குறைந்தபட்ச இடைவெளி (ms)",
     "rateLimitOverridesRpmHint": "இந்த இணைப்பிற்கான நிமிடத்திற்கு அதிகபட்ச கோரிக்கைகள். வழங்குநரின் இயல்புநிலையை மேலெழுதுகிறது.",

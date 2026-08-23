@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Tilsidesættelser af hastighedsbegrænsning",
     "rateLimitOverridesMaxConcurrentHint": "Tilsidesættelse af maks. samtidige anmodninger for denne forbindelse. Tilsidesætter loftet på kontoniveau.",
     "rateLimitOverridesMaxConcurrentLabel": "Maks. samtidige (hastighedsbegrænsning)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Minimumstid (ms) mellem anmodninger. Tilsidesætter standardforsinkelsen for hastighedsbegrænseren.",
     "rateLimitOverridesMinTimeLabel": "Min. interval (ms)",
     "rateLimitOverridesRpmHint": "Maks. anmodninger pr. minut for denne forbindelse. Tilsidesætter udbyderens standard.",

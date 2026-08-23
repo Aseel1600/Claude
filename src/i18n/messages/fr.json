@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "Surcharges des limites de débit",
     "rateLimitOverridesMaxConcurrentHint": "Surcharge des requêtes simultanées max pour cette connexion. Remplace la limite au niveau du compte.",
     "rateLimitOverridesMaxConcurrentLabel": "Nombre max de requêtes simultanées (limite de débit)",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "Temps minimum (ms) entre les requêtes. Remplace le délai par défaut du limiteur de débit.",
     "rateLimitOverridesMinTimeLabel": "Intervalle min (ms)",
     "rateLimitOverridesRpmHint": "Requêtes max par minute pour cette connexion. Remplace la valeur par défaut du fournisseur.",

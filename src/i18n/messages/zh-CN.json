@@ -5834,6 +5834,8 @@
     "rateLimitOverridesSection": "速率限制覆盖",
     "rateLimitOverridesMaxConcurrentHint": "此连接的最大并发请求覆盖。覆盖账户级别的上限。",
     "rateLimitOverridesMaxConcurrentLabel": "最大并发（速率限制）",
+    "rateLimitOverridesMaxWaitMsHint": "__MISSING__:Maximum time (ms) a request may wait for a rate-limit slot before failing. Overrides the global Resilience setting for this connection only.",
+    "rateLimitOverridesMaxWaitMsLabel": "__MISSING__:Max Queue Wait (ms)",
     "rateLimitOverridesMinTimeHint": "请求之间的最小时间（毫秒）。覆盖默认速率限制器延迟。",
     "rateLimitOverridesMinTimeLabel": "最小间隔（毫秒）",
     "rateLimitOverridesRpmHint": "此连接的每分钟最大请求数。覆盖提供者默认值。",
