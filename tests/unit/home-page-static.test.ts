@@ -7,23 +7,20 @@ import { fileURLToPath } from "node:url";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 function readHomePage(): string {
-  return readFileSync(
-    join(repoRoot, "src/app/(dashboard)/home/page.tsx"),
-    "utf8",
-  );
+  return readFileSync(join(repoRoot, "src/app/(dashboard)/home/page.tsx"), "utf8");
 }
 
 function readReadinessCard(): string {
   return readFileSync(
     join(repoRoot, "src/app/(dashboard)/dashboard/FirstRunReadinessCard.tsx"),
-    "utf8",
+    "utf8"
   );
 }
 
 function readEnKeys(): string[] {
-  const en = JSON.parse(
-    readFileSync(join(repoRoot, "src/i18n/messages/en.json"), "utf8"),
-  ) as { home: Record<string, string> };
+  const en = JSON.parse(readFileSync(join(repoRoot, "src/i18n/messages/en.json"), "utf8")) as {
+    home: Record<string, string>;
+  };
   return Object.keys(en.home);
 }
 

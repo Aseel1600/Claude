@@ -20,20 +20,24 @@ function mcpError(message, status) {
   return err;
 }
 
-async function callMcpEndpoint(payload, { timeout, stream }) {
+async function callMcpEndpoint(payload, { timeout, stream, headers = {}, ...apiOptions }) {
   const res = await apiFetch("/api/mcp/stream", {
+    ...apiOptions,
     method: "POST",
     body: payload,
     timeout,
     acceptNotOk: true,
-    headers: stream ? { Accept: "text/event-stream" } : {},
+    headers: {
+      ...(stream ? { Accept: "text/event-stream" } : {}),
+      ...headers,
+    },
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw mcpError(
       `${payload.method} ${payload.id}: HTTP ${res.status}${text ? ` — ${text}` : ""}`,
-      res.status,
+      res.status
     );
   }
   return res;
@@ -46,7 +50,7 @@ async function callMcpEndpoint(payload, { timeout, stream }) {
  * Stream: writes SSE `data:` chunks to stdout and returns null on success.
  */
 export async function mcpCallTool(name, args = {}, options = {}) {
-  const { timeout, scope } = options;
+  const { scope, stream, onChunk, ...apiOptions } = options;
   const scopeHeader = scope?.length ? { "X-MCP-Scopes": scope.join(",") } : {};
 
   const initRes = await callMcpEndpoint(
@@ -60,7 +64,7 @@ export async function mcpCallTool(name, args = {}, options = {}) {
         clientInfo: { name: "omniroute-cli", version: "1.0" },
       },
     },
-    { timeout, stream: options.stream },
+    { ...apiOptions, stream, headers: scopeHeader }
   );
 
   const sessionId = initRes.headers.get("mcp-session-id");
@@ -75,11 +79,15 @@ export async function mcpCallTool(name, args = {}, options = {}) {
       method: "tools/call",
       params: { name, arguments: args },
     },
-    { timeout, stream: options.stream },
+    {
+      ...apiOptions,
+      stream,
+      headers: { ...scopeHeader, "mcp-session-id": sessionId },
+    }
   );
 
-  if (options.stream) {
-    return consumeSse(callRes.body, options.onChunk);
+  if (stream) {
+    return consumeSse(callRes.body, onChunk);
   }
 
   const data = await callRes.json();
@@ -92,7 +100,25 @@ export async function mcpCallTool(name, args = {}, options = {}) {
     const msg = data.result?.content?.[0]?.text || "unknown tool error";
     throw mcpError(`MCP error: ${msg}`, 500);
   }
-  return data.result;
+  return decodeToolResult(data.result);
+}
+
+function decodeToolResult(result) {
+  if (!result || typeof result !== "object") return result;
+  if (result.structuredContent && typeof result.structuredContent === "object") {
+    return result.structuredContent;
+  }
+
+  const textItems = Array.isArray(result.content)
+    ? result.content.filter((item) => item?.type === "text" && typeof item.text === "string")
+    : [];
+  if (textItems.length !== 1) return result;
+
+  try {
+    return JSON.parse(textItems[0].text);
+  } catch {
+    return textItems[0].text;
+  }
 }
 
 async function consumeSse(body, onChunk) {

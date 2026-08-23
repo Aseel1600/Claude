@@ -26,48 +26,47 @@ const proxySchema = [
   { key: "state", header: "State" },
 ];
 
+export async function runOneproxyStats(_opts, cmd) {
+  const data = await mcpCall("omniroute_oneproxy_stats", {});
+  emit(data, cmd.optsWithGlobals());
+}
+
+export async function runOneproxyFetch(opts, cmd) {
+  const data = await mcpCall("omniroute_oneproxy_fetch", {
+    limit: opts.count,
+    protocol: opts.type,
+    ...(opts.countryCode ? { countryCode: opts.countryCode } : {}),
+    ...(opts.minQuality !== undefined ? { minQuality: opts.minQuality } : {}),
+  });
+  emit(data.items ?? data, cmd.optsWithGlobals(), proxySchema);
+}
+
+export async function runOneproxyRotate(opts, cmd) {
+  const data = await mcpCall("omniroute_oneproxy_rotate", {
+    ...(opts.strategy ? { strategy: opts.strategy } : {}),
+  });
+  emit(data, cmd.optsWithGlobals());
+}
+
 export function registerOneProxy(program) {
   const op = program.command("oneproxy").description(t("oneproxy.description"));
 
-  op.command("status").action(async (opts, cmd) => {
-    const data = await mcpCall("omniroute_oneproxy_stats", {});
-    emit(data, cmd.optsWithGlobals());
-  });
+  op.command("status").action(runOneproxyStats);
 
-  op.command("stats")
-    .option("--provider <p>", t("oneproxy.stats.provider"))
-    .option("--period <p>", t("oneproxy.stats.period"), "24h")
-    .action(async (opts, cmd) => {
-      const data = await mcpCall("omniroute_oneproxy_stats", {
-        provider: opts.provider,
-        period: opts.period,
-      });
-      emit(data, cmd.optsWithGlobals());
-    });
+  op.command("stats").action(runOneproxyStats);
 
   op.command("fetch")
     .description(t("oneproxy.fetch.description"))
     .option("--count <n>", t("oneproxy.fetch.count"), parseInt, 1)
     .option("--type <t>", t("oneproxy.fetch.type"), "http")
-    .action(async (opts, cmd) => {
-      const data = await mcpCall("omniroute_oneproxy_fetch", {
-        count: opts.count,
-        type: opts.type,
-      });
-      emit(data.proxies ?? data, cmd.optsWithGlobals(), proxySchema);
-    });
+    .option("--country-code <code>", "Filter by country code")
+    .option("--min-quality <n>", "Minimum quality score (0-100)", parseFloat)
+    .action(runOneproxyFetch);
 
   op.command("rotate")
     .description(t("oneproxy.rotate.description"))
-    .option("--provider <p>", t("oneproxy.rotate.provider"))
-    .option("--connection-id <id>", t("oneproxy.rotate.connectionId"))
-    .action(async (opts, cmd) => {
-      const data = await mcpCall("omniroute_oneproxy_rotate", {
-        provider: opts.provider,
-        connectionId: opts.connectionId,
-      });
-      emit(data, cmd.optsWithGlobals());
-    });
+    .option("--strategy <strategy>", "Rotation strategy: random, quality, or sequential")
+    .action(runOneproxyRotate);
 
   const config = op.command("config").description(t("oneproxy.config.description"));
 

@@ -1,6 +1,10 @@
 import test from "node:test";
 import { makeMcpResp, makeMcpStreamFetch } from "./helpers/mcpStreamMock.ts";
 import assert from "node:assert/strict";
+import {
+  SkillEnableSchema,
+  SkillExecuteSchema,
+} from "../../open-sse/mcp-server/tools/skillTools.ts";
 
 const SKILLS_DATA = [
   { id: "sk_pdf", name: "PDF Parser", type: "sandbox", version: "1.0.0", enabled: true },
@@ -130,12 +134,25 @@ test("runSkillsEnable usa JSON-RPC tools/call", async () => {
 
   globalThis.fetch = origFetch;
   assert.ok(calls.some((x) => String(x.url).includes("/api/mcp/stream")));
-  const callBody = JSON.parse(calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}");
+  const callBody = JSON.parse(
+    calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}"
+  );
   assert.equal(callBody.method, "tools/call");
   assert.equal(callBody.params.name, "omniroute_skills_enable");
   assert.equal(callBody.params.arguments.skillId, "sk_pdf");
   assert.equal(callBody.params.arguments.enabled, true);
   assert.ok(out.includes("sk_pdf"));
+});
+
+test("skill MCP schemas accept the CLI's id-based payloads", () => {
+  assert.deepEqual(SkillEnableSchema.parse({ skillId: "sk_pdf", enabled: true }), {
+    skillId: "sk_pdf",
+    enabled: true,
+  });
+  assert.deepEqual(SkillExecuteSchema.parse({ skillId: "sk_pdf", input: { file: "doc.pdf" } }), {
+    skillId: "sk_pdf",
+    input: { file: "doc.pdf" },
+  });
 });
 
 test("runSkillsExecute usa JSON-RPC tools/call", async () => {
@@ -154,7 +171,9 @@ test("runSkillsExecute usa JSON-RPC tools/call", async () => {
   );
 
   globalThis.fetch = origFetch;
-  const callBody = JSON.parse(calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}");
+  const callBody = JSON.parse(
+    calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}"
+  );
   assert.equal(callBody.method, "tools/call");
   assert.equal(callBody.params.name, "omniroute_skills_execute");
   assert.equal(callBody.params.arguments.skillId, "sk_pdf");

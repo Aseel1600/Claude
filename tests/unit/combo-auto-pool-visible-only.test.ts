@@ -98,7 +98,9 @@ test("expandAutoComboCandidatePool excludes catalog-only models (openrouter/auto
   );
 
   assert.ok(
-    expanded.some((t) => t.provider === "openrouter" && t.modelStr === "openrouter/liquid/lfm-2.5-2.6b:free"),
+    expanded.some(
+      (t) => t.provider === "openrouter" && t.modelStr === "openrouter/liquid/lfm-2.5-2.6b:free"
+    ),
     "a synced free model must be expanded into the pool"
   );
 });
@@ -169,5 +171,54 @@ test("virtual auto-combo pool filters EVERY provider with partial sync, not just
     kilocodeCandidates.map((c) => c.model).sort(),
     ["kilocode/gpt-oss-120b", "kilocode/qwen3-coder"],
     "kilocode pool must contain exactly the two synced models"
+  );
+});
+
+test("virtual auto-combo pool keeps only chat-selectable models from an Ollama connection", async () => {
+  const connection = await providersDb.createProviderConnection({
+    provider: "ollama-local",
+    authType: "apikey",
+    name: "Self-hosted Ollama",
+    apiKey: "test-key",
+    providerSpecificData: { baseUrl: "http://127.0.0.1:11434/v1" },
+  });
+  const connectionId = (connection as { id?: string }).id;
+  assert.ok(connectionId, "created Ollama connection must expose an id");
+
+  await modelsDb.replaceSyncedAvailableModelsForConnection("ollama-local", connectionId, [
+    {
+      id: "image-model",
+      name: "Image Model",
+      apiFormat: "images-generations",
+      supportedEndpoints: ["images"],
+    },
+    {
+      id: "embedding-model",
+      name: "Embedding Model",
+      apiFormat: "embeddings",
+      supportedEndpoints: ["embeddings"],
+    },
+    {
+      id: "chat-model",
+      name: "Chat Model",
+      apiFormat: "chat-completions",
+      supportedEndpoints: ["chat"],
+    },
+  ]);
+
+  const prepared = await virtualFactory.prepareVirtualAutoComboInputs();
+  const ollamaCandidates = prepared.regularCandidates.filter(
+    (candidate) => candidate.provider === "ollama-local"
+  );
+
+  assert.deepEqual(
+    ollamaCandidates.map((candidate) => candidate.model),
+    ["chat-model"],
+    "image- and embedding-only models must not enter a chat auto-combo pool"
+  );
+  assert.deepEqual(
+    ollamaCandidates[0]?.allowedConnectionIds,
+    [connectionId],
+    "the surviving chat model must remain scoped to its advertising connection"
   );
 });

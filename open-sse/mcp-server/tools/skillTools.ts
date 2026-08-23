@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { skillRegistry } from "@/lib/skills/registry";
 import { skillExecutor } from "@/lib/skills/executor";
+import type { McpToolExtraLike } from "../scopeEnforcement.ts";
 
 export const SkillListSchema = z.object({
   apiKeyId: z.string().optional(),
@@ -9,17 +10,40 @@ export const SkillListSchema = z.object({
 });
 
 export const SkillEnableSchema = z.object({
-  apiKeyId: z.string(),
+  apiKeyId: z.string().optional(),
   skillId: z.string(),
   enabled: z.boolean(),
 });
 
-export const SkillExecuteSchema = z.object({
-  apiKeyId: z.string(),
-  skillName: z.string(),
-  input: z.record(z.string(), z.unknown()),
-  sessionId: z.string().optional(),
-});
+export const SkillExecuteSchema = z
+  .object({
+    apiKeyId: z.string().optional(),
+    skillId: z.string().optional(),
+    skillName: z.string().optional(),
+    input: z.record(z.string(), z.unknown()),
+    sessionId: z.string().optional(),
+  })
+  .refine((args) => Boolean(args.skillId || args.skillName), {
+    message: "skillId or skillName is required",
+  });
+
+function authenticatedCallerId(extra: McpToolExtraLike | undefined): string | undefined {
+  const clientId = extra?.authInfo?.clientId;
+  return typeof clientId === "string" && clientId.trim() ? clientId.trim() : undefined;
+}
+
+async function resolveSkillTarget(
+  identifier: string,
+  requestedApiKeyId: string | undefined,
+  extra: McpToolExtraLike | undefined
+) {
+  const callerId = authenticatedCallerId(extra);
+  const lookupOwnerId = callerId ?? requestedApiKeyId;
+  await skillRegistry.loadFromDatabase(lookupOwnerId);
+  const skill = skillRegistry.getSkill(identifier, lookupOwnerId);
+  if (!skill) throw new Error(`Skill not found: ${identifier}`);
+  return { skill, callerId, requestedApiKeyId };
+}
 
 export const skillTools = {
   omniroute_skills_list: {
@@ -58,14 +82,20 @@ export const skillTools = {
     description: "Enable or disable a specific skill by ID",
     scopes: ["write:skills"],
     inputSchema: SkillEnableSchema,
-    handler: async (args: z.infer<typeof SkillEnableSchema>) => {
-      await skillRegistry.loadFromDatabase(args.apiKeyId);
-      const skill = await skillRegistry.setEnabledById(args.skillId, args.apiKeyId, args.enabled);
-      if (!skill) {
+    handler: async (args: z.infer<typeof SkillEnableSchema>, extra?: McpToolExtraLike) => {
+      const target = await resolveSkillTarget(args.skillId, args.apiKeyId, extra);
+      const mutationOwnerId = target.callerId ?? target.requestedApiKeyId ?? target.skill.apiKeyId;
+      if (target.skill.apiKeyId !== mutationOwnerId) {
         throw new Error(`Skill not found: ${args.skillId}`);
       }
+      const skill = await skillRegistry.setEnabledById(
+        target.skill.id,
+        mutationOwnerId,
+        args.enabled
+      );
+      if (!skill) throw new Error(`Skill not found: ${args.skillId}`);
 
-      return { success: true, skillId: args.skillId, enabled: args.enabled };
+      return { success: true, skillId: target.skill.id, enabled: args.enabled };
     },
   },
 
@@ -74,9 +104,11 @@ export const skillTools = {
     description: "Execute a skill with provided input and return the result",
     scopes: ["execute:skills"],
     inputSchema: SkillExecuteSchema,
-    handler: async (args: z.infer<typeof SkillExecuteSchema>) => {
-      const execution = await skillExecutor.execute(args.skillName, args.input, {
-        apiKeyId: args.apiKeyId,
+    handler: async (args: z.infer<typeof SkillExecuteSchema>, extra?: McpToolExtraLike) => {
+      const identifier = args.skillId ?? args.skillName!;
+      const target = await resolveSkillTarget(identifier, args.apiKeyId, extra);
+      const execution = await skillExecutor.execute(target.skill.name, args.input, {
+        apiKeyId: target.callerId ?? target.requestedApiKeyId ?? target.skill.apiKeyId,
         sessionId: args.sessionId,
       });
 

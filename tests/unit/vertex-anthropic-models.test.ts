@@ -1,8 +1,9 @@
 /**
  * Vertex AI Anthropic partner-model discovery (#11279).
  *
- * Covers the two pure units the PR adds (the discovery route itself is a
- * best-effort network path exercised manually per the PR's test plan):
+ * Covers the pure discovery contracts (the route's external request remains a
+ * best-effort network path):
+ *   - Model Garden PublisherModels URL: the documented v1beta1 global parent;
  *   - parseVertexAnthropicModels: Model Garden publisher response → discovery
  *     models, handling global AND project-scoped resource names;
  *   - getModelTargetFormat: a claude-* id on vertex/vertex-partner resolves to
@@ -12,12 +13,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseVertexAnthropicModels } from "../../src/lib/providerModels/vertexAnthropicModelsParser.ts";
+import {
+  parseVertexAnthropicModels,
+  VERTEX_ANTHROPIC_PUBLISHER_MODELS_URL,
+} from "../../src/lib/providerModels/vertexAnthropicModelsParser.ts";
 import { getModelTargetFormat } from "../../open-sse/config/providerModels.ts";
+
+test("Vertex Anthropic discovery uses the v1beta1 PublisherModels list endpoint", () => {
+  assert.equal(
+    VERTEX_ANTHROPIC_PUBLISHER_MODELS_URL,
+    "https://aiplatform.googleapis.com/v1beta1/publishers/anthropic/models"
+  );
+});
 
 test("parseVertexAnthropicModels: global publisher resource names", () => {
   const out = parseVertexAnthropicModels({
-    models: [
+    publisherModels: [
       {
         name: "publishers/anthropic/models/claude-sonnet-4-6",
         displayName: "Claude Sonnet 4.6",
@@ -42,7 +53,7 @@ test("parseVertexAnthropicModels: global publisher resource names", () => {
 
 test("parseVertexAnthropicModels: project-scoped resource names strip the prefix", () => {
   const out = parseVertexAnthropicModels({
-    models: [
+    publisherModels: [
       {
         name: "projects/my-gcp-project/locations/us-east5/publishers/anthropic/models/claude-haiku-4-5",
       },
@@ -55,9 +66,32 @@ test("parseVertexAnthropicModels: project-scoped resource names strip the prefix
 
 test("parseVertexAnthropicModels: malformed input yields an empty list", () => {
   assert.deepEqual(parseVertexAnthropicModels(null), []);
+  assert.deepEqual(parseVertexAnthropicModels(42), []);
+  assert.deepEqual(parseVertexAnthropicModels("not-an-envelope"), []);
+  assert.deepEqual(parseVertexAnthropicModels([]), []);
   assert.deepEqual(parseVertexAnthropicModels({}), []);
-  assert.deepEqual(parseVertexAnthropicModels({ models: "not-an-array" }), []);
-  assert.deepEqual(parseVertexAnthropicModels({ models: [{ name: "" }, {}] }), []);
+  assert.deepEqual(
+    parseVertexAnthropicModels({
+      models: [{ name: "publishers/anthropic/models/claude-wrong-envelope" }],
+    }),
+    []
+  );
+  assert.deepEqual(parseVertexAnthropicModels({ publisherModels: "not-an-array" }), []);
+  assert.deepEqual(parseVertexAnthropicModels({ publisherModels: [{ name: "" }, {}] }), []);
+  assert.deepEqual(
+    parseVertexAnthropicModels({
+      publisherModels: [null, 42, "invalid", { name: "publishers/anthropic/models/claude-valid" }],
+    }),
+    [
+      {
+        id: "claude-valid",
+        name: "claude-valid",
+        supportedEndpoints: ["chat"],
+        targetFormat: "claude",
+        owned_by: "anthropic",
+      },
+    ]
+  );
 });
 
 test("getModelTargetFormat: claude-* on vertex resolves to the claude translator (heuristic)", () => {

@@ -127,16 +127,8 @@ async function postHandler(request, context) {
   if (body.model && typeof body.model === "string" && !body.model.includes("/")) {
     const combo = await getComboByName(body.model as string);
     if (combo) {
-      const { executeImageCombo } = await import(
-        "@omniroute/open-sse/services/imageCombo"
-      );
-      return executeImageCombo(
-        body.model as string,
-        body,
-        { request, policy },
-        startTime,
-        log
-      );
+      const { executeImageCombo } = await import("@omniroute/open-sse/services/imageCombo");
+      return executeImageCombo(body.model as string, body, { request, policy }, startTime, log);
     }
   }
 
@@ -155,6 +147,7 @@ async function postHandler(request, context) {
     syncedEndpointRoute = await resolveLocalSyncedEndpointRoute(body.model, "images");
     if (syncedEndpointRoute) {
       provider = syncedEndpointRoute.provider;
+      requestedModel = syncedEndpointRoute.model;
       body.model = `${syncedEndpointRoute.provider}/${syncedEndpointRoute.model}`;
       isCustomModel = true;
     }
@@ -246,7 +239,8 @@ async function postHandler(request, context) {
       provider,
       null,
       syncedEndpointRoute?.connectionIds ?? null,
-      requestedModel    );
+      requestedModel
+    );
     if (!credentials) {
       return errorResponse(
         HTTP_STATUS.BAD_REQUEST,
@@ -279,6 +273,7 @@ async function postHandler(request, context) {
   const execution = await executeImageWithCredentialFallback({
     provider,
     requestedModel,
+    allowedConnectionIds: syncedEndpointRoute?.connectionIds ?? null,
     credentials,
     execute: async (attemptCredentials) => {
       let proxyInfo = null;
@@ -346,7 +341,10 @@ async function postHandler(request, context) {
     });
   }
 
-  const errorPayload = toJsonErrorPayload((result as any).error, "Image generation provider error") as {
+  const errorPayload = toJsonErrorPayload(
+    (result as any).error,
+    "Image generation provider error"
+  ) as {
     error?: { message?: string };
   };
   const message =

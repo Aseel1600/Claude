@@ -300,6 +300,8 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **feat(providers):** allow overriding the rate-limit queue wait timeout (`maxWaitMs`) per connection, alongside the existing `rpm`/`tpm`/`tpd`/`minTime`/`maxConcurrent` overrides — a single slow provider no longer has to lower the global wait budget for every other provider ([#11251](https://github.com/diegosouzapw/OmniRoute/pull/11251) — thanks @maxmad64bis)
 - **feat(monitoring):** expose the structural chat-admission snapshot through the health API and count capacity sheds by `queue_timeout` or `queued_bytes_budget`, with one credential-safe structured warning per shed and aborted waits excluded; admission behavior and thresholds are unchanged ([#11268](https://github.com/diegosouzapw/OmniRoute/pull/11268) — thanks @backryun) (reported in [#11244](https://github.com/diegosouzapw/OmniRoute/issues/11244) — thanks @im-ecorp)
 - **feat(catalog):** surface runtime-learned `reasoning_effort` tiers in `/v1/models` `capabilities.effort_tiers` (learned set replaces synced metadata when present), map them to OpenCode `ModelV2.variants` in the OmniRoute plugin, and align dispatch `-<tier>` suffix validation to the effective (learned ?? synced) set — so the UI offers exactly the tiers the upstream accepts (e.g. `{low, high, max}` for `oc/x-preview-f-free`) and each advertised variant completes. Excludes codex/glm/kimi, which keep their own dedicated `-{effort}` suffix mechanism and never gain `effort_tiers` from this path ([#11232](https://github.com/diegosouzapw/OmniRoute/pull/11232), [#11252](https://github.com/diegosouzapw/OmniRoute/pull/11252) — thanks @maxmad64bis) (reported in [#7694](https://github.com/diegosouzapw/OmniRoute/issues/7694) — thanks @excessivechaos)
+- **feat(vertex):** discover Anthropic partner models from the Vertex AI Model Garden's PublisherModels API and route dynamically discovered `claude-*` IDs through the Claude translator for both `vertex` and `vertex-partner` ([#11279](https://github.com/diegosouzapw/OmniRoute/pull/11279) — thanks @maci0; integration test by @hartmark)
+- **feat(dashboard):** replace the hard Home → onboarding redirect with a dismissable first-run readiness card so returning users can stay on Home while new users still get a clear 4-step path; Pitch #03 is tracked in [#11167](https://github.com/diegosouzapw/OmniRoute/issues/11167) ([#11282](https://github.com/diegosouzapw/OmniRoute/pull/11282) — thanks @ignamiranda)
 
 ### 🐛 Bug Fixes
 
@@ -834,7 +836,6 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(providers):** preserve validator HTTP status codes in API-key and web connection-test results so callers can distinguish authentication, rate-limit, and upstream failures ([#10272](https://github.com/diegosouzapw/OmniRoute/pull/10272)) — thanks @Zartharas
 - **fix(sse):** tiny-budget reasoning probes (e.g. Claude Code's `/model` check sends `max_tokens: 1`) are answered with a valid truncated 200 instead of relaying the upstream 5xx "empty response content" — which previously also marked the connection unavailable and poisoned fallback/cooldown bookkeeping for a request that is only a probe ([#10281](https://github.com/diegosouzapw/OmniRoute/issues/10281)) — thanks @harkaranbrar7
 - fix(video): stop advertising the googleflow (Veo) video provider as working and fail fast with a clear diagnostic — its submit/poll endpoints 404 and no server-side OAuth transport can satisfy the working endpoint (#10285)
-- fix(sse): mark gemini-3.5-flash as thinking-capable so reasoning_effort is no longer rejected with a spurious 400 (#10286)
 - **fix(docker):** prefix cache mount ids with Railway service scope ([#10288](https://github.com/diegosouzapw/OmniRoute/pull/10288)) — thanks @anudeepadi
 - **fix(build):** stop Turbopack from dead-code-eliminating the Windows Tailscale branches of `src/lib/tailscaleTunnel.ts` in the published build (#10293). The release `dist` is bundled on a Linux runner, and the bundler constant-folds `process.platform`, pruning every non-Linux branch — the Windows installers shipped with no `where` lookup, an always-injected `--socket`, and a lost `net start Tailscale`/windows-default-binary path. The module now reads the platform at runtime via `os.platform()` (a function call a bundler cannot fold), so the Windows branches survive on any build machine; a vitest regression test mocking `os.platform()` → `win32` guards the anti-fold invariant (RED before, GREEN after).
 - **fix(ops):** Docker HEALTHCHECK defaults to the lightweight `/healthz` lifecycle probe instead of the heavy `/api/monitoring/health` path, with an `OMNIROUTE_HEALTHCHECK_PATH` opt-in override ([#10311](https://github.com/diegosouzapw/OmniRoute/pull/10311))
@@ -1064,7 +1065,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(providers):** route terminal `testStatus` writes (`banned`, `deactivated`, `credits_exhausted`) through a single origin-aware passage — probe failures are recorded but never deactivate the connection ([#11009](https://github.com/diegosouzapw/OmniRoute/pull/11009)) — thanks @maxmad64bis
 - **fix(codex):** drop non-standard `codex.*` SSE events by default so OpenAI SDK / Codex CLI `/v1/responses` clients are not 502'd by `event: codex.rate_limits` ([#11014](https://github.com/diegosouzapw/OmniRoute/issues/11014)) — thanks @RaviTharuma
 - **fix(resilience):** count heavyweight `/v1` admission leases in the SIGTERM drain and send `Retry-After` on shutdown 503s so Recreate no longer looks like an empty 502 ([#11015](https://github.com/diegosouzapw/OmniRoute/issues/11015)) — thanks @RaviTharuma
-- **fix(startup):** log `Credential health scheduler disabled` when `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` is set instead of lying with `started` ([#11016](https://github.com/diegosouzapw/OmniRoute/issues/11016)) — thanks @RaviTharuma
+- **fix(startup):** log `Credential health scheduler disabled` when `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` is set instead of lying with `started` ([#11016](https://github.com/diegosouzapw/OmniRoute/issues/11016) — thanks @RaviTharuma); pin the real disabled-boot output with subprocess regression coverage ([#11265](https://github.com/diegosouzapw/OmniRoute/pull/11265) — thanks @Prajeeth-12)
 - **docs(api-keys):** document that unset `DEFAULT_RATE_LIMIT_PER_DAY` is unlimited (#2289), not a hidden 1000/day cap ([#11017](https://github.com/diegosouzapw/OmniRoute/issues/11017)) — thanks @RaviTharuma
 - **fix:** strip unsupported message metadata for Groq ([#11026](https://github.com/diegosouzapw/OmniRoute/pull/11026)) — thanks @sanforex24h
 - **fix(security):** close 4 STILL-REAL advisory findings (ACP RCE hardening, db-backups tier, uppercase authz bypass, spawn-veto drift) ([#11028](https://github.com/diegosouzapw/OmniRoute/pull/11028))
@@ -1168,7 +1169,6 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **cli:** guarantee non-empty [STARTUP] Fatal log on instrumentation-hook boot throw ([#10447](https://github.com/diegosouzapw/OmniRoute/pull/10447)) — thanks @adevwithpurpose
 - **dashboard:** make provider card warning indicators expose the interaction they advertise ([#10448](https://github.com/diegosouzapw/OmniRoute/pull/10448)) — thanks @adevwithpurpose
 - **dashboard:** media playground cards stop sending masked API key as Bearer ([#10449](https://github.com/diegosouzapw/OmniRoute/pull/10449)) — thanks @adevwithpurpose
-- **sse:** mark gemini-3.5-flash as thinking-capable ([#10450](https://github.com/diegosouzapw/OmniRoute/pull/10450)) — thanks @adevwithpurpose
 - **dashboard:** send periodic WS heartbeat pings to stop live-dashboard reconnect churn ([#10452](https://github.com/diegosouzapw/OmniRoute/pull/10452)) — thanks @adevwithpurpose
 - **sse:** do not ZWJ-obfuscate the substring hermes in user text ([#10488](https://github.com/diegosouzapw/OmniRoute/pull/10488)) — thanks @RaviTharuma
 - **models:** correct Codex context and combo limit resolution ([#10533](https://github.com/diegosouzapw/OmniRoute/pull/10533)) — thanks @jackjinke
@@ -1230,6 +1230,11 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(provider compatibility):** reject models-listing for Claude-Code-compatible connections before cached fallbacks can turn the unsupported request into an empty HTTP 200, and preserve raw no-auth model-override keys while resolving their sibling aliases so hidden-model and protocol overrides both survive ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952) — thanks @arminanton), re-derived from the closed ([#10795](https://github.com/diegosouzapw/OmniRoute/pull/10795) — thanks @rqzbeh) and reported in ([#7620](https://github.com/diegosouzapw/OmniRoute/issues/7620) — thanks @ahbeeahkao)
 - **fix(codex-app-server):** default Codex-owned command/file execution to the `workspace-write` sandbox and deny its approval prompts unless the operator opts in; bind env-sourced capability tokens only to the matching env URL or an operator-local host; and stop the authenticated `/readyz` probe from following redirects ([#11281](https://github.com/diegosouzapw/OmniRoute/pull/11281)) — thanks @hartmark
 - **fix(security):** refuse verbatim upstream-error passthrough when the body echoes a credential, redact relayed OCR and moderation errors, and cover the concrete `cookie`, `storageState` and `runtimeKey` call-log fields without hiding ordinary capability metadata ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952)) — thanks @arminanton
+- **fix(cli):** route MCP-backed CLI commands through the real Streamable HTTP JSON-RPC flow (`initialize` → `tools/call` with `Mcp-Session-Id`) instead of the nonexistent `/api/mcp/tools/call` route; decode tool results, honor the active remote context/auth/timeout, and align Combo, Skills, Compression and 1Proxy arguments with the server schemas ([#10960](https://github.com/diegosouzapw/OmniRoute/pull/10960) — thanks @YunyunZhai)
+- **fix(providers):** remove retired Gemini 3.5 Flash entries from discovery, catalogs, aliases, rate limits, shared specs, docs and tests, superseding the pre-release thinking-capability workaround recorded for [#10286](https://github.com/diegosouzapw/OmniRoute/issues/10286) and [#10450](https://github.com/diegosouzapw/OmniRoute/pull/10450); the relevant commit was carried from open [#11259](https://github.com/diegosouzapw/OmniRoute/pull/11259) — thanks @backryun; direct-carry integration follow-up by @hartmark
+- **fix(live-ws/dashboard):** accept the dev server's `http://0.0.0.0:20128` dashboard Origin without weakening the local-only default, stopping the `FORBIDDEN_ORIGIN` reconnect flood; render non-square provider and CLI logos at their intrinsic ratio so Next.js stops warning across the dashboard ([#11269](https://github.com/diegosouzapw/OmniRoute/pull/11269) — thanks @Minamaged18)
+- **fix(ollama):** preserve every capability advertised by self-hosted Ollama models and defer chat selection to read time, so embedding and image routes accept eligible models without leaking endpoint-only models into provider wildcards or Auto-Combo; image retries remain restricted to the connections that advertised the selected model ([#11271](https://github.com/diegosouzapw/OmniRoute/pull/11271), corrected release-line port of [#11088](https://github.com/diegosouzapw/OmniRoute/pull/11088) for [#11087](https://github.com/diegosouzapw/OmniRoute/issues/11087) — thanks @yourspraveen)
+- **fix(providers):** clamp out-of-vocabulary `reasoning_effort` values to the nearest tier declared by the exact provider/model, so `opencode-go/ox-alpha-free` maps the `medium` default to `high` while undeclared models remain pass-through ([#11274](https://github.com/diegosouzapw/OmniRoute/pull/11274) — thanks @linhdmn and @hartmark); builds on the learned accepted-set clamp from [#11232](https://github.com/diegosouzapw/OmniRoute/pull/11232) by @maxmad64bis
 
 ### 📝 Maintenance
 
@@ -1518,6 +1523,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 
 
 
+
 ### 🙌 Contributors
 
 Thanks to everyone whose work landed in v3.8.50:
@@ -1528,7 +1534,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@abhijeetnardele24-hash](https://github.com/abhijeetnardele24-hash) | #10498 |
 | [@Abhishek4512009](https://github.com/Abhishek4512009) | #10494 |
 | [@acc0mplish](https://github.com/acc0mplish) | #10732, #10948 |
-| [@adevwithpurpose](https://github.com/adevwithpurpose) | #9790, #10118, #10222, #10403, #10416, #10434, #10435, #10436, #10437, #10438, #10447, #10448, #10449, #10450, #10452, #10506, #10625, #10800, #10834, #10835, #10836, #10882, #10959 |
+| [@adevwithpurpose](https://github.com/adevwithpurpose) | #9790, #10118, #10222, #10403, #10416, #10434, #10435, #10436, #10437, #10438, #10447, #10448, #10449, #10452, #10506, #10625, #10800, #10834, #10835, #10836, #10882, #10959 |
 | [@AdityaMali16](https://github.com/AdityaMali16) | #11226 |
 | [@adrianojiu](https://github.com/adrianojiu) | #8438 |
 | [@agisota](https://github.com/agisota) | #9837 |
@@ -1556,7 +1562,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@AStupidBear](https://github.com/AStupidBear) | #10180 |
 | [@azzaouiomar19-sketch](https://github.com/azzaouiomar19-sketch) | #10394 |
 | [@b1nhm1nh](https://github.com/b1nhm1nh) | direct commit / report |
-| [@backryun](https://github.com/backryun) | #8228, #8451, #8627, #8809, #8818, #9084, #9086, #9090, #9091, #9092, #9093, #9114, #9119, #9120, #9122, #9135, #9136, #9137, #9138, #9139, #9141, #9561, #9562, #9563, #9564, #9565, #9566, #9742, #9747, #9748, #9751, #9753, #9755, #9791, #9792, #9793, #9795, #9796, #9797, #9798, #9920, #9972, #9973, #9974, #9975, #9977, #9978, #9979, #9984, #9986, #9987, #9988, #9989, #9990, #9998, #10087, #10088, #10134, #10175, #10178, #10195, #10201, #10226, #10254, #10255, #10256, #10257, #10258, #10324, #10325, #10327, #10328, #10339, #10359, #10367, #10380, #10382, #10390, #10418, #10423, #10433, #10451, #10453, #10464, #10487, #10512, #10520, #10633, #10634, #10637, #10647, #10648, #10649, #10655, #10689, #10691, #10695, #10698, #10699, #10700, #10826, #10964, #11147, #11196, #11208, #11256, #11260, #11262, #11263, #11264, #11266, #11267, #11268 |
+| [@backryun](https://github.com/backryun) | #8228, #8451, #8627, #8809, #8818, #9084, #9086, #9090, #9091, #9092, #9093, #9114, #9119, #9120, #9122, #9135, #9136, #9137, #9138, #9139, #9141, #9561, #9562, #9563, #9564, #9565, #9566, #9742, #9747, #9748, #9751, #9753, #9755, #9791, #9792, #9793, #9795, #9796, #9797, #9798, #9920, #9972, #9973, #9974, #9975, #9977, #9978, #9979, #9984, #9986, #9987, #9988, #9989, #9990, #9998, #10087, #10088, #10134, #10175, #10178, #10195, #10201, #10226, #10254, #10255, #10256, #10257, #10258, #10324, #10325, #10327, #10328, #10339, #10359, #10367, #10380, #10382, #10390, #10418, #10423, #10433, #10451, #10453, #10464, #10487, #10512, #10520, #10633, #10634, #10637, #10647, #10648, #10649, #10655, #10689, #10691, #10695, #10698, #10699, #10700, #10826, #10964, #11147, #11196, #11208, #11256, #11259, #11260, #11262, #11263, #11264, #11266, #11267, #11268 |
 | [@Benson-mk](https://github.com/Benson-mk) | #8369 |
 | [@benzntech](https://github.com/benzntech) | #9784, #9810, #9812, #9939, #10124, #10126, #10366, #10458 |
 | [@Bl0ck154](https://github.com/Bl0ck154) | #9231 |
@@ -1619,7 +1625,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@Hsia97](https://github.com/Hsia97) | #10810 |
 | [@hydraxman](https://github.com/hydraxman) | #10137, #10572 |
 | [@Iammilansoni](https://github.com/Iammilansoni) | #9353, #9397 |
-| [@ignamiranda](https://github.com/ignamiranda) | #11195, #11204, #11206, #11215, #11224, #11227, #11228 |
+| [@ignamiranda](https://github.com/ignamiranda) | #11195, #11204, #11206, #11215, #11224, #11227, #11228, #11282 |
 | [@ikelvingo](https://github.com/ikelvingo) | #8591, #8872, #9053 |
 | [@im-ecorp](https://github.com/im-ecorp) | #11244 |
 | [@infinit-X](https://github.com/infinit-X) | #9095 |
@@ -1651,12 +1657,13 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@larin-vas](https://github.com/larin-vas) | #9828 |
 | [@lazysaltyfish](https://github.com/lazysaltyfish) | direct commit / report |
 | [@LeonG606](https://github.com/LeonG606) | #9457 |
-| [@linhdmn](https://github.com/linhdmn) | #10980, #11085, #11209, #11214 |
+| [@linhdmn](https://github.com/linhdmn) | #10980, #11085, #11209, #11214, #11274 |
 | [@Llliao1113](https://github.com/Llliao1113) | #8921 |
 | [@lucasalx](https://github.com/lucasalx) | #9919 |
 | [@lucasmellos](https://github.com/lucasmellos) | #8925 |
 | [@lukiod](https://github.com/lukiod) | #8828 |
 | [@luoyide](https://github.com/luoyide) | direct commit / report |
+| [@maci0](https://github.com/maci0) | #11279 |
 | [@mad-gooze](https://github.com/mad-gooze) | #9052 |
 | [@mado90](https://github.com/mado90) | #11236 |
 | [@maisdesign](https://github.com/maisdesign) | #8858 |
@@ -1669,6 +1676,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@MeRezaRezaei](https://github.com/MeRezaRezaei) | #10174, #10614, #10889, #10944, #11042, #11045 |
 | [@Michael-Rocco-Goldmann](https://github.com/Michael-Rocco-Goldmann) | #9770, #9773, #9777, #9787 |
 | [@MichaelYcJo](https://github.com/MichaelYcJo) | #8244, #10725, #10726 |
+| [@Minamaged18](https://github.com/Minamaged18) | #11269 |
 | [@minhlongs](https://github.com/minhlongs) | #10805 |
 | [@minhnhat166](https://github.com/minhnhat166) | direct commit / report |
 | [@MohitRawat017](https://github.com/MohitRawat017) | #8718, #8772, #9605 |
@@ -1697,7 +1705,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@PixmaNts](https://github.com/PixmaNts) | #9432 |
 | [@pizzav-xyz](https://github.com/pizzav-xyz) | #9077 |
 | [@Poid-ZA](https://github.com/Poid-ZA) | #9467, #10769 |
-| [@Prajeeth-12](https://github.com/Prajeeth-12) | #11031 |
+| [@Prajeeth-12](https://github.com/Prajeeth-12) | #11031, #11265 |
 | [@Prudhvivuda](https://github.com/Prudhvivuda) | #8807, #9014, #9015, #9016 |
 | [@pucedoteth](https://github.com/pucedoteth) | #10607 |
 | [@qianze0628](https://github.com/qianze0628) | #9038 |
@@ -1763,9 +1771,9 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@yansigit](https://github.com/yansigit) | #9834, #9909, #9911, #9917, #9921, #10065 |
 | [@yawar-aquil](https://github.com/yawar-aquil) | #10668 |
 | [@yidecode](https://github.com/yidecode) | #7223, #9212 |
-| [@yourspraveen](https://github.com/yourspraveen) | #11165, #11176 |
+| [@yourspraveen](https://github.com/yourspraveen) | #11087, #11088, #11165, #11176, #11271 |
 | [@yulinlina](https://github.com/yulinlina) | #10013 |
-| [@YunyunZhai](https://github.com/YunyunZhai) | #10946 |
+| [@YunyunZhai](https://github.com/YunyunZhai) | #10946, #10960 |
 | [@yutuknown](https://github.com/yutuknown) | #8999 |
 | [@zabrodschiipavel-sketch](https://github.com/zabrodschiipavel-sketch) | #9312 |
 | [@zannen7](https://github.com/zannen7) | #10077 |

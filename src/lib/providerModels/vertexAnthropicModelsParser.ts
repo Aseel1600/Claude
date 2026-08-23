@@ -7,6 +7,9 @@ interface VertexPublisherModel {
   [key: string]: unknown;
 }
 
+export const VERTEX_ANTHROPIC_PUBLISHER_MODELS_URL =
+  "https://aiplatform.googleapis.com/v1beta1/publishers/anthropic/models";
+
 export interface VertexAnthropicDiscoveryModel {
   id: string;
   name: string;
@@ -19,16 +22,21 @@ export interface VertexAnthropicDiscoveryModel {
 
 export function parseVertexAnthropicModels(data: unknown): VertexAnthropicDiscoveryModel[] {
   if (!data || typeof data !== "object") return [];
-  const envelope = data as { models?: unknown[] };
-  const models = Array.isArray(envelope.models) ? envelope.models : [];
+  const envelope = data as { publisherModels?: unknown };
+  const models = Array.isArray(envelope.publisherModels) ? envelope.publisherModels : [];
 
   return models
     .map((m: unknown) => {
+      if (!m || typeof m !== "object" || Array.isArray(m)) return null;
       const model = m as VertexPublisherModel;
       const rawName = typeof model.name === "string" ? model.name : "";
       // "publishers/anthropic/models/claude-sonnet-4-6" or
       // "projects/x/locations/y/publishers/anthropic/models/claude-sonnet-4-6"
-      const id = rawName.replace(/^(?:projects\/[^/]+\/locations\/[^/]+\/)?publishers\/anthropic\/models\//, "") || rawName;
+      const id =
+        rawName.replace(
+          /^(?:projects\/[^/]+\/locations\/[^/]+\/)?publishers\/anthropic\/models\//,
+          ""
+        ) || rawName;
       if (!id) return null;
 
       return {

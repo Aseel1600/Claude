@@ -43,6 +43,21 @@ const suggestSchema = [
   },
 ];
 
+const TASK_TYPES = ["coding", "review", "planning", "analysis", "debugging", "documentation"];
+
+function normalizeTaskType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (TASK_TYPES.includes(normalized)) return normalized;
+  if (/debug|bug|error|fix/.test(normalized)) return "debugging";
+  if (/review|audit/.test(normalized)) return "review";
+  if (/plan|architect|design/.test(normalized)) return "planning";
+  if (/doc|readme|guide/.test(normalized)) return "documentation";
+  if (/code|implement|program/.test(normalized)) return "coding";
+  return "analysis";
+}
+
 export function extendComboSuggest(combo) {
   combo
     .command("suggest")
@@ -50,29 +65,28 @@ export function extendComboSuggest(combo) {
     .requiredOption("--task <description>", t("combo.suggest.task"))
     .option("--max-cost <usd>", t("combo.suggest.maxCost"), parseFloat)
     .option("--max-latency-ms <ms>", t("combo.suggest.maxLatencyMs"), parseInt)
-    .option("--weights <json>", t("combo.suggest.weights"))
     .option("--top <n>", t("combo.suggest.top"), parseInt, 5)
     .option("--explain", t("combo.suggest.explain"))
     .option("--switch", t("combo.suggest.switch"))
     .action(async (opts, cmd) => {
       const body = {
-        task: opts.task,
-        constraints: {
-          maxCostUsd: opts.maxCost,
-          maxLatencyMs: opts.maxLatencyMs,
-        },
-        weights: opts.weights ? JSON.parse(opts.weights) : undefined,
-        top: opts.top,
+        taskType: normalizeTaskType(opts.task),
+        budgetConstraint: opts.maxCost,
+        latencyConstraint: opts.maxLatencyMs,
       };
       const data = await mcpCallTool("omniroute_best_combo_for_task", body);
-      const candidates = data.candidates ?? data;
-      const rows = (Array.isArray(candidates) ? candidates : []).map((c, i) => ({
+      const candidates = data.recommendedCombo
+        ? [data.recommendedCombo, ...(Array.isArray(data.alternatives) ? data.alternatives : [])]
+        : (data.candidates ?? data);
+      const rows = (Array.isArray(candidates) ? candidates : []).slice(0, opts.top).map((c, i) => ({
         rank: i + 1,
         ...c,
       }));
       emit(rows, cmd.optsWithGlobals(), suggestSchema);
       if (opts.explain && !cmd.optsWithGlobals().quiet) {
-        process.stderr.write(`\nRationale:\n${data.rationale ?? "(no rationale)"}\n`);
+        process.stderr.write(
+          `\nRationale:\n${data.recommendedCombo?.reason ?? data.rationale ?? "(no rationale)"}\n`
+        );
       }
       if (opts.switch && rows[0]) {
         const best = rows[0].name;

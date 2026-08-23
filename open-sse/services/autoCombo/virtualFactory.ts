@@ -11,6 +11,7 @@ import { toNumber } from "@/shared/utils/numeric";
 import { isCompatibleProviderConnectionId } from "@/shared/utils/compatibleProviderId";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 import { getTokenLimit } from "../contextManager";
+import { filterChatSelectableModels } from "../modelEndpointPolicy.ts";
 import {
   createModelCapabilityResolutionSnapshot,
   getResolvedModelCapabilities,
@@ -542,10 +543,17 @@ export async function prepareVirtualAutoComboInputs(
     // back to the static catalog only when the user has none. This keeps catalog-only
     // models (e.g. openrouter/auto) out of every auto/* pool when the operator only
     // synced a subset (e.g. OpenRouter with importFreeModelsOnly).
-    const [syncedByConnection, customModels] = await Promise.all([
+    const [syncedByConnectionRaw, customModelsRaw] = await Promise.all([
       getSyncedAvailableModelsByConnection(providerId),
       getCustomModels(providerId),
     ]);
+    const syncedByConnection = Object.fromEntries(
+      Object.entries(syncedByConnectionRaw).map(([connectionId, models]) => [
+        connectionId,
+        filterChatSelectableModels(providerId, models),
+      ])
+    );
+    const customModels = filterChatSelectableModels(providerId, customModelsRaw);
     const userVisibleIds = new Set<string>();
     for (const models of Object.values(syncedByConnection)) {
       for (const m of models) if (m.id && !hiddenModels?.has(m.id)) userVisibleIds.add(m.id);

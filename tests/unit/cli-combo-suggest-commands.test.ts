@@ -24,8 +24,7 @@ test("combo suggest chama omniroute_best_combo_for_task via MCP", async () => {
   });
   const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
   const result = await mcpCallTool("omniroute_best_combo_for_task", {
-    task: "Real-time code completions",
-    top: 5,
+    taskType: "coding",
   });
   globalThis.fetch = origFetch;
   const candidates = (result as any).candidates;
@@ -44,35 +43,34 @@ test("combo suggest --max-cost/--max-latency-ms passa constraints", async () => 
   }) as any;
   const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
   await mcpCallTool("omniroute_best_combo_for_task", {
-    task: "Summarize PDFs",
-    constraints: { maxCostUsd: 0.001, maxLatencyMs: 500 },
-    top: 3,
+    taskType: "analysis",
+    budgetConstraint: 0.001,
+    latencyConstraint: 500,
   });
   globalThis.fetch = origFetch;
-  const args = JSON.parse(captured.find((c) => /tools\/call/.test(String(c.init?.body || "")))?.init?.body || "{}")?.params?.arguments;
-  assert.equal(args.constraints.maxCostUsd, 0.001);
-  assert.equal(args.constraints.maxLatencyMs, 500);
-  assert.equal(args.top, 3);
+  const args = JSON.parse(
+    captured.find((c) => /tools\/call/.test(String(c.init?.body || "")))?.init?.body || "{}"
+  )?.params?.arguments;
+  assert.equal(args.taskType, "analysis");
+  assert.equal(args.budgetConstraint, 0.001);
+  assert.equal(args.latencyConstraint, 500);
 });
 
-test("combo suggest --weights passa pesos no body", async () => {
+test("mcpCallTool reaplica a sessão e decodifica CallToolResult textual", async () => {
   const origFetch = globalThis.fetch;
   const captured: any[] = [];
-  globalThis.fetch = makeMcpStreamFetch({ toolResult: { candidates: [] } });
+  globalThis.fetch = makeMcpStreamFetch({ toolResult: { recommendedCombo: { name: "fast" } } });
   const inner = globalThis.fetch;
   globalThis.fetch = ((url: any, init: any) => {
     captured.push({ url: String(url), init });
     return inner(url, init);
   }) as any;
   const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
-  await mcpCallTool("omniroute_best_combo_for_task", {
-    task: "batch",
-    weights: { latency: 0.7, cost: 0.3 },
-  });
+  const result = await mcpCallTool("omniroute_best_combo_for_task", { taskType: "coding" });
   globalThis.fetch = origFetch;
-  const args = JSON.parse(captured.find((c) => /tools\/call/.test(String(c.init?.body || "")))?.init?.body || "{}")?.params?.arguments;
-  assert.equal(args.weights.latency, 0.7);
-  assert.equal(args.weights.cost, 0.3);
+  const toolCall = captured.find((c) => /tools\/call/.test(String(c.init?.body || "")));
+  assert.equal(new Headers(toolCall?.init?.headers).get("mcp-session-id"), "sess-test");
+  assert.deepEqual(result, { recommendedCombo: { name: "fast" } });
 });
 
 test("combo suggest --switch chama /api/combos/switch com melhor combo", async () => {
@@ -83,16 +81,35 @@ test("combo suggest --switch chama /api/combos/switch com melhor combo", async (
     if (String(url).includes("/api/mcp/stream")) {
       const body = opts?.body ? JSON.parse(opts.body) : {};
       if (body.method === "initialize") {
-        return Promise.resolve(makeMcpResp({ jsonrpc: "2.0", id: body.id, result: {} }, 200, { "mcp-session-id": "s" }));
+        return Promise.resolve(
+          makeMcpResp({ jsonrpc: "2.0", id: body.id, result: {} }, 200, { "mcp-session-id": "s" })
+        );
       }
-      return Promise.resolve(makeMcpResp({ jsonrpc: "2.0", id: body.id, result: { candidates: [{ name: "best-combo", score: 0.95 }] } }));
+      assert.equal(new Headers(opts?.headers).get("mcp-session-id"), "s");
+      return Promise.resolve(
+        makeMcpResp({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ recommendedCombo: { name: "best-combo" } }),
+              },
+            ],
+          },
+        })
+      );
     }
     return Promise.resolve(makeMcpResp({ switched: true }));
   }) as any;
 
   const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
-  const data = await mcpCallTool("omniroute_best_combo_for_task", { task: "x" });
-  const combosSwitchRes = await fetch("/api/combos/switch", { method: "POST", body: JSON.stringify({ name: (data as any).candidates[0].name }) });
+  const data = await mcpCallTool("omniroute_best_combo_for_task", { taskType: "coding" });
+  const combosSwitchRes = await fetch("/api/combos/switch", {
+    method: "POST",
+    body: JSON.stringify({ name: (data as any).recommendedCombo.name }),
+  });
   assert.equal(combosSwitchRes.ok, true);
   assert.ok(urls.some((u) => u.includes("/api/combos/switch")));
   globalThis.fetch = origFetch;

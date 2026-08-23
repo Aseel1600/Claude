@@ -73,11 +73,7 @@ test("clamp: disable-shaped efforts map to low (upstream refuses to stop thinkin
   for (const effort of ["none", "minimal"]) {
     const body = { ...HERMES_BODY, reasoning_effort: effort };
     const result = sanitizeReasoningEffortForProvider(body, "opencode-go", "ox-alpha-free", null);
-    assert.equal(
-      (result as Record<string, unknown>).reasoning_effort,
-      "low",
-      `${effort} → low`
-    );
+    assert.equal((result as Record<string, unknown>).reasoning_effort, "low", `${effort} → low`);
   }
 });
 
@@ -103,10 +99,12 @@ test("clamp writes back to every carrier present (top-level + reasoning.effort +
     reasoning: { effort: "medium" },
     output_config: { effort: "medium" },
   };
-  const result = sanitizeReasoningEffortForProvider(body, "opencode-go", "ox-alpha-free", null) as Record<
-    string,
-    unknown
-  >;
+  const result = sanitizeReasoningEffortForProvider(
+    body,
+    "opencode-go",
+    "ox-alpha-free",
+    null
+  ) as Record<string, unknown>;
   assert.equal(result.reasoning_effort, "high");
   assert.deepEqual(result.reasoning, { effort: "high" });
   assert.deepEqual(result.output_config, { effort: "high" });
@@ -114,7 +112,12 @@ test("clamp writes back to every carrier present (top-level + reasoning.effort +
 
 test("no declaration → pass-through unchanged (#8057 policy for unlisted models)", () => {
   const body = { ...HERMES_BODY, model: "some-unregistered-model", reasoning_effort: "medium" };
-  const result = sanitizeReasoningEffortForProvider(body, "opencode-go", "some-unregistered-model", null);
+  const result = sanitizeReasoningEffortForProvider(
+    body,
+    "opencode-go",
+    "some-unregistered-model",
+    null
+  );
   assert.equal(result, body, "undeclared models keep today's trust-the-upstream behavior");
   assert.equal((result as Record<string, unknown>).reasoning_effort, "medium");
 });

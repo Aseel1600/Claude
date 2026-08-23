@@ -107,17 +107,31 @@ export async function runCompressionStatus(opts, cmd) {
 
 export async function runCompressionConfigure(opts, cmd) {
   const config = {};
-  // #6571 — both the MCP tool schema (compressionConfigureInput) and
-  // handleCompressionConfigure expect `strategy`, not `engine`; a non-strict
-  // MCP schema silently strips an unrecognized `engine` key on the primary
-  // (MCP-mounted) path, so this must be `strategy` on both paths.
-  if (opts.engine) config.strategy = normalizeEngine(opts.engine);
-  if (opts.cavemanAggressiveness !== undefined)
-    config.caveman = { aggressiveness: opts.cavemanAggressiveness };
-  if (opts.rtkBudget !== undefined) config.rtk = { tokenBudget: opts.rtkBudget };
-  if (opts.languagePack) config.languagePack = opts.languagePack;
+  // Keep this payload byte-for-byte within compressionConfigureInput. Engine-
+  // specific Caveman/RTK controls belong to `compression engine set`, whose
+  // MCP tool has a different schema.
+  const strategy = opts.strategy ?? opts.engine;
+  if (strategy) config.strategy = normalizeEngine(strategy);
+  for (const key of [
+    "enabled",
+    "autoTriggerMode",
+    "maxTokens",
+    "targetRatio",
+    "preserveSystemPrompt",
+    "mcpDescriptionCompressionEnabled",
+  ]) {
+    if (opts[key] !== undefined) config[key] = opts[key];
+  }
   const data = await mcpCall("omniroute_compression_configure", config, () =>
     restCompressionConfigure(config)
+  );
+  emit(data, cmd.optsWithGlobals());
+}
+
+export async function runCompressionComboStats(opts, cmd) {
+  const since = opts.period ?? "7d";
+  const data = await mcpCall("omniroute_compression_combo_stats", { since }, () =>
+    restComboStats(since)
   );
   emit(data, cmd.optsWithGlobals());
 }
@@ -161,10 +175,21 @@ export function registerCompression(program) {
   cmp
     .command("configure")
     .description(t("compression.configure.description"))
-    .option("--engine <e>", t("compression.configure.engine"))
-    .option("--caveman-aggressiveness <n>", t("compression.configure.caveman_agg"), parseFloat)
-    .option("--rtk-budget <n>", t("compression.configure.rtk_budget"), parseInt)
-    .option("--language-pack <p>", t("compression.configure.language_pack"))
+    .option("--strategy <mode>", t("compression.configure.engine"))
+    .option("--enabled <boolean>", "Enable or disable compression", (value) => value === "true")
+    .option("--auto-trigger-mode <mode>", "Compression mode used by automatic triggering")
+    .option("--max-tokens <n>", "Maximum tokens before compression triggers", parseInt)
+    .option("--target-ratio <n>", "Target compression ratio (0.0-1.0)", parseFloat)
+    .option(
+      "--preserve-system-prompt <boolean>",
+      "Preserve the system prompt",
+      (value) => value === "true"
+    )
+    .option(
+      "--mcp-description-compression-enabled <boolean>",
+      "Compress MCP tool descriptions",
+      (value) => value === "true"
+    )
     .action(runCompressionConfigure);
 
   const engine = cmp.command("engine").description(t("compression.engine.description"));
@@ -181,17 +206,7 @@ export function registerCompression(program) {
     }));
     emit(data.combos ?? data, cmd.optsWithGlobals());
   });
-  combos
-    .command("stats")
-    .option("--period <p>", null, "7d")
-    .action(async (opts, cmd) => {
-      const data = await mcpCall(
-        "omniroute_compression_combo_stats",
-        { period: opts.period ?? "7d" },
-        () => restComboStats(opts.period)
-      );
-      emit(data, cmd.optsWithGlobals());
-    });
+  combos.command("stats").option("--period <p>", null, "7d").action(runCompressionComboStats);
 
   const rules = cmp.command("rules").description(t("compression.rules.description"));
   rules.command("list").action(async (opts, cmd) => {

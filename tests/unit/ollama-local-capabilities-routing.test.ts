@@ -157,8 +157,10 @@ test("Ollama image model routes through its advertising connection", async () =>
   ]);
 
   let capturedUrl = "";
-  globalThis.fetch = async (input) => {
+  let capturedBody: Record<string, unknown> = {};
+  globalThis.fetch = async (input, init = {}) => {
     capturedUrl = String(input);
+    capturedBody = JSON.parse(String(init.body || "{}")) as Record<string, unknown>;
     return Response.json({ data: [{ b64_json: "aW1hZ2U=" }] });
   };
 
@@ -172,6 +174,7 @@ test("Ollama image model routes through its advertising connection", async () =>
 
   assert.equal(response.status, 200, await response.text());
   assert.equal(capturedUrl, "http://127.0.0.1:11435/v1/images/generations");
+  assert.equal(capturedBody.model, "image-model");
 });
 
 test("Ollama embedding model routes through its advertising connection", async () => {

@@ -75,10 +75,10 @@ test("disabled scheduler emits [STARTUP] Credential health scheduler disabled vi
 });
 
 test("instrumentation-node.ts wires initCredentialHealthCheck return to the log conditional", () => {
-  const src = readFileSync(
-    resolve(projectRoot, "src/instrumentation-node.ts"),
-    "utf8"
-  ).replace(/\r\n/g, "\n");
+  const src = readFileSync(resolve(projectRoot, "src/instrumentation-node.ts"), "utf8").replace(
+    /\r\n/g,
+    "\n"
+  );
 
   assert.match(
     src,

@@ -22,6 +22,7 @@ interface ImageGenerationResult {
 interface ImageCredentialRetryOptions {
   provider: string;
   requestedModel: string | null;
+  allowedConnectionIds?: string[] | null;
   credentials: any;
   execute: (credentials: any) => Promise<ImageGenerationResult>;
   // Injectable so unit tests can drive multi-account fallback deterministically
@@ -30,7 +31,8 @@ interface ImageCredentialRetryOptions {
   selectNextCredentials?: (
     provider: string,
     requestedModel: string | null,
-    excludedConnectionIds: Set<string>
+    excludedConnectionIds: Set<string>,
+    allowedConnectionIds?: string[] | null
   ) => Promise<any>;
 }
 
@@ -53,11 +55,18 @@ function isCredentialSentinel(credentials: any): boolean {
 async function defaultSelectNextCredentials(
   provider: string,
   requestedModel: string | null,
-  excludedConnectionIds: Set<string>
+  excludedConnectionIds: Set<string>,
+  allowedConnectionIds?: string[] | null
 ) {
-  return getProviderCredentialsWithQuotaPreflight(provider, null, null, requestedModel, {
-    excludeConnectionIds: Array.from(excludedConnectionIds),
-  });
+  return getProviderCredentialsWithQuotaPreflight(
+    provider,
+    null,
+    allowedConnectionIds,
+    requestedModel,
+    {
+      excludeConnectionIds: Array.from(excludedConnectionIds),
+    }
+  );
 }
 
 /**
@@ -70,6 +79,7 @@ async function defaultSelectNextCredentials(
 export async function executeImageWithCredentialFallback({
   provider,
   requestedModel,
+  allowedConnectionIds = null,
   credentials,
   execute,
   selectNextCredentials = defaultSelectNextCredentials,
@@ -103,7 +113,8 @@ export async function executeImageWithCredentialFallback({
       currentCredentials = await selectNextCredentials(
         provider,
         requestedModel,
-        excludedConnectionIds
+        excludedConnectionIds,
+        allowedConnectionIds
       );
       continue;
     }
@@ -122,7 +133,8 @@ export async function executeImageWithCredentialFallback({
     currentCredentials = await selectNextCredentials(
       provider,
       requestedModel,
-      excludedConnectionIds
+      excludedConnectionIds,
+      allowedConnectionIds
     );
   }
 

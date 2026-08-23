@@ -523,7 +523,8 @@ describe("Conol web provider", () => {
 
       // Configuration must complete before the turn is submitted.
       const turnIndex = calls.findIndex(
-        (call) => call.url.endsWith("/api/sessions/session_123/messages") && call.init?.method === "POST"
+        (call) =>
+          call.url.endsWith("/api/sessions/session_123/messages") && call.init?.method === "POST"
       );
       const lastModelIndex = calls.map((call) => call.url.endsWith("/model")).lastIndexOf(true);
       assert.ok(lastModelIndex < turnIndex, "model config must precede the message turn");

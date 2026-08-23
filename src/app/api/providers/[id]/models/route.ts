@@ -1849,30 +1849,12 @@ export async function GET(
         throw error;
       }
 
-      // ponytail: Anthropic partner models via Model Garden publisher endpoint (Bearer only)
+      // ponytail: Anthropic partner models via Model Garden PublisherModels endpoint (Bearer only)
       if (bearerToken) {
-        const psd = asRecord(connection.providerSpecificData);
-        const region =
-          (typeof psd.region === "string" && psd.region.trim()) || "us-central1";
-
-        // Extract project_id from SA JSON for project-scoped listing (mirrors executor URL pattern).
-        // Falls back to global publisher endpoint if no project available.
-        let anthropicModelsUrl: string;
-        let projectId: string | null = null;
-        if (credential) {
-          try {
-            const sa = JSON.parse(credential);
-            if (sa?.project_id) projectId = sa.project_id;
-          } catch { /* not SA JSON, skip */ }
-        }
-        if (projectId) {
-          anthropicModelsUrl = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/anthropic/models`;
-        } else {
-          anthropicModelsUrl = `https://aiplatform.googleapis.com/v1/publishers/anthropic/models`;
-        }
-
         try {
-          const anthropicResponse = await safeOutboundFetch(anthropicModelsUrl, {
+          const { parseVertexAnthropicModels, VERTEX_ANTHROPIC_PUBLISHER_MODELS_URL } =
+            await import("@/lib/providerModels/vertexAnthropicModelsParser");
+          const anthropicResponse = await safeOutboundFetch(VERTEX_ANTHROPIC_PUBLISHER_MODELS_URL, {
             ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
             guard: getProviderOutboundGuard(),
             proxyConfig: proxy,
@@ -1884,14 +1866,10 @@ export async function GET(
           });
           if (anthropicResponse.ok) {
             const anthropicData = await anthropicResponse.json();
-            const { parseVertexAnthropicModels } = await import(
-              "@/lib/providerModels/vertexAnthropicModelsParser"
-            );
             allModels.push(...parseVertexAnthropicModels(anthropicData));
           } else {
             console.log("[models] Vertex Anthropic partner discovery failed", {
               provider,
-              region,
               status: anthropicResponse.status,
             });
           }

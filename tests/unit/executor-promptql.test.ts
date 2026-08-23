@@ -7,9 +7,7 @@ const mod = await import("../../open-sse/executors/promptql.ts");
 const usage = await import("../../open-sse/services/usage/promptql.ts");
 const models = await import("../../open-sse/services/promptqlModels.ts");
 const { getModelsByProviderId } = await import("../../open-sse/config/providerModels.ts");
-const { WEB_COOKIE_PROVIDERS } = await import(
-  "../../src/shared/constants/providers/web-cookie.ts"
-);
+const { WEB_COOKIE_PROVIDERS } = await import("../../src/shared/constants/providers/web-cookie.ts");
 
 // Sample JWT payload (unsigned shape for claim extraction only)
 function makeFakeJwt(claims: Record<string, unknown>): string {
@@ -131,10 +129,10 @@ describe("PromptQl — helpers", () => {
         );
       }
       if (!auth.includes(ddnLuxJwt)) {
-        return new Response(
-          JSON.stringify({ errors: [{ message: "unexpected token in test" }] }),
-          { status: 200, headers: { "content-type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ errors: [{ message: "unexpected token in test" }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
       }
       return new Response(
         JSON.stringify({
@@ -155,14 +153,23 @@ describe("PromptQl — helpers", () => {
       const result = (await usage.getPromptQlUsage(sampleJwt, {
         projectId: PROJECT_ID,
         luxJwt: ddnLuxJwt,
-      })) as { quotas?: { credits?: { used?: number; remaining?: number; total?: number } }; message?: string };
-      assert.ok(result.quotas?.credits, `expected credits quota from luxJwt, got ${JSON.stringify(result)}`);
+      })) as {
+        quotas?: { credits?: { used?: number; remaining?: number; total?: number } };
+        message?: string;
+      };
+      assert.ok(
+        result.quotas?.credits,
+        `expected credits quota from luxJwt, got ${JSON.stringify(result)}`
+      );
       assert.equal(result.quotas!.credits!.total, 50);
       assert.equal(result.quotas!.credits!.used, 22);
       assert.equal(result.quotas!.credits!.remaining, 28);
       // First attempt should use luxJwt (DDN preferred over enrich apiKey)
       assert.ok(calls.length >= 1);
-      assert.ok(calls[0]!.includes(ddnLuxJwt), `first call should use DDN luxJwt, got ${calls[0]?.slice(0, 80)}`);
+      assert.ok(
+        calls[0]!.includes(ddnLuxJwt),
+        `first call should use DDN luxJwt, got ${calls[0]?.slice(0, 80)}`
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -241,9 +248,7 @@ describe("PromptQl — helpers", () => {
       "USAGE_FETCHER_PROVIDERS must list promptql so generic quota fetcher can call it"
     );
     assert.ok((usageMain.USAGE_FETCHER_PROVIDERS as readonly string[]).includes("pql"));
-    const { USAGE_SUPPORTED_PROVIDERS } = await import(
-      "../../src/shared/constants/providers.ts"
-    );
+    const { USAGE_SUPPORTED_PROVIDERS } = await import("../../src/shared/constants/providers.ts");
     assert.ok(
       (USAGE_SUPPORTED_PROVIDERS as readonly string[]).includes("promptql"),
       "USAGE_SUPPORTED_PROVIDERS must list promptql for provider-limits sync"
@@ -252,7 +257,10 @@ describe("PromptQl — helpers", () => {
 
   it("extracts OpenAI content-parts arrays", () => {
     assert.equal(
-      mod.extractMessageText([{ type: "text", text: "hi" }, { type: "text", text: " there" }]),
+      mod.extractMessageText([
+        { type: "text", text: "hi" },
+        { type: "text", text: " there" },
+      ]),
       "hi\n there"
     );
   });
@@ -391,22 +399,10 @@ describe("PromptQl — thread continuity (no cross-chat sticky)", () => {
   });
 
   it("readClientThreadId accepts body and header variants", () => {
-    assert.equal(
-      mod.readClientThreadId({ promptql_thread_id: "t1" } as never),
-      "t1"
-    );
-    assert.equal(
-      mod.readClientThreadId({ thread_id: "t2" } as never),
-      "t2"
-    );
-    assert.equal(
-      mod.readClientThreadId({} as never, { "X-PromptQL-Thread-Id": "t3" }),
-      "t3"
-    );
-    assert.equal(
-      mod.readClientThreadId({} as never, { "x-conversation-id": "t4" }),
-      "t4"
-    );
+    assert.equal(mod.readClientThreadId({ promptql_thread_id: "t1" } as never), "t1");
+    assert.equal(mod.readClientThreadId({ thread_id: "t2" } as never), "t2");
+    assert.equal(mod.readClientThreadId({} as never, { "X-PromptQL-Thread-Id": "t3" }), "t3");
+    assert.equal(mod.readClientThreadId({} as never, { "x-conversation-id": "t4" }), "t4");
   });
 
   it("system messages do not collide independent user chats", () => {
@@ -528,10 +524,7 @@ describe("PromptQl — thread continuity (no cross-chat sticky)", () => {
 
   it("normalizeForFingerprint strips agent_mention and User request wrappers", () => {
     assert.equal(mod.normalizeForFingerprint("<agent_mention /> hello"), "hello");
-    assert.equal(
-      mod.normalizeForFingerprint("noise\n\nUser request:\nhello 2"),
-      "hello 2"
-    );
+    assert.equal(mod.normalizeForFingerprint("noise\n\nUser request:\nhello 2"), "hello 2");
   });
 });
 

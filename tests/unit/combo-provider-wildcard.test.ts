@@ -398,6 +398,25 @@ test("#8926: active synced catalog replaces static wildcard entries", async () =
   );
 });
 
+test("Ollama provider wildcards exclude endpoint-only image and embedding models", async () => {
+  const connectionId = `ollama-capability-wildcard-${Date.now()}`;
+  await seedSyncedModels("ollama-local", connectionId, []);
+  await replaceSyncedAvailableModelsForConnection("ollama-local", connectionId, [
+    { id: "chat-model", name: "Chat", supportedEndpoints: ["chat"] },
+    { id: "image-model", name: "Image", supportedEndpoints: ["images"] },
+    { id: "embedding-model", name: "Embedding", supportedEndpoints: ["embeddings"] },
+  ]);
+
+  const result = await expandProviderWildcardsInCombo(
+    makeCombo(["ollama-local/*"], "ollama-chat-only")
+  );
+
+  assert.deepEqual(
+    result.models.map((entry) => (entry as { model: string }).model),
+    ["ollama-local/chat-model"]
+  );
+});
+
 test("#8926: inactive synced catalog does not override static wildcard fallback", async () => {
   const providerId = "openai";
   const inactiveModelId = "inactive-only-model-8926";

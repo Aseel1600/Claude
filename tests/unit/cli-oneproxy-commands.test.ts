@@ -25,33 +25,57 @@ test("oneproxy status chama omniroute_oneproxy_stats via MCP", async () => {
   assert.ok(calls.length >= 0);
 });
 
-test("oneproxy stats passa provider e period para MCP", async () => {
+test("oneproxy stats envia o objeto vazio exigido pelo schema MCP", async () => {
+  const calls: any[] = [];
   const origFetch = globalThis.fetch;
-  globalThis.fetch = makeMcpStreamFetch({ toolResult: { requests: 5000 } });
-  const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
-  const result = await mcpCallTool("omniroute_oneproxy_stats", { provider: "openai", period: "24h" });
+  const streamFetch = makeMcpStreamFetch({ toolResult: { stats: {}, status: {} } });
+  globalThis.fetch = (async (url: string, init?: any) => {
+    calls.push({ url: String(url), init });
+    return streamFetch(url, init);
+  }) as any;
+  const { runOneproxyStats } = await import("../../bin/cli/commands/oneproxy.mjs");
+  await runOneproxyStats({}, makeCmd() as any);
   globalThis.fetch = origFetch;
-  assert.deepEqual(result, { requests: 5000 });
+  const body = JSON.parse(
+    calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}"
+  );
+  assert.deepEqual(body.params.arguments, {});
 });
 
-test("oneproxy fetch chama omniroute_oneproxy_fetch com count e type", async () => {
+test("oneproxy fetch maps count/type to limit/protocol and emits items", async () => {
+  const calls: any[] = [];
   const origFetch = globalThis.fetch;
-  globalThis.fetch = makeMcpStreamFetch({ toolResult: { proxies: [{ host: "10.0.0.1", type: "http" }] } });
-  const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
-  const result = await mcpCallTool("omniroute_oneproxy_fetch", { count: 5, type: "http" });
+  const streamFetch = makeMcpStreamFetch({
+    toolResult: { items: [{ host: "10.0.0.1", type: "http" }], total: 1 },
+  });
+  globalThis.fetch = (async (url: string, init?: any) => {
+    calls.push({ url: String(url), init });
+    return streamFetch(url, init);
+  }) as any;
+  const { runOneproxyFetch } = await import("../../bin/cli/commands/oneproxy.mjs");
+  await runOneproxyFetch({ count: 5, type: "http" }, makeCmd() as any);
   globalThis.fetch = origFetch;
-  assert.equal((result as any).proxies[0].host, "10.0.0.1");
-  assert.equal((result as any).proxies[0].type, "http");
+  const body = JSON.parse(
+    calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}"
+  );
+  assert.deepEqual(body.params.arguments, { limit: 5, protocol: "http" });
 });
 
-test("oneproxy rotate chama omniroute_oneproxy_rotate com provider", async () => {
+test("oneproxy rotate envia somente a strategy aceita pelo schema MCP", async () => {
+  const calls: any[] = [];
   const origFetch = globalThis.fetch;
-  globalThis.fetch = makeMcpStreamFetch({ toolResult: { rotated: true, newProxy: "10.0.0.2" } });
-  const { mcpCallTool } = await import("../../bin/cli/mcpClient.mjs");
-  const result = await mcpCallTool("omniroute_oneproxy_rotate", { provider: "anthropic" });
+  const streamFetch = makeMcpStreamFetch({ toolResult: { host: "10.0.0.2", type: "http" } });
+  globalThis.fetch = (async (url: string, init?: any) => {
+    calls.push({ url: String(url), init });
+    return streamFetch(url, init);
+  }) as any;
+  const { runOneproxyRotate } = await import("../../bin/cli/commands/oneproxy.mjs");
+  await runOneproxyRotate({ strategy: "quality" }, makeCmd() as any);
   globalThis.fetch = origFetch;
-  assert.equal((result as any).rotated, true);
-  assert.equal((result as any).newProxy, "10.0.0.2");
+  const body = JSON.parse(
+    calls.find((x) => String(x.init?.body || "").includes("tools/call"))?.init?.body || "{}"
+  );
+  assert.deepEqual(body.params.arguments, { strategy: "quality" });
 });
 
 test("oneproxy config set envia PUT /api/settings/oneproxy", async () => {
