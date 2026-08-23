@@ -242,18 +242,8 @@ test("Codex parent authentication failures block both virtual children without c
   const inventory = await providersDb.getProviderConnections({ provider: "codex" });
 
   assert.equal(unavailable.shouldFallback, true);
-  // A 401 "invalid authentication token" marks the Codex parent as `expired`
-  // (auth.ts maps that 401 to the terminal "expired" status). getProviderCredentials
-  // no longer returns bare `null` for that case: since #9467 it returns the richer
-  // no-credentials verdict `{ allExpired, expiredCount, expiredStatus }`, which the
-  // chat/embeddings callers treat exactly like "no credentials" (chat.ts:1621,
-  // chatHelpers.ts:680). This test predated that enrichment and still asserted the
-  // old `null`; assert the current verdict shape instead, consistent with the
-  // sibling subtests above that check `.allRateLimited === true`. The key
-  // invariant (both virtual children are blocked, no child rows created) is
-  // preserved and still checked via the inventory assertion below.
-  assert.equal(spark?.allExpired, true);
-  assert.equal(normal?.allExpired, true);
+  assert.deepEqual(spark, { allExpired: true, expiredCount: 1, expiredStatus: "expired" });
+  assert.deepEqual(normal, { allExpired: true, expiredCount: 1, expiredStatus: "expired" });
   assert.deepEqual(
     inventory.map((item) => item.id),
     [connection.id]

@@ -5,15 +5,6 @@ import { fileURLToPath } from "node:url";
 import { parse } from "jsonc-parser";
 import * as generator from "../../../src/lib/cli-helper/config-generator/index.ts";
 
-// The Hermes config generator honors a HERMES_HOME env var (#3628) and only
-// falls back to the default ~/.hermes/config.yaml when it is unset. CI runs
-// with HERMES_HOME unset, but this suite can also run inside a Hermes Agent
-// session that exports HERMES_HOME (e.g. /mnt/.../hermes/workspace), which
-// redirects the generated config path and breaks the ".hermes/config.yaml"
-// assertions below. Unset it here so the test is hermetic and matches CI
-// regardless of the ambient runtime.
-delete process.env.HERMES_HOME;
-
 // The UI's HERMES_ROLES catalog (HermesAgentToolCard.tsx) is a "use client" component
 // module — importing it in the Node test runner would pull in React/JSX. Instead we
 // extract the id list straight from source text, which is enough to diff catalogs
@@ -356,11 +347,8 @@ describe("config-generator", () => {
 
   describe("opencode (context-aware)", () => {
     /**
-     * The catalog is the source of truth for context windows. When a model's
-     * window is unknown, the generator emits a safe 128K fallback because
-     * OpenCode's v1 provider schema REQUIRES limit.context (#11035/#11032,
-     * commit 8643e0f57); earlier revisions omitted it. Tests below pin this
-     * contract.
+     * The catalog is the single source of truth for context windows —
+     * we never fabricate a default. Tests below pin this contract.
      */
     function makeCatalogResponse(models: unknown[]): unknown {
       return { object: "list", data: models };
@@ -381,8 +369,8 @@ describe("config-generator", () => {
         context_length: 200000,
         max_input_tokens: 160000,
       },
-      // Combo whose targets have no known context — the generator emits the
-      // required 128K fallback limit.context (see #11035, pinned below).
+      // Combo whose targets have no known context — generator must NOT
+      // fabricate a default. The model is emitted without limit.context.
       { id: "NO_CTX_COMBO", owned_by: "combo" },
     ];
 
@@ -426,7 +414,7 @@ describe("config-generator", () => {
       }
     });
 
-    it("emits the required 128K fallback context when the catalog has no entry", async () => {
+    it("uses the required 128K context fallback when the catalog has no entry", async () => {
       const stub = stubFetchOnce(makeCatalogResponse(SAMPLE_CATALOG));
       try {
         const { generateOpencodeConfig } =
@@ -436,21 +424,14 @@ describe("config-generator", () => {
           apiKey: "sk-test",
         });
         const cfg = JSON.parse(out);
-        // NO_CTX_COMBO has no context_length in the catalog. This test previously
-        // asserted the generator OMITTED limit.context in that case. That
-        // contract was deliberately reversed by #11035/#11032 (commit 8643e0f57
-        // "default limit.context to 128k when unknown in OpenCode configs"):
-        // OpenCode's v1 provider schema REQUIRES limit.context, so a model with
-        // no catalog metadata must still receive the safe 128K fallback or
-        // OpenCode rejects the whole config with "Missing key
-        // provider.omniroute.models.{model}.limit.context". That PR updated
-        // opencode.ts + t40 but not this test, leaving it asserting the old
-        // policy. Assert the current, required behavior.
+        // NO_CTX_COMBO has no context_length in the catalog. OpenCode v1
+        // requires a complete limit object, so the compatibility fallback
+        // must be explicit rather than leaving the config invalid.
         const noCtx = cfg.provider.omniroute.models["NO_CTX_COMBO"];
         assert.strictEqual(
           noCtx.limit?.context,
           128_000,
-          `NO_CTX_COMBO must get the required 128K fallback limit.context (got ${noCtx.limit?.context})`
+          `NO_CTX_COMBO should use the 128K fallback (got ${noCtx.limit?.context})`
         );
       } finally {
         stub.restore();
@@ -621,14 +602,12 @@ describe("config-generator", () => {
           input: 100000,
           output: 32768,
         });
-        // #10940: `limit.output` is REQUIRED by OpenCode's v1 provider schema,
-        // so even a model with zero catalog metadata still gets a `limit`
-        // block carrying the fallback output value. #11035/#11032 (commit
-        // 8643e0f57) extended this to `limit.context`, which is ALSO required
-        // by the v1 schema: an unknown context now resolves to the safe 128K
-        // fallback rather than being omitted. `input` stays omitted since
-        // neither the catalog nor the user knows it.
-        assert.deepStrictEqual(models["no-metadata"].limit, { context: 128_000, output: 8192 });
+        // #10940/#11035: OpenCode's v1 provider schema requires both fields,
+        // so a model with zero metadata gets the compatibility fallbacks.
+        assert.deepStrictEqual(models["no-metadata"].limit, {
+          context: 128_000,
+          output: 8192,
+        });
 
         for (const model of Object.values(models) as Array<{ limit?: { output?: number } }>) {
           assert.ok(

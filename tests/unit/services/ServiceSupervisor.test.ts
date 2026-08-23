@@ -18,52 +18,35 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-superviso
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.NODE_ENV = "test";
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
+// Adoption is intentionally opt-in after GHSA-wg9p-6m2g-4v27. These tests
+// exercise the explicit adoption path, so enable it for this isolated process.
+process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
 
 // Import DB core first to trigger migration (creates version_manager with new columns)
 const core = await import("../../../src/lib/db/core.ts");
-
-// Allocate free, ephemeral ports at startup instead of hardcoding fixed ones.
-// The original fixed ports (29999/29998/29997/29996/29995) collide on any host
-// that already runs an unrelated service on one of them (e.g. a developer or CI
-// sandbox running rustdesk on 29999), which surfaces as a spurious
-// "listen EADDRINUSE" failure that has nothing to do with the code under test.
-// Binding to :0 and reading back the assigned port makes the suite robust
-// regardless of what else the host is running.
-function allocatePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = http.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const addr = srv.address();
-      const port = typeof addr === "object" && addr ? addr.port : 0;
-      srv.close(() => (port ? resolve(port) : reject(new Error("failed to allocate a test port"))));
-    });
-  });
-}
-const PORT_SVC = await allocatePort();
-const PORT_CRASH = await allocatePort();
-const PORT_LOCK = await allocatePort();
-const PORT_ADOPT = await allocatePort();
-const PORT_ADOPT2 = await allocatePort();
 
 // Seed the tool rows needed by tests
 const db = core.getDbInstance();
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
-   VALUES ('test-svc', 'stopped', ?, 0, 0, 0)`
-).run(PORT_SVC);
+   VALUES ('test-svc', 'stopped', 29999, 0, 0, 0)`
+).run();
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
-   VALUES ('test-crash', 'stopped', ?, 0, 0, 0)`
-).run(PORT_CRASH);
+   VALUES ('test-crash', 'stopped', 29998, 0, 0, 0)`
+).run();
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
-   VALUES ('test-lock', 'stopped', ?, 0, 0, 0)`
-).run(PORT_LOCK);
+   VALUES ('test-lock', 'stopped', 29997, 0, 0, 0)`
+).run();
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
-   VALUES ('test-adopt', 'stopped', ?, 0, 0, 0)`
-).run(PORT_ADOPT);
+   VALUES ('test-adopt', 'stopped', 29996, 0, 0, 0)`
+).run();
+db.prepare(
+  `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
+   VALUES ('test-adopt-deny', 'stopped', 29994, 0, 0, 0)`
+).run();
 
 const { ServiceSupervisor } = await import("../../../src/lib/services/ServiceSupervisor.ts");
 
@@ -98,8 +81,8 @@ test.after(() => {
 });
 
 test("start spawns process and captures logs in ring buffer", async () => {
-  const healthServer = startHealthServer(PORT_SVC);
-  const sup = new ServiceSupervisor(tickConfig("test-svc", PORT_SVC));
+  const healthServer = startHealthServer(29999);
+  const sup = new ServiceSupervisor(tickConfig("test-svc", 29999));
 
   try {
     const status = await sup.start();
@@ -122,9 +105,9 @@ test("start spawns process and captures logs in ring buffer", async () => {
 });
 
 test("stop sends SIGTERM and waits, then SIGKILL if needed", async () => {
-  const healthServer = startHealthServer(PORT_SVC);
+  const healthServer = startHealthServer(29999);
   const sup = new ServiceSupervisor({
-    ...tickConfig("test-svc", PORT_SVC),
+    ...tickConfig("test-svc", 29999),
     stopTimeoutMs: 500,
   });
 
@@ -139,9 +122,9 @@ test("stop sends SIGTERM and waits, then SIGKILL if needed", async () => {
 });
 
 test("crash sets state=error and lastError (no auto-restart)", async () => {
-  const healthServer = startHealthServer(PORT_CRASH);
+  const healthServer = startHealthServer(29998);
   const crashConfig = {
-    ...tickConfig("test-crash", PORT_CRASH),
+    ...tickConfig("test-crash", 29998),
     spawnArgs: () => ({
       command: process.execPath,
       // Exit after 1.5s — health server is up, so start() can return "running" first
@@ -181,8 +164,8 @@ test("crash sets state=error and lastError (no auto-restart)", async () => {
 });
 
 test("restart is atomic (concurrent calls serialize)", async () => {
-  const healthServer = startHealthServer(PORT_SVC);
-  const sup = new ServiceSupervisor(tickConfig("test-svc", PORT_SVC));
+  const healthServer = startHealthServer(29999);
+  const sup = new ServiceSupervisor(tickConfig("test-svc", 29999));
 
   try {
     await sup.start();
@@ -203,9 +186,9 @@ test("restart is atomic (concurrent calls serialize)", async () => {
 });
 
 test("does NOT auto-restart on crash", async () => {
-  const healthServer = startHealthServer(PORT_CRASH);
+  const healthServer = startHealthServer(29998);
   const crashConfig = {
-    ...tickConfig("test-crash", PORT_CRASH),
+    ...tickConfig("test-crash", 29998),
     spawnArgs: () => ({
       command: process.execPath,
       // Exit after 1.5s — same as crash test above
@@ -237,16 +220,12 @@ test("does NOT auto-restart on crash", async () => {
 // the port, the supervisor ADOPTS it (marks running, no child spawned) instead
 // of spawning a duplicate that would die with EADDRINUSE.
 test("#6205: probeBeforeSpawn adopts a healthy existing instance (no spawn)", async () => {
-  // Adoption of an already-healthy listener is opt-in since #11040 (commit
-  // eb4fd74b1 "close remaining v3.8.50 advisories"), which gated it behind
-  // OMNIROUTE_ADOPT_EXISTING_SERVICE to stop an unrelated port-squatter from
-  // being silently adopted and handed the service API key. That security fix
-  // updated ServiceSupervisor.ts but not this adoption test, so the test stopped
-  // enabling the very path it exercises. Enable it explicitly here.
-  const priorAdopt = process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
+  // GHSA-wg9p-6m2g-4v27: adoption of an already-healthy listener is opt-in
+  // (a squatter can answer 2xx), so this adoption-path test opts in explicitly.
+  const prevAdopt = process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
   process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
-  const healthServer = startHealthServer(PORT_ADOPT);
-  const cfg = { ...tickConfig("test-adopt", PORT_ADOPT), probeBeforeSpawn: true };
+  const healthServer = startHealthServer(29996);
+  const cfg = { ...tickConfig("test-adopt", 29996), probeBeforeSpawn: true };
   const sup = new ServiceSupervisor(cfg);
 
   try {
@@ -264,8 +243,8 @@ test("#6205: probeBeforeSpawn adopts a healthy existing instance (no spawn)", as
   } finally {
     await sup.stop();
     healthServer.close();
-    if (priorAdopt === undefined) delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
-    else process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = priorAdopt;
+    if (prevAdopt === undefined) delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
+    else process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = prevAdopt;
   }
 });
 
@@ -279,25 +258,25 @@ test("#6205: probeBeforeSpawn adopts a healthy existing instance (no spawn)", as
 // pid on adoption matches the real process actually holding the port.
 test("adopted service resolves and records the real pid of the process holding the port", async () => {
   // Use a distinct port from the other probeBeforeSpawn adoption test above.
-  // Both originally shared PORT_ADOPT, and Node's undici fetch() keep-alive pool
+  // Both originally shared 29996, and Node's undici fetch() keep-alive pool
   // (used by isHealthy() in portProbe.ts) caches a socket keyed only by
   // host:port, so the second test's fetch could be replayed over a stale
   // connection from the first test's health server instance, failing the
   // probe and flipping the adoption into a spurious "error" state. A separate
   // port keeps each probe isolated from the other test's pooled connection
   // (#10523).
-  const healthServer = startHealthServer(PORT_ADOPT2);
-  const cfg = { ...tickConfig("test-adopt", PORT_ADOPT2), probeBeforeSpawn: true };
+  const healthServer = startHealthServer(29995);
+  const cfg = { ...tickConfig("test-adopt", 29995), probeBeforeSpawn: true };
+  // Same opt-in as the adoption test above (GHSA-wg9p-6m2g-4v27).
+  const prevAdopt = process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
+  process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
   const sup = new ServiceSupervisor(cfg);
 
-  // Adoption is opt-in since #11040 (see the sibling adoption test above).
-  const priorAdopt = process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
-  process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
   try {
     const status = await sup.start();
     assert.equal(status.state, "running");
     // The health server above runs inline in this test process (no child
-    // process spawned for it), so the pid actually bound to port PORT_ADOPT is
+    // process spawned for it), so the pid actually bound to port 29996 is
     // this test process's own pid — that's exactly what resolvePortPid()
     // should find and what the supervisor should record.
     assert.equal(status.pid, process.pid, "resolved pid matches the process holding the port");
@@ -305,7 +284,33 @@ test("adopted service resolves and records the real pid of the process holding t
   } finally {
     await sup.stop();
     healthServer.close();
-    if (priorAdopt === undefined) delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
-    else process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = priorAdopt;
+    if (prevAdopt === undefined) delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
+    else process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = prevAdopt;
+  }
+});
+
+// GHSA-wg9p-6m2g-4v27: a healthy 2xx on the probed port no longer proves the
+// listener is this service — a local squatter can answer 200 and get adopted,
+// receiving the injected service API key. Without the operator opt-in the
+// supervisor must surface the actionable error instead of adopting.
+test("probeBeforeSpawn does NOT adopt a healthy listener without the opt-in", async () => {
+  const healthServer = startHealthServer(29994);
+  const cfg = { ...tickConfig("test-adopt-deny", 29994), probeBeforeSpawn: true };
+  const prevAdopt = process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
+  delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
+  const sup = new ServiceSupervisor(cfg);
+
+  try {
+    const status = await sup.start();
+    assert.equal(status.state, "error", "a healthy listener is not adopted by default");
+    assert.match(
+      status.lastError ?? "",
+      /OMNIROUTE_ADOPT_EXISTING_SERVICE/,
+      "the error names the opt-in escape hatch"
+    );
+  } finally {
+    await sup.stop();
+    healthServer.close();
+    if (prevAdopt !== undefined) process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = prevAdopt;
   }
 });

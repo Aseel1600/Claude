@@ -369,7 +369,7 @@ async function invokeChatCore({
   onCredentialsRefreshed = null,
   onRequestSuccess = null,
   sessionAffinityKey = null,
-  reasoningTransportFallback = "skip",
+  reasoningTransportFallback = "drop",
   managedLease = null,
   cachedSettings = null,
 }: any = {}) {
@@ -631,7 +631,7 @@ test("chatCore translates a streaming Responses upstream for a Chat client", asy
   assert.match(streamed, /"content":"ok"/);
   assert.match(streamed, /data: \[DONE\]/);
 });
-test("chatCore rejects opaque reasoning for unknown Responses targets unless explicitly enabled", async () => {
+test("chatCore drops opaque reasoning for plaintext Responses targets by default (#10959)", async () => {
   const reasoningItems = [
     { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
     { type: "reasoning", encrypted_content: "" },
@@ -640,7 +640,7 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
     { id: "fc_call", type: "function_call", call_id: "call_1", name: "search", arguments: "{}" },
   ];
 
-  const rejected = await invokeChatCore({
+  const dropped = await invokeChatCore({
     provider: "openai-compatible-sp-openai",
     model: "gpt-5.4",
     endpoint: "/v1/responses",
@@ -656,9 +656,12 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
     responseFormat: "openai-responses",
   });
 
-  assert.equal(rejected.result.success, false);
-  assert.equal(rejected.result.status, 400);
-  assert.equal(rejected.calls.length, 0);
+  assert.equal(dropped.result.success, true);
+  assert.equal(dropped.calls.length, 1);
+  assert.deepEqual(
+    dropped.call.body.input.filter((item) => item.type === "reasoning"),
+    [{ type: "reasoning", summary: [{ text: "not self-contained" }] }]
+  );
 
   const enabled = await invokeChatCore({
     provider: "openai-compatible-sp-openai",
@@ -679,14 +682,10 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
 
   assert.equal(enabled.result.success, true);
   const input = enabled.call.body.input as Array<Record<string, unknown>>;
-  // #11129 (commit 02a078e95 "default summary on freshly-built Chat->Responses
-  // reasoning items") makes the translator default `summary: []` on any reasoning
-  // item that arrives without one, so `rs_valid` now carries an empty summary.
-  // This test predated that change and omitted it from the expected shape.
   assert.deepEqual(
     input.filter((item) => item.type === "reasoning"),
     [
-      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] },
+      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] }, // summary defaulted by #11110
       { type: "reasoning", summary: [{ text: "not self-contained" }] },
     ]
   );
@@ -697,9 +696,9 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
   assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
 });
 
-test("chatCore applies Chat reasoning compatibility before stream mode diverges", async () => {
+test("chatCore drops incompatible Chat reasoning before stream mode diverges (#10959)", async () => {
   for (const stream of [false, true]) {
-    const rejected = await invokeChatCore({
+    const dropped = await invokeChatCore({
       provider: "openai-compatible-sp-openai",
       model: "gpt-5.4",
       endpoint: "/v1/chat/completions",
@@ -732,14 +731,14 @@ test("chatCore applies Chat reasoning compatibility before stream mode diverges"
       },
     });
 
-    assert.equal(rejected.result.success, false, `stream=${stream}`);
-    assert.equal(rejected.result.status, 400, `stream=${stream}`);
-    assert.equal(rejected.calls.length, 0, `stream=${stream}`);
+    assert.equal(dropped.result.success, true, `stream=${stream}`);
+    assert.equal(dropped.calls.length, 1, `stream=${stream}`);
+    assert.equal(dropped.call.body.messages[0].reasoning_details, undefined, `stream=${stream}`);
   }
 });
 
-test("chatCore can drop incompatible reasoning for an opted-in Combo attempt", async () => {
-  const dropped = await invokeChatCore({
+test("chatCore preserves Combo skip behavior for incompatible reasoning", async () => {
+  const skipped = await invokeChatCore({
     provider: "openai-compatible-sp-openai",
     model: "gpt-5.4",
     endpoint: "/v1/responses",
@@ -761,15 +760,12 @@ test("chatCore can drop incompatible reasoning for an opted-in Combo attempt", a
     },
     responseFormat: "openai-responses",
     isCombo: true,
-    reasoningTransportFallback: "drop",
+    reasoningTransportFallback: "skip",
   });
 
-  assert.equal(dropped.result.success, true);
-  assert.equal(dropped.calls.length, 1);
-  assert.equal(
-    dropped.call.body.input.some((item) => item.type === "reasoning"),
-    false
-  );
+  assert.equal(skipped.result.success, false);
+  assert.equal(skipped.result.status, 400);
+  assert.equal(skipped.calls.length, 0);
 });
 
 test("chatCore carries Chat reasoning_content into official DeepSeek Responses input", async () => {
@@ -804,7 +800,7 @@ test("chatCore carries Chat reasoning_content into official DeepSeek Responses i
   assert.deepEqual(call.body.input.slice(0, 3), [
     {
       type: "reasoning",
-      summary: [],
+      summary: [], // defaulted on freshly-built reasoning items (#11129)
       content: [{ type: "reasoning_text", text: "Inspect before calling the tool" }],
     },
     {
@@ -871,8 +867,7 @@ test("chatCore replays nonstream DeepSeek Responses reasoning across a Chat tool
   assert.equal(second.result.success, true);
   assert.deepEqual(
     second.call.body.input.find((item) => item.type === "reasoning"),
-    // #11129 (commit 02a078e95) defaults summary:[] on rebuilt reasoning items.
-    { type: "reasoning", summary: [], content: [{ type: "reasoning_text", text: reasoning }] }
+    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }], summary: [] } // summary defaulted by #11129
   );
 });
 
@@ -936,8 +931,7 @@ test("chatCore replays streamed DeepSeek Responses reasoning across a Chat tool 
   assert.equal(second.result.success, true);
   assert.deepEqual(
     second.call.body.input.find((item) => item.type === "reasoning"),
-    // #11129 (commit 02a078e95) defaults summary:[] on rebuilt reasoning items.
-    { type: "reasoning", summary: [], content: [{ type: "reasoning_text", text: reasoning }] }
+    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }], summary: [] } // summary defaulted by #11129
   );
 });
 
@@ -1139,8 +1133,7 @@ test("chatCore automatically preserves provider-generated opaque reasoning for C
   assert.equal(result.success, true);
   assert.deepEqual(
     call.body.input.filter((item) => item.type === "reasoning"),
-    // #11129 (commit 02a078e95) defaults summary:[] on rebuilt reasoning items.
-    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] }]
+    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] }] // summary defaulted by #11110
   );
   assert.equal(
     call.body.input.some((item) => item.type === "item_reference"),
