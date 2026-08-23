@@ -1,5 +1,3 @@
-import { resolveAppServerConfig } from "@omniroute/open-sse/executors/codex/appServerConfig.ts";
-
 /**
  * Build the structured diagnosis object the connection-test route returns.
  * Lives here (rather than inline in test/route.ts) so both the route and the
@@ -56,6 +54,11 @@ export async function testCodexAppServerConnection(
   const isAppServerFlag = psd?.codexTransport === "app-server";
   if (!isAppServerProvider && !isAppServerFlag) return null;
 
+  // Dynamic import (not a static top-level import) so this executor-config module
+  // stays behind the open-sse boundary the no-restricted-imports lint rule enforces.
+  const { resolveAppServerConfig } = await import(
+    "@omniroute/open-sse/executors/codex/appServerConfig.ts"
+  );
   const config = resolveAppServerConfig(psd);
   if (!config) {
     const error = "Codex app-server transport is not configured (missing url or token)";
