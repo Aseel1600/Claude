@@ -1338,6 +1338,29 @@
       "stream": "https://chatgpt.com/backend-api/codex/responses"
     }
   },
+  "codex-app-server": {
+    "format": "openai-responses",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "codex-app-server://cli/websocket",
+      "stream": "codex-app-server://cli/websocket"
+    }
+  },
   "cohere": {
     "format": "openai",
     "headers": {
@@ -2782,29 +2805,6 @@
     "url": {
       "nonStream": "https://api.groq.com/openai/v1/chat/completions",
       "stream": "https://api.groq.com/openai/v1/chat/completions"
-    }
-  },
-  "hackclub": {
-    "format": "openai",
-    "headers": {
-      "apiKey": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "nonStream": {
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "oauth": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      }
-    },
-    "url": {
-      "nonStream": "https://ai.hackclub.com/proxy/v1/chat/completions",
-      "stream": "https://ai.hackclub.com/proxy/v1/chat/completions"
     }
   },
   "hailuo-web": {

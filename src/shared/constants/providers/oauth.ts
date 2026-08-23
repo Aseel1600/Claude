@@ -129,7 +129,7 @@ export const OAUTH_PROVIDERS = {
     icon: "code",
     color: "#3B82F6",
     subscriptionRisk: true,
-    riskNoticeVariant: "codexOauth",
+    riskNoticeVariant: "oauth",
   },
   github: { id: "github", alias: "gh", name: "GitHub Copilot", icon: "code", color: "#333333" },
   "gitlab-duo": {

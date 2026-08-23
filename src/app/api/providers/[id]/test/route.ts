@@ -86,7 +86,15 @@ async function testCodexAppServerConnection(
   connection: any
 ): Promise<{ valid: boolean; error?: string; diagnosis: any; refreshed: boolean } | null> {
   const psd = (connection?.providerSpecificData as Record<string, unknown> | undefined) || undefined;
-  if (!psd || psd.codexTransport !== "app-server") return null;
+  // Fire the /readyz probe when EITHER (a) the connection opted into the
+  // app-server transport via the per-connection flag (a `codex` provider
+  // connection with codexTransport==="app-server"), OR (b) this is the
+  // first-class `codex-app-server` provider, which is app-server by definition
+  // and needs no flag. Otherwise return null so the caller falls through to the
+  // normal OAuth/apikey token validation.
+  const isAppServerProvider = connection?.provider === "codex-app-server";
+  const isAppServerFlag = psd?.codexTransport === "app-server";
+  if (!isAppServerProvider && !isAppServerFlag) return null;
 
   const { resolveAppServerConfig } = await import(
     "@omniroute/open-sse/executors/codex/appServerConfig.ts"

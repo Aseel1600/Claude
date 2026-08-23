@@ -5111,7 +5111,6 @@
       "detailsTitle": "Usage caveats",
       "tooltip": "ספק עם סייגי שימוש — לחץ לפרטים",
       "oauth": "ספק זה משתמש בסשן המוצר הרשמי/OAuth שלך, שאינו מורשה לשימוש בפרוקסי/נתב. איננו ממליצים על שימוש אינטנסיבי בסוכנים אוטונומיים (בסגנון OpenCloud, תהליכים ארוכים מרובי שלבים, אצוות גדולות) — ספק ה-upstream עלול להגיב בהגבלת החשבון או בחסימתו. השימוש הוא על אחריותך בלבד.",
-      "codexOauth": "How you use this connection determines the risk. The app-server transport (codexTransport: \"app-server\") drives the Codex CLI's own local app-server, which manages its OpenAI sign-in exactly like an interactive Codex session — OmniRoute never replays your token to the API directly, so it is materially lower-risk. The other Codex transports use your official ChatGPT/OpenAI session, which is not authorized for proxy/router use: for those, avoid intensive autonomous usage (long multi-step flows, large batches) as the upstream may restrict or ban the account. Use at your own risk.",
       "webCookie": "ספק זה מבצע אימות באמצעות עוגיות סשן הדפדפן שלך. שירות ה-upstream עלול לבטל את תוקף הסשן בכל עת, מה שידרוש ממך להתחבר מחדש. לא מומלץ לפעולות ארוכות ללא השגחה. השימוש הוא על אחריותך בלבד.",
       "deprecated": "ספק זה הופסק על ידי ספק ה-upstream שלו ועלול להפסיק לעבוד ללא הודעה מוקדמת. חיבורים קיימים עשויים להמשיך לעבוד עד שספק ה-upstream יסיר לחלוטין את הגישה. שקול חלופות.",
       "dontShowAgain": "אל תציג זאת שוב עבור ספק זה",

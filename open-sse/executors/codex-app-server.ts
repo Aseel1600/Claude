@@ -207,8 +207,18 @@ function buildAppServerToolMaps(body: unknown): AppServerToolMaps {
 export class CodexAppServerExecutor extends BaseExecutor {
   private readonly clientOptions: CodexAppServerClientOptions;
 
-  constructor(clientOptions: CodexAppServerClientOptions = {}) {
-    super("codex", PROVIDERS.codex);
+  /**
+   * @param clientOptions transport options (websocketFn, timeouts).
+   * @param providerId which provider identity this executor reports as. Defaults
+   *   to "codex" so the existing per-connection `codexTransport==="app-server"`
+   *   flag path (routed through CodexExecutor for the `codex` provider) keeps its
+   *   original identity. The first-class `codex-app-server` sibling passes
+   *   "codex-app-server" so logs/quota scoping and the golden executor map reflect
+   *   the real provider. Falls back to PROVIDERS.codex when the sibling registry
+   *   entry is not present (defensive; both share the codex backend).
+   */
+  constructor(clientOptions: CodexAppServerClientOptions = {}, providerId = "codex") {
+    super(providerId, PROVIDERS[providerId] ?? PROVIDERS.codex);
     this.clientOptions = clientOptions;
   }
 

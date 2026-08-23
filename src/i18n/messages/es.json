@@ -5111,7 +5111,6 @@
       "detailsTitle": "Usage caveats",
       "tooltip": "Provider with usage caveats — click for details",
       "oauth": "This provider uses your official product session/OAuth, which is not authorized for proxy/router use. We don't recommend intensive autonomous agent usage (OpenCloud-style, long multi-step flows, large batches) — the upstream may react by restricting or banning the account. Use at your own risk.",
-      "codexOauth": "How you use this connection determines the risk. The app-server transport (codexTransport: \"app-server\") drives the Codex CLI's own local app-server, which manages its OpenAI sign-in exactly like an interactive Codex session — OmniRoute never replays your token to the API directly, so it is materially lower-risk. The other Codex transports use your official ChatGPT/OpenAI session, which is not authorized for proxy/router use: for those, avoid intensive autonomous usage (long multi-step flows, large batches) as the upstream may restrict or ban the account. Use at your own risk.",
       "webCookie": "This provider authenticates through your web session cookies. The upstream service may invalidate the session at any time, requiring you to log in again. Not recommended for long unattended operations. Use at your own risk.",
       "deprecated": "This provider was discontinued by its upstream and may stop working without notice. Existing connections may continue working until the upstream fully removes access. Consider alternatives.",
       "dontShowAgain": "Don't show this again for this provider",

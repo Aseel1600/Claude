@@ -5111,7 +5111,6 @@
       "detailsTitle": "Usage caveats",
       "tooltip": "使用上の注意点があるプロバイダー — クリックして詳細を表示",
       "oauth": "このプロバイダーは、プロキシ/ルーターでの使用が許可されていない公式製品のセッション/OAuthを使用します。自律型エージェントの集中的な使用（OpenCloudスタイル、長いマルチステップフロー、大量のバッチ処理）は推奨されません。アップストリームがアカウントを制限または禁止する可能性があります。自己責任でご利用ください。",
-      "codexOauth": "How you use this connection determines the risk. The app-server transport (codexTransport: \"app-server\") drives the Codex CLI's own local app-server, which manages its OpenAI sign-in exactly like an interactive Codex session — OmniRoute never replays your token to the API directly, so it is materially lower-risk. The other Codex transports use your official ChatGPT/OpenAI session, which is not authorized for proxy/router use: for those, avoid intensive autonomous usage (long multi-step flows, large batches) as the upstream may restrict or ban the account. Use at your own risk.",
       "webCookie": "このプロバイダーは、Webセッションクッキーを使用して認証します。アップストリームサービスはいつでもセッションを無効化する可能性があり、その場合は再ログインが必要になります。長時間の無人運用には推奨されません。自己責任でご利用ください。",
       "deprecated": "このプロバイダーはアップストリームによって廃止されたため、予告なしに動作しなくなる可能性があります。既存の接続は、アップストリームがアクセスを完全に削除するまで動作し続ける場合があります。代替手段をご検討ください。",
       "dontShowAgain": "このプロバイダーでこれを再表示しない",
