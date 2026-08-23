@@ -1218,7 +1218,12 @@ export async function handleChatCore({
           credentials?.providerSpecificData?.preserveEncryptedReasoning === true,
         onIncompatibleReasoning: resolveIncompatibleReasoningAction({
           reasoningTransportFallback,
-          isComboStep: Boolean(comboStepId || comboExecutionKey),
+          // #11178 regressed combo steps whose combo record carries no explicit
+          // stepId/executionKey (plain model-list combos): their explicit
+          // `reasoningTransportFallback: "skip"` config was silently degraded to
+          // "drop". `isCombo` is the combo marker; step ids are optional
+          // finer-grained metadata that plain combos never set.
+          isComboStep: Boolean(isCombo) || Boolean(comboStepId || comboExecutionKey),
           headers: clientRawRequest?.headers ?? null,
         }),
       }
