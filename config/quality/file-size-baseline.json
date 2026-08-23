@@ -451,7 +451,8 @@
       "src/shared/components/ModelSelectModal.tsx": 1138,
       "src/shared/constants/providers/apikey/gateways.ts": 1250
     },
-    "src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal.tsx": 1082,
+    "src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal.tsx": 1173,
+    "_rebaseline_2026_08_23_11207_aws_polly_fields": "PR #11207 (rafacpti23, draft) own growth: AddApiKeyModal.tsx 1082->1173 (+91, AWS SigV4 credential fields for aws-polly — Access Key ID / Region / optional Session Token blocks with providerText i18n labels, at the existing per-provider form-section chokepoint; the file is the known god-modal with repeated dated rebaselines). Covered by tests/unit/dashboard/aws-polly-connection-modal-fields.test.ts. Owner pre-authorized baseline bumps 2026-08-22.",
     "_rebaseline_2026_08_22_11156_enter_check_disabled": "PR #11156 (rqzbeh) own growth: AddApiKeyModal.tsx 1080->1082 (+2, Enter keydown handler now mirrors the isCheckDisabled condition — owner-requested post-merge polish from #11056; the rest of the diff is Prettier reflow). Covered by tests/unit/ui/add-api-key-modal-enter-key.test.tsx (jsdom render test, Enter dispatch assertions).",
     "src/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections.ts": 1051,
     "src/shared/components/ModelSelectModal.tsx": 1138,
