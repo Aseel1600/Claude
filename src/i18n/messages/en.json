@@ -3844,6 +3844,9 @@
   },
   "endpoint": {
     "title": "API Endpoint",
+    "subtitle": "Use the OpenAI-compatible endpoint with most SDKs and tools.",
+    "testEndpoint": "Test endpoint →",
+    "advancedProtocols": "Advanced protocols",
     "available": "Available Endpoints",
     "cloudProxy": "Cloud Proxy",
     "disableConfirm": "Are you sure you want to disable cloud proxy?",
