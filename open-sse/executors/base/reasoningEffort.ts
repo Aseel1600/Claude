@@ -10,7 +10,7 @@ import {
 } from "../../config/providerModels.ts";
 import {
   getLearnedReasoningEffort,
-  REASONING_EFFORT_ORDER,
+  clampToLearned,
 } from "../../services/learnedReasoningEffortCaps.ts";
 
 /**
@@ -340,26 +340,29 @@ export function sanitizeReasoningEffortForProvider(
     return body;
   }
 
+  // Generic learned clamp (downgrade-only: greatest accepted <= demand).
+  // Sits AFTER the per-provider early returns by design: deepseek/command-code/
+  // ollama-cloud have deliberate static translations that take precedence; the
+  // learned set governs every other provider and all effort values, before the
+  // xhigh/max static fallbacks below.
+  const learnedSet = getLearnedReasoningEffort(provider, modelStr);
+  if (learnedSet && learnedSet.size > 0 && !learnedSet.has(effortStr)) {
+    const clamped = clampToLearned(effortStr, learnedSet);
+    if (clamped && clamped !== effortStr) {
+      log?.info?.(
+        "REASONING_SANITIZE",
+        `${provider}/${modelStr}: clamped reasoning_effort ${effortStr} → ${clamped} (learned)`
+      );
+      return writeEffortValue(b, clamped, c);
+    }
+  }
+
   const supportsXHigh = supportsXHighEffort(provider, modelStr);
   const supportsMax = supportsMaxEffortForProvider(provider, modelStr);
-  // Highest value we've actually seen this provider+model accept in a real
-  // upstream 4xx (learnedReasoningEffortCaps.ts) — takes priority over the
-  // static registry (which defaults to "supports everything" when there's no
-  // entry, e.g. custom OpenAI-compatible connections) and over the hardcoded
-  // "high" fallback below (which isn't always valid either).
-  const learnedCap = getLearnedReasoningEffort(provider, modelStr);
-  const learnedRank = learnedCap ? REASONING_EFFORT_ORDER.indexOf(learnedCap) : -1;
 
   // ── xhigh handling ──────────────────────────────────────────────────────
   // xhigh is OmniRoute-internal. Map it to the best effort the model accepts.
   if (effortStr === "xhigh") {
-    if (learnedCap && learnedRank < REASONING_EFFORT_ORDER.indexOf("xhigh")) {
-      log?.info?.(
-        "REASONING_SANITIZE",
-        `${provider}/${modelStr}: clamped reasoning_effort xhigh → ${learnedCap} (learned)`
-      );
-      return writeEffortValue(b, learnedCap, c);
-    }
     if (supportsXHigh) return body; // model accepts xhigh natively
     if (supportsMax) {
       log?.info?.(
@@ -384,13 +387,6 @@ export function sanitizeReasoningEffortForProvider(
   // upstream, and if it 400s the user gets a clear signal. This prevents
   // new models from being unusable for weeks until they're whitelisted (#8057).
   if (effortStr === "max") {
-    if (learnedCap && learnedRank < REASONING_EFFORT_ORDER.indexOf("max")) {
-      log?.info?.(
-        "REASONING_SANITIZE",
-        `${provider}/${modelStr}: clamped reasoning_effort max → ${learnedCap} (learned)`
-      );
-      return writeEffortValue(b, learnedCap, c);
-    }
     if (supportsMax) return body; // explicitly known to accept max
 
     // A model that explicitly advertises its accepted tiers is safe to normalize.
@@ -407,7 +403,7 @@ export function sanitizeReasoningEffortForProvider(
     )?.supportedThinkingEfforts;
     const maxFallback =
       Array.isArray(explicitEfforts) && !explicitEfforts.includes("max")
-        ? ["xhigh", "high", "medium", "low"].find((tier) => explicitEfforts.includes(tier))
+        ? ["ultra", "xhigh", "high", "medium", "low"].find((tier) => explicitEfforts.includes(tier))
         : undefined;
     if (maxFallback) {
       log?.info?.(
