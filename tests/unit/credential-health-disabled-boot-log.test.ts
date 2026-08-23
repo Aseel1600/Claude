@@ -1,36 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
 
 // #11016 follow-up (suggested by maintainer on PR #11029): assert that the
 // disabled boot path produces the correct "[STARTUP] Credential health scheduler
-// disabled" log at runtime — not just that the string exists in source
-// (credential-health-boot-wiring.test.ts covers static presence).
+// disabled" log at runtime.
 //
-// This spawns a subprocess with the disable env var set, imports the scheduler,
-// applies the same conditional from src/instrumentation-node.ts, and asserts the
-// actual console output.
+// Two complementary assertions:
+// 1. Runtime: spawn a subprocess that imports the real scheduler with the disable
+//    env set, calls initCredentialHealthCheck(), and logs the result using the
+//    same conditional from instrumentation-node.ts — verifying the actual output.
+// 2. Static: read src/instrumentation-node.ts and assert the boot wiring still
+//    uses initCredentialHealthCheck()'s return value to select the log message.
+//    This breaks if the production conditional is removed or refactored away.
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
-let projectRoot = resolve(thisDir, "../..");
+const projectRoot = resolve(thisDir, "../..");
 
-if (!existsSync(resolve(projectRoot, "node_modules"))) {
+// In CI: projectRoot has a real node_modules.
+// In a worktree: the junction may not work with tsx; fall back to the main checkout.
+function resolveMainCheckout(): string {
+  const hasRealNodeModules = existsSync(resolve(projectRoot, "node_modules", ".package-lock.json"));
+  if (hasRealNodeModules) return projectRoot;
   const candidate = resolve(projectRoot, "../../..");
-  if (existsSync(resolve(candidate, "node_modules", "tsx"))) {
-    projectRoot = candidate;
-  }
+  if (existsSync(resolve(candidate, "node_modules", ".package-lock.json"))) return candidate;
+  return projectRoot;
 }
 
-const RUNNER_SCRIPT = `
+const mainCwd = resolveMainCheckout();
+
+const BOOT_DISABLED_SCRIPT = `
   process.env.OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK = "true";
   const { initCredentialHealthCheck } = await import(
     "./src/lib/credentialHealth/scheduler.ts"
   );
   const started = initCredentialHealthCheck();
-  // Reproduce the exact conditional from src/instrumentation-node.ts:474-477
   console.log(
     started
       ? "[STARTUP] Credential health scheduler started"
@@ -39,12 +46,12 @@ const RUNNER_SCRIPT = `
   process.exit(0);
 `;
 
-test("disabled boot path emits [STARTUP] Credential health scheduler disabled", () => {
-  const stdout = execFileSync(
+test("disabled scheduler emits [STARTUP] Credential health scheduler disabled via the real initCredentialHealthCheck", () => {
+  const result = execFileSync(
     process.execPath,
-    ["--import", "tsx/esm", "--input-type=module", "--eval", RUNNER_SCRIPT],
+    ["--import", "tsx/esm", "--input-type=module", "--eval", BOOT_DISABLED_SCRIPT],
     {
-      cwd: projectRoot,
+      cwd: mainCwd,
       env: {
         ...process.env,
         OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK: "true",
@@ -56,13 +63,31 @@ test("disabled boot path emits [STARTUP] Credential health scheduler disabled", 
   );
 
   assert.match(
-    stdout,
+    result,
     /\[STARTUP\] Credential health scheduler disabled/,
     "must log the disabled message when OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK is set"
   );
   assert.doesNotMatch(
-    stdout,
+    result,
     /\[STARTUP\] Credential health scheduler started/,
     "must NOT log the started message when disabled"
+  );
+});
+
+test("instrumentation-node.ts wires initCredentialHealthCheck return to the log conditional", () => {
+  const src = readFileSync(
+    resolve(projectRoot, "src/instrumentation-node.ts"),
+    "utf8"
+  ).replace(/\r\n/g, "\n");
+
+  assert.match(
+    src,
+    /const started = initCredentialHealthCheck\(\)/,
+    "boot wiring must capture the return value of initCredentialHealthCheck()"
+  );
+  assert.match(
+    src,
+    /started[\s\S]{0,50}\?[\s\S]{0,80}scheduler started[\s\S]{0,50}:[\s\S]{0,80}scheduler disabled/,
+    "boot wiring must use the return value to select started vs disabled log"
   );
 });
