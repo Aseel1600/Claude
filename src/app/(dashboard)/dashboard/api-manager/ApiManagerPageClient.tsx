@@ -959,45 +959,42 @@ export default function ApiManagerPageClient() {
         </div>
       )}
 
-      {/* Purpose-first orientation header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">{t("keyManagement")}</h1>
-        <p className="text-text-muted text-lg mb-6">{t("keyManagementDesc")}</p>
-
-        {/* Simple SVG diagram: Your App -> API Key -> OmniRoute */}
-        <div className="flex items-center space-x-4 text-text-secondary text-sm">
-          <span className="font-medium">Your App</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-5 h-5"
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-3">
+          <div>
+            <h1 className="text-3xl font-bold text-text-main">{t("keyManagement")}</h1>
+            <p className="mt-1 text-text-muted">{t("keyManagementDesc")}</p>
+          </div>
+          <div
+            className="flex flex-wrap items-center gap-2 text-sm text-text-secondary"
+            aria-label="Your app sends requests through an API key to OmniRoute"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
-            />
-          </svg>
-          <span className="font-medium">API Key</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-5 h-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
-            />
-          </svg>
-          <span className="font-medium">OmniRoute</span>
+            <span className="rounded-control border border-border bg-surface px-3 py-1.5 font-medium">
+              Your app
+            </span>
+            <span
+              className="material-symbols-outlined text-base text-text-muted"
+              aria-hidden="true"
+            >
+              arrow_forward
+            </span>
+            <span className="rounded-control border border-border bg-surface px-3 py-1.5 font-medium">
+              API key
+            </span>
+            <span
+              className="material-symbols-outlined text-base text-text-muted"
+              aria-hidden="true"
+            >
+              arrow_forward
+            </span>
+            <span className="rounded-control border border-border bg-surface px-3 py-1.5 font-medium">
+              OmniRoute
+            </span>
+          </div>
         </div>
+        <Button onClick={() => setShowAddModal(true)} icon="add" className="shrink-0">
+          {t("createKey")}
+        </Button>
       </div>
 
       {/* Filter Bar — shown when there are keys */}
