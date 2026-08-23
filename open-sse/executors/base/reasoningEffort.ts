@@ -11,6 +11,7 @@ import {
 import {
   getLearnedReasoningEffort,
   clampToLearned,
+  REASONING_EFFORT_ORDER,
 } from "../../services/learnedReasoningEffortCaps.ts";
 
 /**
