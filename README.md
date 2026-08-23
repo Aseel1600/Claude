@@ -64,7 +64,7 @@
 |                           | v3.8.49 |        **v3.8.50**        | `v3.8.51+`  |
 | ------------------------- | :-----: | :-----------------------: | :---------: |
 | 🌐 Providers              |   290   |          **345**          | more queued |
-| 🧠 Unique chat model IDs  |  1185   |         **1271**          |      —      |
+| 🧠 Unique chat model IDs  |  1185   |         **1273**          |      —      |
 | 🖼️ Modality Bridge        |    —    | 🆕 vision + audio + video |      —      |
 | 📡 Radar free catalog     |    —    |         🆕 opt-in         |      —      |
 | ⚖️ Quota-aware scheduling |    —    |      🆕 Quota-Share       |      —      |
@@ -101,7 +101,7 @@
   <tr>
     <td align="right"><b>⚙️ Features</b></td>
     <td align="center"><a href="#-combos--the-flagship">🎯 Combos</a></td>
-    <td align="center"><a href="#-345-ai-providers--153-catalog-marked-free">🌐 Providers</a></td>
+    <td align="center"><a href="#-345-ai-providers--152-catalog-marked-free">🌐 Providers</a></td>
     <td align="center"><a href="#-full-cli--a2a--mcp">🔌 CLI &amp; MCP</a></td>
   </tr>
   <tr>
@@ -649,11 +649,11 @@ of your shell history. → [CLI Integrations](docs/guides/CLI-INTEGRATIONS.md)
 
 <div align="center">
 
-## 🌐 345 AI Providers — 153 Catalog-Marked Free
+## 🌐 345 AI Providers — 152 Catalog-Marked Free
 
 </div>
 
-> **345 providers**, including **153 registered providers carrying `hasFree: true` discovery metadata**, plus **446 per-model free-budget catalog rows** and **54 recurring/keyless free-forever providers**. The provider flag and per-model budget catalog are distinct denominators; definitions and pool-deduped calculations are documented in the [Provider Reference](docs/reference/PROVIDER_REFERENCE.md) and [Free Tiers](docs/reference/FREE_TIERS.md).
+> **345 providers**, including **152 registered providers carrying `hasFree: true` discovery metadata**, plus **446 per-model free-budget catalog rows** and **54 recurring/keyless free-forever providers**. The provider flag and per-model budget catalog are distinct denominators; definitions and pool-deduped calculations are documented in the [Provider Reference](docs/reference/PROVIDER_REFERENCE.md) and [Free Tiers](docs/reference/FREE_TIERS.md).
 
 <div align="center">
 
@@ -1468,7 +1468,7 @@ A heartfelt thank-you to the people who fund OmniRoute out of their own pocket �
 
 [![Contributors](https://contrib.rocks/image?repo=diegosouzapw/OmniRoute&max=635&columns=20&anon=1)](https://github.com/diegosouzapw/OmniRoute/graphs/contributors)
 
-<sub>Audited at reconciled v3.8.50 candidate <code>dbd9bc00</code> on 2026-08-23: <b>635 people</b> — 402 identities appear as commit authors and another 233 appear only in explicit <code>Co-authored-by</code> trailers. Formula: all reachable commits; exact e-mail identities plus numeric/non-numeric GitHub noreply variants of the same handle are joined; bots, service accounts and placeholder identities are excluded. No <code>.mailmap</code> exists, and ambiguous same-name identities are deliberately not merged, so this is a conservative, reproducible Git-metadata count rather than a GitHub profile count.</sub>
+<sub>Audited at reconciled v3.8.50 candidate <code>aab9b946</code> on 2026-08-23: <b>635 normalized human Git identities</b> — 403 appear as commit authors, including the maintainer, and another 232 appear only in explicit <code>Co-authored-by</code> trailers. Formula: all commits reachable from the candidate head; e-mails are case-normalized, and numeric, non-numeric and malformed numeric GitHub noreply variants encoding the same handle are joined. Bots, agents, service accounts and placeholder identities are excluded. No <code>.mailmap</code> exists, and ordinary same-name identities with different e-mails are deliberately not merged, so this is a conservative, reproducible Git-metadata census rather than a count of verified unique people or GitHub profiles.</sub>
 
 ### How to Contribute
 
