@@ -109,7 +109,16 @@ for (const { provider, liveUrl } of LIVE_CASES) {
       const body = (await response.json()) as ModelsBody;
       assert.equal(body.provider, provider);
       assert.ok(fetched, `should have probed ${liveUrl}`);
-      assert.equal(body.source, "api", "should serve the live upstream catalog, not local_catalog");
+      // "api" is the live-catalog source for keyed providers; "upstream" is the
+      // equivalent live-catalog source for no-auth providers, which route through
+      // buildNoAuthModelsResponse -> fetchLiveNoAuthModels (uncloseai became a
+      // no-auth provider in #8864/#11064, after this sweep was written). Both mean
+      // "served the live catalog, not the local_catalog seed", which is the
+      // invariant this assertion guards.
+      assert.ok(
+        body.source === "api" || body.source === "upstream",
+        `should serve the live upstream catalog, not local_catalog (got source=${body.source})`
+      );
       const ids = body.models.map((m) => m.id);
       assert.ok(
         ids.includes(`${provider}-live-a`) && ids.includes(`${provider}-live-b`),

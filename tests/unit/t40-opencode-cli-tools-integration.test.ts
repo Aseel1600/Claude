@@ -110,7 +110,23 @@ test("T40: OpenCode config document uses current provider schema", () => {
     configDocument.provider.omniroute.models["gg/gemini-2.5-pro"].name,
     "Gemini 2.5 Pro"
   );
-  assert.equal(configDocument.providers, undefined);
+  // The document now emits BOTH the OpenCode v1 `provider` (singular) block and
+  // the v2 `providers` (plural) block. The v2 block was added deliberately by
+  // #11070 (commit 9a6718529 "support OpenCode V2 config format in
+  // setup-opencode") so a single generated config works across both OpenCode
+  // schema versions; that PR updated opencodeConfig.ts but not this drift guard,
+  // which still asserted the pre-v2 shape (`providers === undefined`). Assert
+  // the current dual-schema shape instead: the v2 block mirrors the same
+  // provider under the plural key with the v2 `package`/`settings` layout.
+  assert.ok(configDocument.providers.omniroute);
+  assert.equal(
+    configDocument.providers.omniroute.package,
+    "@opencode-ai/ai/providers/openai-compatible"
+  );
+  assert.deepEqual(Object.keys(configDocument.providers.omniroute.models), [
+    "cc/claude-sonnet-4-20250514",
+    "gg/gemini-2.5-pro",
+  ]);
 });
 
 test("T40: OpenCode explicit multi-model selection overrides fallback defaults", () => {

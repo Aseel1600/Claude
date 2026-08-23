@@ -679,10 +679,14 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
 
   assert.equal(enabled.result.success, true);
   const input = enabled.call.body.input as Array<Record<string, unknown>>;
+  // #11129 (commit 02a078e95 "default summary on freshly-built Chat->Responses
+  // reasoning items") makes the translator default `summary: []` on any reasoning
+  // item that arrives without one, so `rs_valid` now carries an empty summary.
+  // This test predated that change and omitted it from the expected shape.
   assert.deepEqual(
     input.filter((item) => item.type === "reasoning"),
     [
-      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
+      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] },
       { type: "reasoning", summary: [{ text: "not self-contained" }] },
     ]
   );
@@ -800,6 +804,7 @@ test("chatCore carries Chat reasoning_content into official DeepSeek Responses i
   assert.deepEqual(call.body.input.slice(0, 3), [
     {
       type: "reasoning",
+      summary: [],
       content: [{ type: "reasoning_text", text: "Inspect before calling the tool" }],
     },
     {
@@ -866,7 +871,8 @@ test("chatCore replays nonstream DeepSeek Responses reasoning across a Chat tool
   assert.equal(second.result.success, true);
   assert.deepEqual(
     second.call.body.input.find((item) => item.type === "reasoning"),
-    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }] }
+    // #11129 (commit 02a078e95) defaults summary:[] on rebuilt reasoning items.
+    { type: "reasoning", summary: [], content: [{ type: "reasoning_text", text: reasoning }] }
   );
 });
 
@@ -930,7 +936,8 @@ test("chatCore replays streamed DeepSeek Responses reasoning across a Chat tool 
   assert.equal(second.result.success, true);
   assert.deepEqual(
     second.call.body.input.find((item) => item.type === "reasoning"),
-    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }] }
+    // #11129 (commit 02a078e95) defaults summary:[] on rebuilt reasoning items.
+    { type: "reasoning", summary: [], content: [{ type: "reasoning_text", text: reasoning }] }
   );
 });
 
@@ -1132,7 +1139,8 @@ test("chatCore automatically preserves provider-generated opaque reasoning for C
   assert.equal(result.success, true);
   assert.deepEqual(
     call.body.input.filter((item) => item.type === "reasoning"),
-    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" }]
+    // #11129 (commit 02a078e95) defaults summary:[] on rebuilt reasoning items.
+    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] }]
   );
   assert.equal(
     call.body.input.some((item) => item.type === "item_reference"),

@@ -1,4 +1,85 @@
-import { isIP } from "node:net";
+// Browser-safe replacement for node:net's `isIP`. Returns 4 for a valid IPv4
+// literal, 6 for a valid IPv6 literal, and 0 otherwise — matching node's
+// contract exactly. This module is imported (via providerRegistry.ts ->
+// providerModels.ts -> src/shared/constants/models.ts) by client entrypoints
+// such as ProviderDetailPageClient.tsx, so it must not pull in `node:net`,
+// which does not exist in a browser bundle (esbuild "Could not resolve
+// node:net"). Keeping a local pure-JS implementation lets the same guard run
+// unchanged on the server AND survive client bundling.
+function isIP(host: string): 0 | 4 | 6 {
+  if (isIPv4(host)) return 4;
+  if (isIPv6(host)) return 6;
+  return 0;
+}
+
+function isIPv4(host: string): boolean {
+  const parts = host.split(".");
+  if (parts.length !== 4) return false;
+  for (const part of parts) {
+    // No empty segments, digits only, no leading '+'/'-'/whitespace, <= 255,
+    // and (matching node) no leading zeros like "01".
+    if (!/^\d{1,3}$/.test(part)) return false;
+    if (part.length > 1 && part[0] === "0") return false;
+    if (Number(part) > 255) return false;
+  }
+  return true;
+}
+
+function isIPv6(host: string): boolean {
+  // Reject anything with characters outside the IPv6 alphabet up front.
+  if (!/^[0-9a-fA-F:.]+$/.test(host)) return false;
+
+  // Split off an optional embedded IPv4 tail (e.g. "::ffff:192.168.0.1"). The
+  // tail must be a full valid dotted-quad and occupies two 16-bit groups. We
+  // replace the dotted-quad with a single synthetic hextet ("0") so the colon
+  // structure (including a "::" immediately before the tail, as in
+  // "::1.2.3.4") stays intact for the compression logic below, and account for
+  // the SECOND group it represents via v4Extra.
+  let head = host;
+  let v4Extra = 0;
+  if (host.includes(".")) {
+    const lastColon = host.lastIndexOf(":");
+    if (lastColon < 0) return false;
+    const tail = host.slice(lastColon + 1);
+    if (!isIPv4(tail)) return false;
+    head = host.slice(0, lastColon + 1) + "0"; // keep the separator, one synthetic group
+    v4Extra = 1; // the dotted-quad is two groups; the synthetic "0" counts as one, this is the other
+  }
+
+  const isHextet = (s: string): boolean => /^[0-9a-fA-F]{1,4}$/.test(s);
+
+  // At most one "::" compression marker. Split the address into the part before
+  // and after it. Each part is a (possibly empty) colon-separated hextet list
+  // that must NOT itself contain any empty token (which would mean a stray
+  // ":::" or a lone boundary ":").
+  const parts = head.split("::");
+  if (parts.length > 2) return false;
+
+  const parseSide = (side: string): number | null => {
+    if (side.length === 0) return 0; // empty side of a "::" contributes no groups
+    const groups = side.split(":");
+    for (const g of groups) {
+      if (!isHextet(g)) return null; // empty or malformed token -> invalid
+    }
+    return groups.length;
+  };
+
+  if (parts.length === 2) {
+    // Compressed form "<left>::<right>".
+    const left = parseSide(parts[0]);
+    const right = parseSide(parts[1]);
+    if (left === null || right === null) return false;
+    // "::" must stand for at least one zero group, so the explicit groups
+    // (both sides plus the extra embedded-IPv4 group) must total at most 7.
+    return left + right + v4Extra <= 7;
+  }
+
+  // Uncompressed form: exactly 8 groups (the embedded IPv4 adds one extra
+  // group beyond its synthetic hextet).
+  const only = parseSide(head);
+  if (only === null) return false;
+  return only + v4Extra === 8;
+}
 
 export const PROVIDER_URL_BLOCKED_MESSAGE = "Blocked private or local provider URL";
 export const CLOUD_METADATA_BLOCKED_MESSAGE = "Blocked cloud-metadata endpoint";

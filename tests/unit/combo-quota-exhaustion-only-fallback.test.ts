@@ -110,7 +110,12 @@ async function run(
 }
 
 test("quota classifier rejects terminal-looking evidence on ineligible statuses", async () => {
-  for (const status of [400, 401, 403, 404, 408, 409, 422, 500, 502, 503, 504]) {
+  // #10966 (commit a492d6d78) made 403 an ELIGIBLE status for terminal quota
+  // classification (durable wallet/balance exhaustion signals a 403 on some
+  // upstreams). It is therefore no longer in the ineligible set below, and is
+  // covered by the eligible-status test that follows. This drift guard predated
+  // that change and still listed 403 as ineligible.
+  for (const status of [400, 401, 404, 408, 409, 422, 500, 502, 503, 504]) {
     for (const terminal of ["insufficient_quota", "quota_exhausted", "credits_exhausted"]) {
       assert.equal(
         await isQuotaExhaustionResponse(
@@ -129,7 +134,9 @@ test("quota classifier rejects terminal-looking evidence on ineligible statuses"
 });
 
 test("quota classifier accepts explicit terminal depletion only on eligible statuses", async () => {
-  for (const status of [402, 429]) {
+  // 403 joined 402/429 as an eligible terminal-quota status in #10966 (durable
+  // wallet/balance exhaustion returns a 403 on some upstreams).
+  for (const status of [402, 403, 429]) {
     assert.equal(
       await isQuotaExhaustionResponse(
         response(status, "Payment required", { code: "insufficient_quota" }),

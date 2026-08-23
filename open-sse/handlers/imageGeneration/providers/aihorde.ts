@@ -111,6 +111,13 @@ async function fetchHordeImageBytes(
       timeoutMs: options.timeoutMs,
       signal: options.signal ?? undefined,
       maxBytes: MAX_HORDE_IMAGE_BYTES,
+      // Force strict public-only SSRF validation. This URL is an untrusted,
+      // Horde-supplied signed R2 link, not an operator-configured LAN service,
+      // so it must be blocked from reaching private/loopback hosts regardless of
+      // the box's local-first default (which otherwise allows LAN). Mirrors the
+      // embeddings remote-image path (embeddings.ts) and satisfies the
+      // private-host SSRF test for this handler.
+      guard: "public-only",
     });
     if (remote.buffer.length === 0) throw new Error("Horde R2 download returned an empty image");
     return remote.buffer.toString("base64");

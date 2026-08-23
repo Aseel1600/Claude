@@ -15,6 +15,23 @@ const routePath = path.join(process.cwd(), "src/app/api/cli-tools/apply/route.ts
 const originalEnv = { ...process.env };
 const tempDirs = new Set<string>();
 
+// This suite relies on a fake HOME that is NOT covered by a bind mount, so the
+// apply route classifies its target as container-ephemeral. The route detects a
+// bind mount by walking /proc/mounts (hasBindMountAt): if any mount point is an
+// ancestor of the target, the write is treated as persistent. On most hosts
+// os.tmpdir() (/tmp) is not its own mount, so a temp dir there has no ancestor
+// mount and correctly classifies as ephemeral. But some environments mount
+// os.tmpdir() itself (e.g. a sandbox where TMPDIR=/mnt/.../tmp is a distinct
+// filesystem), which would make EVERY temp dir look bind-mounted and silently
+// break the ephemeral assumption. Root the fake homes under the repo working
+// directory instead, which is verified not to be a mount boundary, so the test
+// is hermetic on both CI and such sandboxes.
+const EPHEMERAL_TMP_BASE = fs.mkdtempSync(path.join(process.cwd(), ".tmp-container-422-"));
+tempDirs.add(EPHEMERAL_TMP_BASE);
+function ephemeralHome(prefix: string): string {
+  return fs.mkdtempSync(path.join(EPHEMERAL_TMP_BASE, prefix));
+}
+
 async function importRoute(label: string) {
   return import(`${pathToFileURL(routePath).href}?case=${label}-${Date.now()}-${Math.random()}`);
 }
@@ -52,7 +69,7 @@ function applyRequest(body: Record<string, unknown>) {
 test("refuses with 422 and does not write when the target is container-ephemeral", async () => {
   // OMNIROUTE_CONTAINER forces detection; the fake HOME has no bind mount, so
   // the target classifies as ephemeral.
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "or-apply-ephemeral-"));
+  const fakeHome = ephemeralHome("or-apply-ephemeral-");
   tempDirs.add(fakeHome);
   process.env.OMNIROUTE_CONTAINER = "1";
   process.env.HOME = fakeHome;
@@ -73,7 +90,7 @@ test("refuses with 422 and does not write when the target is container-ephemeral
 });
 
 test("the 422 body carries no stack trace", async () => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "or-apply-stack-"));
+  const fakeHome = ephemeralHome("or-apply-stack-");
   tempDirs.add(fakeHome);
   process.env.OMNIROUTE_CONTAINER = "1";
   process.env.HOME = fakeHome;
@@ -87,7 +104,7 @@ test("the 422 body carries no stack trace", async () => {
 });
 
 test("dry-run still previews the config inside a container", async () => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "or-apply-dry-"));
+  const fakeHome = ephemeralHome("or-apply-dry-");
   tempDirs.add(fakeHome);
   process.env.OMNIROUTE_CONTAINER = "1";
   process.env.HOME = fakeHome;
@@ -102,7 +119,7 @@ test("dry-run still previews the config inside a container", async () => {
 });
 
 test("OMNIROUTE_ALLOW_CONTAINER_CONFIG_WRITE lets the write through", async () => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "or-apply-override-"));
+  const fakeHome = ephemeralHome("or-apply-override-");
   tempDirs.add(fakeHome);
   process.env.OMNIROUTE_CONTAINER = "1";
   process.env.OMNIROUTE_ALLOW_CONTAINER_CONFIG_WRITE = "true";
@@ -119,7 +136,7 @@ test("OMNIROUTE_ALLOW_CONTAINER_CONFIG_WRITE lets the write through", async () =
 });
 
 test("the dashboard's guide-settings writer refuses the same way", async () => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "or-guide-ephemeral-"));
+  const fakeHome = ephemeralHome("or-guide-ephemeral-");
   tempDirs.add(fakeHome);
   process.env.OMNIROUTE_CONTAINER = "1";
   process.env.HOME = fakeHome;
@@ -149,7 +166,7 @@ test("the dashboard's guide-settings writer refuses the same way", async () => {
 });
 
 test("a host environment applies the config normally", async () => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "or-apply-host-"));
+  const fakeHome = ephemeralHome("or-apply-host-");
   tempDirs.add(fakeHome);
   process.env.OMNIROUTE_CONTAINER = "0";
   process.env.HOME = fakeHome;

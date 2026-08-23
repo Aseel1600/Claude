@@ -87,7 +87,10 @@ test("ClinePass fallback is the official subscription-only catalog", () => {
 test("Cline fallback owns recommended/free models and excludes the ClinePass namespace", () => {
   const ids = providerRegistry.cline.models.map((model: { id: string }) => model.id);
   assert.deepEqual(ids, [
-    "zai/glm-5.2",
+    // #11099 (commit a51b8ba56 "use valid modelType/model format for Cline
+    // provider models") renamed this slug from "zai/glm-5.2" to "z-ai/glm-5.2"
+    // in the Cline registry; the test wasn't updated for that rename.
+    "z-ai/glm-5.2",
     "x-ai/grok-4.5",
     "openai/gpt-5.6-sol",
     "moonshotai/kimi-k3",

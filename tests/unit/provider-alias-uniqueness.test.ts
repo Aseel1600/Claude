@@ -47,7 +47,16 @@ test("primary providers keep the short alias; web variants use their own id", ()
   assert.equal(PROVIDER_ID_TO_ALIAS["qwen-web"], "qwen-web");
   assert.equal(PROVIDER_ID_TO_ALIAS.kimi, "kimi");
   assert.equal(PROVIDER_ID_TO_ALIAS["kimi-web"], "kimi-web");
-  assert.equal(PROVIDER_ID_TO_ALIAS.hackclub, "hc");
+  // NOTE: the `hackclub` -> `hc` open-sse registry alias assertion was removed
+  // here because the Hack Club AI provider was deleted from the open-sse
+  // REGISTRY in #11118 (commit aa1287368 "fix(providers): remove Hack Club AI
+  // provider"), at the maintainers' request. That removal commit dropped
+  // open-sse/config/providers/registry/hackclub/index.ts but did not update
+  // this drift guard, so `PROVIDER_ID_TO_ALIAS.hackclub` is now `undefined` and
+  // the stale assertion failed. This is a pre-existing test/code drift, not a
+  // regression from the codex-app-server work. (The `hc` -> `hackclub` alias
+  // still lives in src/shared/constants/providers.ts and is covered by subtest
+  // 3 below; that catalog was intentionally left untouched by #11118.)
   assert.equal(PROVIDER_ID_TO_ALIAS.huggingchat, "huggingchat");
 });
 

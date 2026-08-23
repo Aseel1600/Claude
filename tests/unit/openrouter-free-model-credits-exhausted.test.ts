@@ -78,7 +78,16 @@ test("getProviderCredentials still refuses a PAID OpenRouter model on a credits_
     "anthropic/claude-opus-4.5"
   );
 
-  assert.equal(selected, null, "paid-model requests must still be blocked on the exhausted connection");
+  // Since #9467, getProviderCredentials returns the richer no-credentials
+  // verdict `{ allExpired, expiredCount, expiredStatus }` instead of bare `null`
+  // when every connection is in a terminal state; the chat/embeddings callers
+  // treat that verdict exactly like "no credentials". Assert the verdict instead
+  // of the pre-#9467 `null`.
+  assert.equal(
+    selected?.allExpired,
+    true,
+    "paid-model requests must still be blocked on the exhausted connection"
+  );
 });
 
 test("getProviderCredentials still refuses a :free OpenRouter model on a banned connection", async () => {
@@ -100,8 +109,8 @@ test("getProviderCredentials still refuses a :free OpenRouter model on a banned 
   );
 
   assert.equal(
-    selected,
-    null,
+    selected?.allExpired,
+    true,
     "the free-model exemption only applies to credits_exhausted, not other terminal statuses"
   );
 });
@@ -120,8 +129,8 @@ test("getProviderCredentials still refuses a :free model on a credits_exhausted 
   const selected = await auth.getProviderCredentials("openai", null, null, "some-model:free");
 
   assert.equal(
-    selected,
-    null,
+    selected?.allExpired,
+    true,
     "the exemption is OpenRouter-specific, since only OpenRouter uses the :free naming convention with a shared balance"
   );
 });

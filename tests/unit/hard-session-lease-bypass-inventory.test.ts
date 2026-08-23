@@ -86,7 +86,13 @@ const EXPECTED: Record<InventoryKind, Record<string, number>> = {
     "src/app/api/providers/client/route.ts": 1,
     "src/app/api/providers/free-onboarding/route.ts": 2,
     "src/app/api/providers/import/route.ts": 1,
-    "src/app/api/providers/route.ts": 4,
+    // #10973 (commit 79e1a8f9c "remove dead existingConnections lookups on
+    // connection creation") deleted two now-unused getProviderConnections
+    // lookups from this route, dropping its hard-lease connection-query sites
+    // from 4 to 2. That cleanup did not update this inventory, so the guard
+    // drifted. The two remaining live call sites are the list handler and the
+    // id/provider projection; the AST scan below is the source of truth.
+    "src/app/api/providers/route.ts": 2,
     "src/app/api/providers/test-batch/route.ts": 2,
     "src/app/api/rate-limits/route.ts": 1,
     "src/app/api/services/dario/admin/import-from-omniroute/route.ts": 2,

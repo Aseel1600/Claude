@@ -127,7 +127,21 @@ test("guide-settings POST writes OpenCode config with current schema and multi-m
     "cc/claude-sonnet-4-20250514",
     "gg/gemini-2.5-pro",
   ]);
-  assert.equal(content.providers, undefined);
+  // The generator now also emits the OpenCode v2 `providers` (plural) block
+  // alongside the v1 `provider` block. That block was added by #11070 (commit
+  // 9a6718529 "support OpenCode V2 config format in setup-opencode") so a single
+  // config works across both OpenCode schema versions; the change updated the
+  // generator but not this drift guard, which still asserted the pre-v2 shape
+  // (`providers === undefined`). Assert the current dual-schema shape instead.
+  assert.ok(content.providers.omniroute);
+  assert.equal(
+    content.providers.omniroute.package,
+    "@opencode-ai/ai/providers/openai-compatible"
+  );
+  assert.deepEqual(Object.keys(content.providers.omniroute.models), [
+    "cc/claude-sonnet-4-20250514",
+    "gg/gemini-2.5-pro",
+  ]);
 });
 
 test("guide-settings POST preserves existing OpenCode config fields while only updating provider.omniroute", async () => {
@@ -197,9 +211,13 @@ test("guide-settings POST preserves existing OpenCode config fields while only u
   assert.equal(content.provider.omniroute.npm, "@ai-sdk/openai-compatible");
   assert.equal(content.provider.omniroute.options.baseURL, "http://my-omni/v1");
   assert.ok(content.provider.omniroute.options.apiKey.startsWith("sk-"));
+  // Each model now carries the required OpenCode v1 `limit` block. #11035/#11032
+  // (commit 8643e0f57) made limit.context default to 128K when the catalog has no
+  // entry (OpenCode's v1 schema requires limit.context/limit.output), and #10940
+  // requires limit.output; unknown values resolve to the safe 128K/8K fallbacks.
   assert.deepEqual(content.provider.omniroute.models, {
-    "cx/gpt-5.6-sol": { name: "GPT-5.6 Sol" },
-    "opencode-go/kimi-k2.6": { name: "Kimi K2.6" },
+    "cx/gpt-5.6-sol": { name: "GPT-5.6 Sol", limit: { context: 128000, output: 8192 } },
+    "opencode-go/kimi-k2.6": { name: "Kimi K2.6", limit: { context: 128000, output: 8192 } },
   });
 });
 
