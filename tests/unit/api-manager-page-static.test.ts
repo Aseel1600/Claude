@@ -48,9 +48,13 @@ test("API manager page renders purpose-first header", () => {
 
   assert.match(headerBlock, /\{t\("keyManagement"\)\}/);
   assert.match(headerBlock, /\{t\("keyManagementDesc"\)\}/);
-  assert.match(headerBlock, />\s*Your app\s*</);
-  assert.match(headerBlock, />\s*API key\s*</);
-  assert.match(headerBlock, />\s*OmniRoute\s*</);
+  assert.match(headerBlock, /aria-label=\{t\("requestFlowAria"\)\}/);
+  assert.match(headerBlock, /\{t\("requestFlowYourApp"\)\}/);
+  assert.match(headerBlock, /\{t\("requestFlowApiKey"\)\}/);
+  assert.match(headerBlock, /\{t\("requestFlowOmniRoute"\)\}/);
+  assert.doesNotMatch(headerBlock, />\s*Your app\s*</);
+  assert.doesNotMatch(headerBlock, />\s*API key\s*</);
+  assert.doesNotMatch(headerBlock, />\s*OmniRoute\s*</);
   assert.match(headerBlock, /setShowAddModal\(true\)/);
   assert.match(headerBlock, /\{t\("createKey"\)\}/);
 });

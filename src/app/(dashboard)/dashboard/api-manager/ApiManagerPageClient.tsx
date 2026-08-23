@@ -967,10 +967,10 @@ export default function ApiManagerPageClient() {
           </div>
           <div
             className="flex flex-wrap items-center gap-2 text-sm text-text-secondary"
-            aria-label="Your app sends requests through an API key to OmniRoute"
+            aria-label={t("requestFlowAria")}
           >
             <span className="rounded-control border border-border bg-surface px-3 py-1.5 font-medium">
-              Your app
+              {t("requestFlowYourApp")}
             </span>
             <span
               className="material-symbols-outlined text-base text-text-muted"
@@ -979,7 +979,7 @@ export default function ApiManagerPageClient() {
               arrow_forward
             </span>
             <span className="rounded-control border border-border bg-surface px-3 py-1.5 font-medium">
-              API key
+              {t("requestFlowApiKey")}
             </span>
             <span
               className="material-symbols-outlined text-base text-text-muted"
@@ -988,7 +988,7 @@ export default function ApiManagerPageClient() {
               arrow_forward
             </span>
             <span className="rounded-control border border-border bg-surface px-3 py-1.5 font-medium">
-              OmniRoute
+              {t("requestFlowOmniRoute")}
             </span>
           </div>
         </div>
