@@ -16,6 +16,7 @@ import {
   splitSyncedEffortSuffix,
   stripContextWindowSuffix,
 } from "@omniroute/open-sse/services/model.ts";
+import { getLearnedReasoningEffortForModel } from "@omniroute/open-sse/services/learnedReasoningEffortCaps.ts";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { getRegisteredProviderEffortBaseModelId } from "@omniroute/open-sse/utils/registeredEffortVariants.ts";
 
@@ -124,6 +125,20 @@ function isSyncedEffortSkippedProvider(providerId: string): boolean {
   return SYNCED_EFFORT_SKIP_PROVIDER_PREFIXES.some((prefix) => providerId.startsWith(prefix));
 }
 
+/**
+ * C1: effective tier set for suffix validation = learned ?? sync. The catalog
+ * advertises variants from the learned set; validating the suffix against raw
+ * synced metadata would strand learned-only tiers (dead-on-arrival ids).
+ */
+function effectiveKnownEfforts(
+  modelId: string,
+  syncedEfforts: readonly string[] | null | undefined
+): string[] {
+  const learned = getLearnedReasoningEffortForModel(modelId);
+  if (learned) return [...learned];
+  return Array.isArray(syncedEfforts) ? [...syncedEfforts] : [];
+}
+
 /** Resolve a suffix against an explicitly tiered static registry model. */
 function resolveRegistryModelIdAndEffort(
   providerId: string,
@@ -139,7 +154,10 @@ function resolveRegistryModelIdAndEffort(
 
   for (const candidate of registryModels) {
     if (!Array.isArray(candidate?.supportedThinkingEfforts)) continue;
-    const attempt = splitSyncedEffortSuffix(modelId, candidate.supportedThinkingEfforts);
+    const attempt = splitSyncedEffortSuffix(
+      modelId,
+      effectiveKnownEfforts(candidate.id, candidate.supportedThinkingEfforts)
+    );
     if (attempt.effort && attempt.baseModel === candidate.id) {
       return { modelId: attempt.baseModel, effort: attempt.effort };
     }
@@ -183,7 +201,7 @@ function resolveSyncedModelIdAndEffort(
     }
     const attempt = splitSyncedEffortSuffix(
       modelId,
-      candidate.supportedThinkingEfforts as string[]
+      effectiveKnownEfforts(candidate.id, candidate.supportedThinkingEfforts as string[])
     );
     if (attempt.effort && attempt.baseModel === candidate.id) {
       return { modelId: attempt.baseModel, effort: attempt.effort };
@@ -232,7 +250,9 @@ function resolveRuntimeFormats(
 ): RuntimeModelMeta {
   const apiFormat =
     (typeof customMatch?.apiFormat === "string" ? customMatch.apiFormat : undefined) ||
-    (typeof compatOverrideMatch?.apiFormat === "string" ? compatOverrideMatch.apiFormat : undefined) ||
+    (typeof compatOverrideMatch?.apiFormat === "string"
+      ? compatOverrideMatch.apiFormat
+      : undefined) ||
     (syncedMatch?.apiFormat === "responses" ? "responses" : undefined);
   const targetFormat =
     typeof customMatch?.targetFormat === "string"
@@ -359,7 +379,12 @@ async function lookupModelMeta(
     const available =
       !liveCatalog.authoritative || Boolean(customMatch || syncedMatch || liveBackedEffortVariant);
 
-    const metadata = buildRuntimeModelMeta(customMatch, syncedMatch, registryMatch, compatOverrideMatch);
+    const metadata = buildRuntimeModelMeta(
+      customMatch,
+      syncedMatch,
+      registryMatch,
+      compatOverrideMatch
+    );
     if (effort) metadata.resolvedThinkingEffort = effort;
 
     return { modelId: resolvedModelId, metadata, available };
