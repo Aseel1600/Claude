@@ -60,10 +60,27 @@ export function extractVersionSection(changelog, version) {
  */
 export function parseContributors(sectionText) {
   const agg = new Map(); // handle -> Set(refs)
+  const canonicalHandles = new Map(); // lower-case GitHub login -> displayed login
   const add = (handle, refs) => {
-    if (NOISE_HANDLES.has(handle) || handle === MAINTAINER) return;
-    if (!agg.has(handle)) agg.set(handle, new Set());
-    for (const r of refs) agg.get(handle).add(r);
+    const normalized = handle.toLowerCase();
+    if (NOISE_HANDLES.has(normalized) || normalized === MAINTAINER) return;
+
+    let canonical = canonicalHandles.get(normalized);
+    if (!canonical) {
+      canonical = handle;
+      canonicalHandles.set(normalized, canonical);
+      agg.set(canonical, new Set());
+    } else if (canonical === normalized && handle !== normalized) {
+      // GitHub logins are case-insensitive. Prefer a later cased spelling over an all-lowercase
+      // occurrence while preserving every ref already collected for that account.
+      const existingRefs = agg.get(canonical);
+      agg.delete(canonical);
+      canonical = handle;
+      canonicalHandles.set(normalized, canonical);
+      agg.set(canonical, existingRefs);
+    }
+
+    for (const r of refs) agg.get(canonical).add(r);
   };
   // A slash is a contributor separator only when another @handle follows it. This prevents
   // GitHub App identities such as `@app/dependabot` from being truncated and credited as `@app`.
@@ -147,12 +164,17 @@ export function injectContributors(changelog, version, table) {
   const nextIdx = rest.search(/\n## \[/);
   const bodyEnd = nextIdx === -1 ? changelog.length : headerEnd + nextIdx;
   let body = changelog.slice(headerEnd, bodyEnd);
-  // strip an existing Contributors section (idempotent re-run)
-  body = body.replace(/\n### 🙌 Contributors[\s\S]*?(?=\n---\n|$)/, "\n");
-  // insert before the trailing `---` (or append if none)
+  // Strip an existing Contributors section and its leading blank lines. Repeated injection must
+  // be byte-idempotent instead of growing whitespace before the generated table on every run.
+  body = body.replace(/\n+### 🙌 Contributors[\s\S]*?(?=\n---\n|$)/, "");
+  // Insert before the trailing `---` (or append if none), with one blank line on each side.
   const idx = body.lastIndexOf("\n---");
-  const insertion = `\n${table}\n`;
-  body = idx >= 0 ? body.slice(0, idx) + insertion + body.slice(idx) : `${body}${insertion}\n---\n`;
+  if (idx >= 0) {
+    const prefix = body.slice(0, idx).replace(/\s+$/, "");
+    body = `${prefix}\n\n${table}\n${body.slice(idx)}`;
+  } else {
+    body = `${body.replace(/\s+$/, "")}\n\n${table}\n\n---\n`;
+  }
   return changelog.slice(0, headerEnd) + body + changelog.slice(bodyEnd);
 }
 

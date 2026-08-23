@@ -367,7 +367,7 @@ diagnostics) plus **memory**, **skill**, **agentSkill**, **githubSkill**, **pool
 14 search, 12 audio-only, 2 upstream proxy, 3 cloud-agent, and 1 system provider. These
 categories are disjoint in the current static catalog.
 
-**Core model registry:** 264 provider entries, 2,510 provider-model registrations, and 1,273
+**Core model registry:** 264 provider entries, 2,526 provider-model registrations, and 1,275
 distinct unqualified model IDs. These are static-code counts and exclude live upstream discovery,
 custom providers, dynamic provider nodes, and database overrides.
 

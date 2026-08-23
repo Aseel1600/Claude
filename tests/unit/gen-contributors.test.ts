@@ -82,6 +82,17 @@ test("GitHub App identities are not truncated in extracted-from credits", () => 
   assert.equal(agg.size, 0);
 });
 
+test("GitHub logins are deduplicated case-insensitively without losing refs", () => {
+  const agg = parseContributors(`
+- **fix:** first spelling ([#105](https://github.com/x/y/pull/105) — thanks @exampleuser)
+- **fix:** canonical spelling ([#106](https://github.com/x/y/pull/106) — thanks @ExampleUser)
+`);
+
+  assert.equal(agg.size, 1);
+  assert.ok(!agg.has("exampleuser"));
+  assert.deepEqual([...agg.get("ExampleUser")], [105, 106]);
+});
+
 test("renderContributors emits an alphabetical table with maintainer last", () => {
   const agg = parseContributors(extractVersionSection(FIXTURE, "3.9.0"));
   const table = renderContributors("3.9.0", agg);
@@ -115,4 +126,5 @@ test("injectContributors inserts before the closing --- and is idempotent", () =
   );
   const count = (twice.match(/### 🙌 Contributors/g) || []).length;
   assert.equal(count, 1, "no duplicate Contributors section on re-run");
+  assert.equal(twice, once, "re-injection is byte-idempotent");
 });

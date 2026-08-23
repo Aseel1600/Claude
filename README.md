@@ -64,7 +64,7 @@
 |                           | v3.8.49 |        **v3.8.50**        | `v3.8.51+`  |
 | ------------------------- | :-----: | :-----------------------: | :---------: |
 | 🌐 Providers              |   290   |          **345**          | more queued |
-| 🧠 Unique chat model IDs  |  1185   |         **1273**          |      —      |
+| 🧠 Unique chat model IDs  |  1185   |         **1275**          |      —      |
 | 🖼️ Modality Bridge        |    —    | 🆕 vision + audio + video |      —      |
 | 📡 Radar free catalog     |    —    |         🆕 opt-in         |      —      |
 | ⚖️ Quota-aware scheduling |    —    |      🆕 Quota-Share       |      —      |
@@ -1466,9 +1466,9 @@ A heartfelt thank-you to the people who fund OmniRoute out of their own pocket �
 
 </div>
 
-[![Contributors](https://contrib.rocks/image?repo=diegosouzapw/OmniRoute&max=635&columns=20&anon=1)](https://github.com/diegosouzapw/OmniRoute/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=diegosouzapw/OmniRoute&max=638&columns=20&anon=1)](https://github.com/diegosouzapw/OmniRoute/graphs/contributors)
 
-<sub>Audited at reconciled v3.8.50 candidate <code>aab9b946</code> on 2026-08-23: <b>635 normalized human Git identities</b> — 403 appear as commit authors, including the maintainer, and another 232 appear only in explicit <code>Co-authored-by</code> trailers. Formula: all commits reachable from the candidate head; e-mails are case-normalized, and numeric, non-numeric and malformed numeric GitHub noreply variants encoding the same handle are joined. Bots, agents, service accounts and placeholder identities are excluded. No <code>.mailmap</code> exists, and ordinary same-name identities with different e-mails are deliberately not merged, so this is a conservative, reproducible Git-metadata census rather than a count of verified unique people or GitHub profiles.</sub>
+<sub>Audited at reconciled v3.8.50 candidate <code>bf833936</code> on 2026-08-23: <b>638 normalized human Git identities</b> — 406 appear as commit authors, including the maintainer, and another 232 appear only in explicit <code>Co-authored-by</code> trailers. Formula: all commits reachable from the candidate head; e-mails are case-normalized, and numeric, non-numeric and malformed numeric GitHub noreply variants encoding the same handle are joined. Bots, agents, service accounts and placeholder identities are excluded. No <code>.mailmap</code> exists, and ordinary same-name identities with different e-mails are deliberately not merged, so this is a conservative, reproducible Git-metadata census rather than a count of verified unique people or GitHub profiles.</sub>
 
 ### How to Contribute
 

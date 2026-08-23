@@ -302,6 +302,8 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **feat(catalog):** surface runtime-learned `reasoning_effort` tiers in `/v1/models` `capabilities.effort_tiers` (learned set replaces synced metadata when present), map them to OpenCode `ModelV2.variants` in the OmniRoute plugin, and align dispatch `-<tier>` suffix validation to the effective (learned ?? synced) set — so the UI offers exactly the tiers the upstream accepts (e.g. `{low, high, max}` for `oc/x-preview-f-free`) and each advertised variant completes. Excludes codex/glm/kimi, which keep their own dedicated `-{effort}` suffix mechanism and never gain `effort_tiers` from this path ([#11232](https://github.com/diegosouzapw/OmniRoute/pull/11232), [#11252](https://github.com/diegosouzapw/OmniRoute/pull/11252) — thanks @maxmad64bis) (reported in [#7694](https://github.com/diegosouzapw/OmniRoute/issues/7694) — thanks @excessivechaos)
 - **feat(vertex):** discover Anthropic partner models from the Vertex AI Model Garden's PublisherModels API and route dynamically discovered `claude-*` IDs through the Claude translator for both `vertex` and `vertex-partner` ([#11279](https://github.com/diegosouzapw/OmniRoute/pull/11279) — thanks @maci0; integration test by @hartmark)
 - **feat(dashboard):** replace the hard Home → onboarding redirect with a dismissable first-run readiness card so returning users can stay on Home while new users still get a clear 4-step path; Pitch #03 is tracked in [#11167](https://github.com/diegosouzapw/OmniRoute/issues/11167) ([#11282](https://github.com/diegosouzapw/OmniRoute/pull/11282) — thanks @ignamiranda)
+- **feat(dashboard):** lead Traffic Inspector with a purpose-first header that separates "what happened" from "how it happened", so beginners can read request outcomes without drowning in protocol detail ([#11283](https://github.com/diegosouzapw/OmniRoute/pull/11283) — thanks @ignamiranda)
+- **feat(dashboard):** add an Essentials sidebar preset that shows only the beginner core path (Home → Endpoints → API Keys → Providers → Health → Settings) while keeping Advanced tools reachable via Command Palette search ([#11286](https://github.com/diegosouzapw/OmniRoute/pull/11286) — thanks @ignamiranda)
 
 ### 🐛 Bug Fixes
 
@@ -1000,7 +1002,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(compression):** bump vendored GCF with numeric-domain and surplus fixes ([#10807](https://github.com/diegosouzapw/OmniRoute/pull/10807)) — thanks @blackwell-systems
 - **fix(zed-hosted):** add connection test support for Zed Hosted Models ([#10810](https://github.com/diegosouzapw/OmniRoute/pull/10810)) — thanks @Hsia97
 - **fix(admission):** reserve Responses and Messages bodies before clone ([#10814](https://github.com/diegosouzapw/OmniRoute/pull/10814)) — thanks @RaviTharuma
-- fix(db): disambiguate `createProviderConnection()`'s OAuth email dedup by `providerSpecificData.profileArn` in addition to `username`, so adding a second Kiro/AWS profile with the same email creates a new connection instead of silently merging into the first (#10815)
+- **fix(kiro/oauth):** prevent distinct Kiro accounts from overwriting one another on both persistence paths: same-email OAuth writes are disambiguated by `username`/`profileArn`, and the social-login matcher no longer treats a shared CodeWhisperer profile ARN alone as an account identity, accepting it only when the incoming identity also carries a non-conflicting `email` or `clientId` ([#10815](https://github.com/diegosouzapw/OmniRoute/issues/10815) — thanks @franciscojnneto for the report); persistence-path fix ([#10918](https://github.com/diegosouzapw/OmniRoute/pull/10918) — thanks @hartmark); social-flow follow-up ([#11287](https://github.com/diegosouzapw/OmniRoute/pull/11287) — thanks @engenhariaandrereis01-ai / @andrersreis-cyber)
 - **fix(images):** register OpenAI `dall-e-3` in the image registry so unprefixed `dall-e-3` (and `openai/dall-e-3`) route to OpenAI Images instead of Microsoft Designer Web, and so the chat catalog no longer lists `openai/dall-e-3` as a 128k chat model ([#10832](https://github.com/diegosouzapw/OmniRoute/issues/10832))
 - **fix(cli):** prevent DEP0190 child process spawn deprecation on Windows ([#10835](https://github.com/diegosouzapw/OmniRoute/pull/10835)) — thanks @adevwithpurpose
 - **fix(build):** ensure standalone package.json declares module type for Node 24 worker compatibility ([#10836](https://github.com/diegosouzapw/OmniRoute/pull/10836)) — thanks @adevwithpurpose
@@ -1235,6 +1237,7 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(live-ws/dashboard):** accept the dev server's `http://0.0.0.0:20128` dashboard Origin without weakening the local-only default, stopping the `FORBIDDEN_ORIGIN` reconnect flood; render non-square provider and CLI logos at their intrinsic ratio so Next.js stops warning across the dashboard ([#11269](https://github.com/diegosouzapw/OmniRoute/pull/11269) — thanks @Minamaged18)
 - **fix(ollama):** preserve every capability advertised by self-hosted Ollama models and defer chat selection to read time, so embedding and image routes accept eligible models without leaking endpoint-only models into provider wildcards or Auto-Combo; image retries remain restricted to the connections that advertised the selected model ([#11271](https://github.com/diegosouzapw/OmniRoute/pull/11271), corrected release-line port of [#11088](https://github.com/diegosouzapw/OmniRoute/pull/11088) for [#11087](https://github.com/diegosouzapw/OmniRoute/issues/11087) — thanks @yourspraveen)
 - **fix(providers):** clamp out-of-vocabulary `reasoning_effort` values to the nearest tier declared by the exact provider/model, so `opencode-go/ox-alpha-free` maps the `medium` default to `high` while undeclared models remain pass-through ([#11274](https://github.com/diegosouzapw/OmniRoute/pull/11274) — thanks @linhdmn and @hartmark); builds on the learned accepted-set clamp from [#11232](https://github.com/diegosouzapw/OmniRoute/pull/11232) by @maxmad64bis
+- **fix(security):** replace the GitHub Copilot correlation-ID fallback's `Math.random()` with CSPRNG bytes from `node:crypto` and make the Windows shell-argument test helper undo doubled backslashes and escaped quotes in one left-to-right pass, clearing CodeQL `js/insecure-randomness` and `js/double-escaping` while keeping `crypto.randomUUID()` as the primary path ([#11293](https://github.com/diegosouzapw/OmniRoute/pull/11293) — thanks @hartmark)
 
 ### 📝 Maintenance
 
@@ -1516,14 +1519,6 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **chore(lint):** ratchet `@typescript-eslint/no-unused-vars` scoped to `src/` + `open-sse/` + `tests/` (`args: "all"`, `_`-prefix escape hatch) and freeze the 1,393 pre-existing violations via bulk suppressions — same pattern as the #7879 `toNumber` ratchet. New unused bindings now fail lint ([#11247](https://github.com/diegosouzapw/OmniRoute/pull/11247) — thanks @maxmad64bis)
 - **docs(i18n):** add the complete Persian User Guide translation with commands, identifiers and relative links preserved ([#11254](https://github.com/diegosouzapw/OmniRoute/pull/11254) — thanks @crmbadesaba-commits)
 
-
-
-
-
-
-
-
-
 ### 🙌 Contributors
 
 Thanks to everyone whose work landed in v3.8.50:
@@ -1546,6 +1541,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@alex-jordan547](https://github.com/alex-jordan547) | #9235, #9245, #9813 |
 | [@aliyosufi](https://github.com/aliyosufi) | #11159 |
 | [@amartinawi](https://github.com/amartinawi) | #10090, #10091, #10092, #10097, #10101 |
+| [@andrersreis-cyber](https://github.com/andrersreis-cyber) | #11287 |
 | [@AndrianBalanescu](https://github.com/AndrianBalanescu) | #8888, #8889, #8890, #8891, #8892, #8893, #8894, #8895, #11081, #11082 |
 | [@AnhLead](https://github.com/AnhLead) | #9722 |
 | [@aniketshukla1](https://github.com/aniketshukla1) | #9148 |
@@ -1595,6 +1591,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@echoriver89](https://github.com/echoriver89) | #10717 |
 | [@Egorich-print](https://github.com/Egorich-print) | #9001, #9020, #9058, #10881, #10887, #11097 |
 | [@electrumguy](https://github.com/electrumguy) | #10774, #11149 |
+| [@engenhariaandrereis01-ai](https://github.com/engenhariaandrereis01-ai) | #11287 |
 | [@engmarcosjr](https://github.com/engmarcosjr) | #9993 |
 | [@epsilonode](https://github.com/epsilonode) | #8871 |
 | [@ervareza](https://github.com/ervareza) | direct commit / report |
@@ -1602,6 +1599,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@fajarhide](https://github.com/fajarhide) | #9191, #9198 |
 | [@farshidrezaei](https://github.com/farshidrezaei) | #10777 |
 | [@fenix007](https://github.com/fenix007) | #9618, #10016 |
+| [@franciscojnneto](https://github.com/franciscojnneto) | #10815 |
 | [@freudantunes](https://github.com/freudantunes) | #10623 |
 | [@Gecky2102](https://github.com/Gecky2102) | #9280 |
 | [@geek007git](https://github.com/geek007git) | #10441 |
@@ -1612,7 +1610,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@HaoNgo232](https://github.com/HaoNgo232) | direct commit / report |
 | [@Hariprajwal](https://github.com/Hariprajwal) | #9922 |
 | [@harkaranbrar7](https://github.com/harkaranbrar7) | #10281 |
-| [@hartmark](https://github.com/hartmark) | #9635, #9704, #9708, #9711, #9712, #9727, #9734, #9735, #9738, #9741, #9744, #9745, #9822, #10025, #10034, #10037, #10038, #10041, #10121, #10217, #10262, #10263, #10330, #10331, #10739, #11281 |
+| [@hartmark](https://github.com/hartmark) | #9635, #9704, #9708, #9711, #9712, #9727, #9734, #9735, #9738, #9741, #9744, #9745, #9822, #10025, #10034, #10037, #10038, #10041, #10121, #10217, #10262, #10263, #10330, #10331, #10739, #10918, #11281, #11293 |
 | [@Hdiaktoros](https://github.com/Hdiaktoros) | #8930 |
 | [@HectorBernstorff](https://github.com/HectorBernstorff) | direct commit / report |
 | [@HellFiveOsborn](https://github.com/HellFiveOsborn) | #9248 |
@@ -1625,7 +1623,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@Hsia97](https://github.com/Hsia97) | #10810 |
 | [@hydraxman](https://github.com/hydraxman) | #10137, #10572 |
 | [@Iammilansoni](https://github.com/Iammilansoni) | #9353, #9397 |
-| [@ignamiranda](https://github.com/ignamiranda) | #11195, #11204, #11206, #11215, #11224, #11227, #11228, #11282 |
+| [@ignamiranda](https://github.com/ignamiranda) | #11195, #11204, #11206, #11215, #11224, #11227, #11228, #11282, #11283, #11286 |
 | [@ikelvingo](https://github.com/ikelvingo) | #8591, #8872, #9053 |
 | [@im-ecorp](https://github.com/im-ecorp) | #11244 |
 | [@infinit-X](https://github.com/infinit-X) | #9095 |
@@ -1642,8 +1640,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@jonlwheat2-gif](https://github.com/jonlwheat2-gif) | #10610, #10709, #11194, #11201 |
 | [@JoshimOfficial](https://github.com/JoshimOfficial) | #9011 |
 | [@jowimila](https://github.com/jowimila) | #9325 |
-| [@jxnlexn](https://github.com/jxnlexn) | #10927 |
-| [@JxnLexn](https://github.com/JxnLexn) | #8933, #8940, #8944, #8949, #10422, #10608 |
+| [@JxnLexn](https://github.com/JxnLexn) | #8933, #8940, #8944, #8949, #10422, #10608, #10927 |
 | [@Kaedo17](https://github.com/Kaedo17) | #8922 |
 | [@KaspaPulse](https://github.com/KaspaPulse) | #10362 |
 | [@khoazero123](https://github.com/khoazero123) | #9272 |
