@@ -149,6 +149,11 @@ jobs:
       name: production
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Configure SSH
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -159,6 +164,40 @@ jobs:
           printf '%s\n' "$SSH_KEY"     > ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      # Without this the VPS would keep whatever bootstrap-vps.sh installed the
+      # first time, and any later change to compose.yml / Caddyfile / deploy.sh
+      # would silently never reach production.
+      #
+      # caddy/active.caddy is deliberately NOT synced: it is generated state
+      # owned by deploy.sh and names the currently live slot. Overwriting it
+      # from the repo seed would repoint traffic at the wrong container.
+      - name: Sync infra files to the VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/id_ed25519 -p $VPS_PORT -o BatchMode=yes -o ConnectTimeout=20"
+          $SSH "$VPS_USER@$VPS_HOST" 'mkdir -p /opt/omniroute/.staging'
+
+          scp -i ~/.ssh/id_ed25519 -P "$VPS_PORT" -o BatchMode=yes \
+              infra/compose.yml infra/deploy.sh infra/backup.sh infra/caddy/Caddyfile \
+              "$VPS_USER@$VPS_HOST:/opt/omniroute/.staging/"
+
+          # Install by rename, not by overwrite. `mv` within one filesystem is an
+          # atomic swap of the directory entry, so a deploy.sh that happens to be
+          # executing keeps reading its original inode. Copying in place would let
+          # bash read half of the old script and half of the new one.
+          $SSH "$VPS_USER@$VPS_HOST" 'set -euo pipefail
+            cd /opt/omniroute
+            install -m 0644 .staging/compose.yml compose.yml.new && mv -f compose.yml.new compose.yml
+            install -m 0644 .staging/Caddyfile   caddy/Caddyfile.new && mv -f caddy/Caddyfile.new caddy/Caddyfile
+            install -m 0750 .staging/deploy.sh   deploy.sh.new && mv -f deploy.sh.new deploy.sh
+            install -m 0750 .staging/backup.sh   backup.sh.new && mv -f backup.sh.new backup.sh
+            rm -rf .staging
+            echo "infra files synced"'
 
       - name: Deploy immutable digest
         env:

@@ -9,6 +9,9 @@ GitHub Actions → GHCR → VPS → Docker Blue/Green → Caddy → Cloudflare T
 Thư mục này là toàn bộ phần hạ tầng **do fork thêm vào**. Không có file nào của
 upstream bị sửa, nên việc merge code mới từ upstream gần như không bao giờ conflict.
 
+> **Muốn bắt tay vào làm ngay?** Đọc [SETUP.md](./SETUP.md) — checklist theo thứ
+> tự, có ô tick. File này là phần giải thích kiến trúc và tra cứu khi vận hành.
+
 ---
 
 ## 1. Ba điểm khác plan gốc — và lý do
