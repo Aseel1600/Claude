@@ -145,6 +145,30 @@ export function resolveOpencodeTargetFormat(provider: string, model: string): st
   return getModelTargetFormat(alias, model) || "openai";
 }
 
+/**
+ * muse-spark (opencode-go) burns its entire output budget on invisible
+ * server-side reasoning before emitting any content. With small caller-set
+ * budgets the upstream answers HTTP 200 with an empty message
+ * (`{"message":{"role":"assistant"},"finish_reason":null}` and
+ * `completion_tokens == max_tokens`) — chatCore then flags the fake success as
+ * "Provider returned empty content" / 502 and burns a fallback attempt.
+ *
+ * Verified live 2026-08-23: max_tokens=64/100 → empty content;
+ * 256/512/1024 → content present (hidden reasoning consumed 196–253 of it).
+ *
+ * Floor raised budgets only — explicit large budgets and non-muse-spark models
+ * are untouched, and no budget is synthesized when the caller set none.
+ */
+export const MUSE_SPARK_MIN_OUTPUT_TOKENS = 512;
+
+export function applyMuseSparkMinOutputTokens(model: string, body: Record<string, unknown>): void {
+  if (!model.startsWith("muse-spark")) return;
+  const current = body.max_tokens;
+  if (typeof current !== "number" || !Number.isFinite(current)) return;
+  if (current >= MUSE_SPARK_MIN_OUTPUT_TOKENS) return;
+  body.max_tokens = MUSE_SPARK_MIN_OUTPUT_TOKENS;
+}
+
 export class OpencodeExecutor extends BaseExecutor {
   /** Delegates to `isPremiumOpencodeModel`. Exported for testability. */
   static isPremiumModel(model: string, provider: string): boolean {
@@ -254,6 +278,14 @@ export class OpencodeExecutor extends BaseExecutor {
     }
 
     try {
+      // muse-spark reasoning models consume the entire output budget on hidden
+      // server-side reasoning; small caller budgets come back as empty-message
+      // 200s ("Provider returned empty content"). Raise tiny budgets to the
+      // floor before dispatch (see MUSE_SPARK_MIN_OUTPUT_TOKENS).
+      if (input.body && typeof input.body === "object" && !Array.isArray(input.body)) {
+        applyMuseSparkMinOutputTokens(String(input.model ?? ""), input.body as Record<string, unknown>);
+      }
+
       this.syncAccountsFromCredentials(input.credentials);
       const { log } = input;
 
