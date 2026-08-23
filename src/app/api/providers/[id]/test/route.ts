@@ -28,6 +28,7 @@ import {
 } from "@/lib/oauth/gitlab";
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
 import { shouldUseApiKeyConnectionTest } from "./webSessionTestDispatch";
+import { testCodexAppServerConnection, makeDiagnosis } from "./codexAppServerHealth";
 import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { classifyAmbiguousOrAuthError, type ClassifyFailureArgs } from "./mistralAmbiguousAuth";
@@ -50,20 +51,6 @@ function toSafeMessage(value: any, fallback = "Unknown error"): string {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
   return trimmed || fallback;
-}
-
-function makeDiagnosis(
-  type: string,
-  source: string,
-  message: string | null,
-  code: string | null = null
-) {
-  return {
-    type,
-    source,
-    message: message || null,
-    code: code ?? null,
-  };
 }
 
 /**
@@ -1024,6 +1011,13 @@ export async function testSingleConnection(connectionId: string, validationModel
   const startTime = Date.now();
   const runtime = await getProviderRuntimeStatus(connection);
 
+  // Codex app-server connections carry no validatable OpenAI token (the codex
+  // app-server process self-manages its own OAuth). Probe the app-server's
+  // /readyz liveness endpoint instead of the meaningless token check — otherwise
+  // every sweep reports a false "Token invalid or revoked" 401 and cools the
+  // connection down. Returns null for non-app-server connections (fall through).
+  const appServerResult = await testCodexAppServerConnection(connection);
+
   if ((runtime as any)?.diagnosis) {
     result = {
       valid: false,
@@ -1031,6 +1025,10 @@ export async function testSingleConnection(connectionId: string, validationModel
       refreshed: false,
       diagnosis: (runtime as any).diagnosis,
     };
+  } else if (appServerResult) {
+    result = await runWithProxyContext(proxyInfo?.proxy || null, () =>
+      Promise.resolve(appServerResult)
+    );
   } else if (shouldUseApiKeyConnectionTest(connection.authType, provider)) {
     const enrichedConnection = validationModelId
       ? {

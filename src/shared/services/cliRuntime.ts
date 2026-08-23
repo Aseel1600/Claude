@@ -338,6 +338,7 @@ export const CLI_TOOL_ALIASES: Readonly<Record<string, string>> = {
   "claude-code": "claude",
   "openai-codex": "codex",
   openai: "codex",
+  "codex-app-server": "codex",
   cn: "continue",
   qodercli: "qoder",
 };
