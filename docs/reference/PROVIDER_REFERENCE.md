@@ -10,7 +10,7 @@ lastUpdated: 2026-08-23
 > Regenerate with: `npm run gen:provider-reference`
 > **Last generated:** 2026-08-23
 
-Total providers: **349**. See category breakdown below.
+Total providers: **350**. See category breakdown below.
 
 ## Categories
 
@@ -104,7 +104,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `huggingchat` | `huggingchat` | HuggingChat (Free) | Web cookie | [link](https://huggingface.co/chat) | Paste the full Cookie header from huggingface.co/chat (DevTools → Network → /chat/conversation → Request Headers → Cookie). It should include hf-chat and may also include token / aws-waf-token. | — |
 | `hyperagent` | `ha` | HyperAgent (Unofficial/Experimental) | Web cookie | [link](https://hyperagent.com) | Paste the full Cookie header from hyperagent.com (DevTools → Network → any request → Request Headers → Cookie). Session cookies power chat + billing usage. | — |
 | `inner-ai` | `in-ai` | Inner.ai (Subscription) | Web cookie | [link](https://app.innerai.com) | Paste your token cookie and email separated by a space: open DevTools → Application → Cookies → .innerai.com, copy the token value, then append a space and your Inner.ai login email. Example: eyJhbG... user@example.com | emulated |
-| `kimi-web` | `kimi-web` | Kimi Web | Web cookie | [link](https://www.kimi.com/code?aff=omniroute) | Paste access_token from www.kimi.com DevTools → Application → Local Storage. A legacy kimi-auth cookie is also accepted. | — |
+| `kimi-web` | `kimi-web` | Kimi Web | Web cookie | [link](https://www.kimi.ai) | Paste access_token from www.kimi.ai DevTools → Application → Local Storage. A legacy kimi-auth cookie is also accepted. | — |
 | `lmarena` | `lma` | Arena (Free) | Web cookie | [link](https://arena.ai) | Paste the full Cookie header from arena.ai (DevTools → Network → request → Cookie). Include arena-auth-prod-v1.0/.1… and cf_clearance/__cf_bm when present. OmniRoute uses Chrome TLS impersonation; if Arena still 403s, set providerSpecificData.recaptchaV3Token from a live browser session. | — |
 | `microsoft-designer-web` | `msdesigner` | Microsoft Designer (Image Generation) | Web cookie | [link](https://designer.microsoft.com) | Sign in at designer.microsoft.com, then open DevTools → Network, generate an image, and find the request to DallE.ashx?action=GetDallEImagesCogSci. Copy the value of its Authorization: Bearer header (the access_token — no 'Bearer ' prefix). The token is short-lived; this is an unofficial, reverse-engineered integration. | — |
 | `muse-spark-web` | `ms-web` | Muse Spark Web (Meta AI) | Web cookie | [link](https://www.meta.ai) | Paste your ecto_1_sess cookie AND the ecto1:... WS auth token from meta.ai. Capture the ecto1: token in DevTools → Network → WS → the clippy request's Authorization query param. Example: ecto_1_sess=4240a308...NVDg0; ecto1:ABCD... | emulated |
@@ -122,7 +122,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web` | `zw` | Z.ai Web | Web cookie | [link](https://chat.z.ai) | Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport. | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (233)
+## API Key Providers (paid / paid-with-free-credits) (232)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -199,11 +199,11 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `freemodel-dev` | `fmd` | FreeModel.dev | API key | [link](https://freemodel.dev) | $300 free credits on signup — no credit card required. Access GPT-5.4 and GPT-5.5 (OpenAI's latest flagship models) through an OpenAI-compatible API. |
 | `freetheai` | `fta` | FreeTheAi | API key, aggregator | [link](https://freetheai.xyz) | Join the FreeTheAi Discord to get your free API key. |
 | `friendliai` | `friendli` | FriendliAI | API key | [link](https://friendli.ai) | Free tier for serverless inference — no credit card required |
-| `g4f-gemini` | `g4fgem` | g4f.space — Gemini | API key, aggregator | [link](https://g4f.space) | No auth required. Free tier is limited to 5 requests/minute — sign up at g4f.dev/members.html for higher limits. |
-| `g4f-groq` | `g4fgroq` | g4f.space — Groq | API key, aggregator | [link](https://g4f.space) | No auth required. Free tier is limited to 5 requests/minute — sign up at g4f.dev/members.html for higher limits. |
-| `g4f-nvidia` | `g4fnv` | g4f.space — NVIDIA | API key, aggregator | [link](https://g4f.space) | No auth required. Free tier is limited to 5 requests/minute — sign up at g4f.dev/members.html for higher limits. |
-| `g4f-ollama` | `g4foll` | g4f.space — Ollama | API key, aggregator | [link](https://g4f.space) | No auth required. Free tier is limited to 5 requests/minute — sign up at g4f.dev/members.html for higher limits. |
-| `g4f-pollinations` | `g4fpol` | g4f.space — Pollinations | API key, aggregator | [link](https://g4f.space) | No auth required. Free tier is limited to 5 requests/minute — sign up at g4f.dev/members.html for higher limits. |
+| `g4f-gemini` | `g4fgem` | g4f.space — Gemini | API key, aggregator | [link](https://g4f.space) | Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key. |
+| `g4f-groq` | `g4fgroq` | g4f.space — Groq | API key, aggregator | [link](https://g4f.space) | Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key. |
+| `g4f-nvidia` | `g4fnv` | g4f.space — NVIDIA | API key, aggregator | [link](https://g4f.space) | Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key. |
+| `g4f-ollama` | `g4foll` | g4f.space — Ollama | API key, aggregator | [link](https://g4f.space) | Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key. |
+| `g4f-pollinations` | `g4fpol` | g4f.space — Pollinations | API key, aggregator | [link](https://g4f.space) | Anonymous use now needs proof-of-work credits baked at g4f.dev/chat — sign up at g4f.dev/members.html for a member key. |
 | `galadriel` | `galadriel` | Galadriel | API key | [link](https://galadriel.com) | ⚠️ **DEPRECATED.** api.galadriel.ai no longer resolves (sweep 2026-06-19); the inference API appears discontinued. |
 | `gemini` | `gemini` | Gemini (Google AI Studio) | API key | [link](https://aistudio.google.com) | Free tier available through Google AI Studio; current per-model quotas and regional limits apply |
 | `getgoapi` | `ggo` | GoAPI | API key, aggregator | [link](https://api.getgoapi.com) | — |
@@ -215,7 +215,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `glm-cn` | `glmcn` | GLM Coding (China) | API key | [link](https://open.bigmodel.cn) | — |
 | `glmt` | `glmt` | GLM Thinking | API key | [link](https://open.bigmodel.cn) | — |
 | `groq` | `groq` | Groq | API key | [link](https://groq.com) | Free tier: 30 RPM / 14.4K RPD — no credit card |
-| `hackclub` | `hc` | Hackclub AI | API key, aggregator | [link](https://ai.hackclub.com) | Sign in with your Hack Club account at ai.hackclub.com. |
+| `hackclub` | `hc` | Hackclub AI | API key | [link](https://ai.hackclub.com) | Sign in with your Hack Club account at ai.hackclub.com. |
 | `haiper` | `hp` | Haiper | API key, video | [link](https://haiper.ai) | Get API key at haiper.ai/haiper-api |
 | `hcnsec` | `hcnsec` | Huancheng Public API | API key | [link](https://api.hcnsec.cn) | Get API key at api.hcnsec.cn |
 | `helixmind` | `helixmind` | HelixMind | API key, aggregator | [link](https://helixmind.online) | Previously circulated 3 RPM/50 RPD and no-card claims were not confirmed during the 2026-08-02 audit; current quota and billing require account verification. |
