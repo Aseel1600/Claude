@@ -33,9 +33,14 @@ export default function QdrantConfigCard() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"" | "saved" | "error">("");
-  const [health, setHealth] = useState<{ ok: boolean; latencyMs: number; error?: string } | null>(
-    null,
-  );
+  const [health, setHealth] = useState<{
+    ok: boolean;
+    latencyMs: number;
+    error?: string;
+    collection?: { exists: boolean; vectorSize?: number; vectorName?: string | null };
+  } | null>(null);
+  const [searchValidated, setSearchValidated] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -69,6 +74,7 @@ export default function QdrantConfigCard() {
     async (updates: Partial<QdrantSettings> & { apiKey?: string }) => {
       const prev = qdrant;
       const next = { ...qdrant, ...updates };
+      setSearchValidated(false);
       setQdrant(next);
       setSaving(true);
       setSaveStatus("");
@@ -103,7 +109,7 @@ export default function QdrantConfigCard() {
         setSaving(false);
       }
     },
-    [qdrant],
+    [qdrant]
   );
 
   const checkHealth = useCallback(async () => {
@@ -137,9 +143,13 @@ export default function QdrantConfigCard() {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok) {
         setSearchResults(Array.isArray(data.results) ? data.results : []);
+        setSearchValidated(true);
+      } else {
+        setSearchValidated(false);
       }
     } catch {
       setSearchResults([]);
+      setSearchValidated(false);
     } finally {
       setSearching(false);
     }
@@ -182,14 +192,18 @@ export default function QdrantConfigCard() {
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-text-main">{t("qdrant.title")}</h3>
           <p className="text-xs text-text-muted">{t("qdrant.description")}</p>
+          <button
+            type="button"
+            data-testid="qdrant-setup-tutorial"
+            onClick={() => setTutorialOpen(true)}
+            className="mt-1 text-xs font-medium text-emerald-500 hover:underline"
+          >
+            Como configurar o Qdrant corretamente
+          </button>
         </div>
         <span
           className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-            qdrant.enabled
-              ? health?.ok
-                ? "text-emerald-500"
-                : "text-red-500"
-              : "text-text-muted"
+            qdrant.enabled ? (health?.ok ? "text-emerald-500" : "text-red-500") : "text-text-muted"
           }`}
         >
           <span
@@ -228,7 +242,7 @@ export default function QdrantConfigCard() {
           <button
             data-testid="qdrant-enabled-switch"
             onClick={() => save({ enabled: !qdrant.enabled })}
-            disabled={saving}
+            disabled={saving || (!qdrant.enabled && !searchValidated)}
             role="switch"
             aria-checked={qdrant.enabled}
             className={`relative w-11 h-6 rounded-full transition-colors ${
@@ -244,6 +258,13 @@ export default function QdrantConfigCard() {
         </div>
       </div>
 
+      {!qdrant.enabled && !searchValidated && (
+        <p className="-mt-2 mb-4 text-xs text-amber-500">
+          Execute um teste de busca bem-sucedido antes de ativar. Ele valida o modelo de embedding e
+          a dimensão da coleção.
+        </p>
+      )}
+
       {health && (
         <div
           className={`mb-4 text-xs font-medium flex items-center gap-1 ${health.ok ? "text-emerald-500" : "text-red-500"}`}
@@ -254,6 +275,23 @@ export default function QdrantConfigCard() {
           {health.ok
             ? t("qdrant.healthOk", { latencyMs: health.latencyMs })
             : (health.error ?? t("qdrant.healthError"))}
+        </div>
+      )}
+      {health?.collection && (
+        <div className="mb-4 rounded-lg border border-border/50 bg-surface/30 p-3 text-xs text-text-muted">
+          {health.collection.exists ? (
+            <>
+              Coleção compatível com vetores de dimensão{" "}
+              <strong>{health.collection.vectorSize}</strong>
+              {health.collection.vectorName ? ` (vetor: ${health.collection.vectorName})` : ""}. O
+              modelo configurado deve gerar a mesma dimensão.
+            </>
+          ) : (
+            <>
+              A coleção ainda não existe. Ela será criada na primeira gravação com o modelo
+              validado.
+            </>
+          )}
         </div>
       )}
 
@@ -284,7 +322,10 @@ export default function QdrantConfigCard() {
             value={qdrant.port}
             type="number"
             onChange={(e) =>
-              setQdrant((s) => ({ ...s, port: Math.max(1, Math.min(65535, Number(e.target.value) || 1)) }))
+              setQdrant((s) => ({
+                ...s,
+                port: Math.max(1, Math.min(65535, Number(e.target.value) || 1)),
+              }))
             }
             placeholder="6333"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -355,9 +396,7 @@ export default function QdrantConfigCard() {
               </button>
             )}
             <button
-              onClick={() =>
-                save(apiKeyInput.trim() ? { apiKey: apiKeyInput } : {})
-              }
+              onClick={() => save(apiKeyInput.trim() ? { apiKey: apiKeyInput } : {})}
               disabled={saving}
               className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
             >
@@ -422,6 +461,50 @@ export default function QdrantConfigCard() {
         </div>
         {cleanupMsg && <p className="mt-2 text-xs text-text-muted">{cleanupMsg}</p>}
       </div>
+      {tutorialOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tutorial de configuração do Qdrant"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        >
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold">Tutorial rápido: memória com Qdrant</h4>
+                <p className="mt-2 text-sm text-text-muted">
+                  O Qdrant guarda vetores e metadados das memórias para recuperar contexto
+                  relevante. Ele não comprime tokens diretamente; a economia é indireta, ao evitar
+                  contexto sem relação com a solicitação.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTutorialOpen(false)}
+                aria-label="Fechar tutorial"
+              >
+                ×
+              </button>
+            </div>
+            <ol className="mt-5 list-decimal space-y-3 pl-5 text-sm text-text-muted">
+              <li>Proteja o servidor com HTTPS e API key antes de uso produtivo.</li>
+              <li>
+                Informe host, porta, coleção e um modelo no formato provider/model com credencial
+                configurada.
+              </li>
+              <li>
+                A dimensão da coleção precisa ser igual à dimensão produzida pelo modelo. Uma
+                coleção existente de 2048 dimensões não aceita embeddings de 1536 dimensões.
+              </li>
+              <li>Salve, teste a conexão e execute o teste de busca. Só então ative o Qdrant.</li>
+            </ol>
+            <pre className="mt-5 overflow-x-auto rounded-lg bg-surface p-3 text-xs">{`PUT /collections/minha_memoria\n{\n  "vectors": { "size": <dimensão-do-modelo>, "distance": "Cosine" }\n}`}</pre>
+            <p className="mt-5 text-xs text-text-muted">
+              Créditos: Rafa Martins — rafacpti@gmail.com
+            </p>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

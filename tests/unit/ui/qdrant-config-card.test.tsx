@@ -86,7 +86,7 @@ describe("QdrantConfigCard", () => {
     expect(container.querySelector("[data-testid='qdrant-cleanup']")).toBeTruthy();
   });
 
-  it("toggle enabled switch calls PUT /api/settings/qdrant", async () => {
+  it("requires a search validation before enabling and exposes the setup tutorial", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, opts?: { method?: string }) => {
       if (url === "/api/settings/qdrant" && opts?.method === "PUT") {
         return Promise.resolve({
@@ -126,20 +126,17 @@ describe("QdrantConfigCard", () => {
       "[data-testid='qdrant-enabled-switch']",
     ) as HTMLButtonElement | null;
     expect(toggleBtn).toBeTruthy();
-    await act(async () => {
-      toggleBtn?.click();
-    });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
+    expect(toggleBtn?.disabled).toBe(true);
 
-    const putCalls = fetchMock.mock.calls.filter(
-      (c: [string, { method?: string }]) =>
-        typeof c[0] === "string" &&
-        c[0] === "/api/settings/qdrant" &&
-        c[1]?.method === "PUT",
-    );
-    expect(putCalls.length).toBeGreaterThan(0);
+    const tutorial = container.querySelector(
+      "[data-testid='qdrant-setup-tutorial']",
+    ) as HTMLButtonElement | null;
+    expect(tutorial).toBeTruthy();
+    await act(async () => {
+      tutorial?.click();
+    });
+    expect(container.querySelector("[role='dialog']")).toBeTruthy();
+    expect(container.textContent).toContain("Rafa Martins");
   });
 
   it("test connection button calls /api/settings/qdrant/health", async () => {
