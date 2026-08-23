@@ -75,7 +75,13 @@ if [[ "${1:-}" == "--status" ]]; then
     echo "GREEN_IMAGE   : $(read_env_var GREEN_IMAGE)"
     echo "previous image: $(cat "$PREV_IMAGE_FILE" 2>/dev/null || echo none)"
     echo
-    dc ps
+    # Before the first deployment there is no .deploy.env, and `docker compose`
+    # refuses a missing --env-file. Report that state instead of erroring.
+    if [[ -f "$DEPLOY_ENV" ]]; then
+        dc ps
+    else
+        echo "(not deployed yet — $DEPLOY_ENV does not exist)"
+    fi
     exit 0
 fi
 
