@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { platform, totalmem } from "node:os";
 import { t } from "../i18n.mjs";
 import { writePidFile, cleanupPidFile, waitForServer } from "../utils/pid.mjs";
@@ -414,7 +414,7 @@ async function runWithSupervisor(
       if (detectMitmCrash(crashLog)) {
         try {
           const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-          const { updateSettings } = await import(`${PROJECT_ROOT}/src/lib/db/settings.ts`);
+          const { updateSettings } = await import(pathToFileURL(join(PROJECT_ROOT, "src/lib/db/settings.ts")).href);
           updateSettings({ mitmEnabled: false });
         } catch {}
         return "disable-mitm-and-retry";

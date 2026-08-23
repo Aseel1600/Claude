@@ -370,10 +370,31 @@ test("GET /api/settings/qdrant/embedding-models — returns models array", async
   assert.strictEqual(res.status, 200);
   const body = await res.json();
   assert.ok(Array.isArray(body.models), "should have models array");
-  // Should have at least the default fallback model
-  assert.ok(body.models.length > 0, "should have at least one model");
+  assert.strictEqual(body.models.length, 0, "should not list models without a configured provider");
+});
+
+test("GET /api/settings/qdrant/embedding-models — lists only configured providers", async () => {
+  await localDb.createProviderConnection({
+    provider: "openai",
+    authType: "apikey",
+    name: "embedding-test-openai",
+    apiKey: "sk-test-embedding",
+  });
+
+  const headers = await createManagementSessionHeaders();
+  const req = new Request("http://localhost/api/settings/qdrant/embedding-models", {
+    method: "GET",
+    headers: Object.fromEntries(headers.entries()),
+  });
+
+  const res = await qdrantEmbeddingModelsRoute.GET(req as any);
+  assert.strictEqual(res.status, 200);
+  const body = await res.json();
+  assert.ok(body.models.length > 0, "should list models for configured provider");
+  assert.ok(body.models.every((model: any) => model.value.startsWith("openai/")));
+  assert.ok(body.models.some((model: any) => model.value === "openai/text-embedding-3-small"));
   const defaultModel = body.models.find((m: any) => m.value === "openai/text-embedding-3-small");
-  assert.ok(defaultModel, "should include openai/text-embedding-3-small as default");
+  assert.match(defaultModel.label, /1536d/);
 });
 
 test("GET /api/settings/qdrant/embedding-models — 401 without auth", async () => {
