@@ -685,7 +685,7 @@ test("chatCore drops opaque reasoning for plaintext Responses targets by default
   assert.deepEqual(
     input.filter((item) => item.type === "reasoning"),
     [
-      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
+      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] }, // summary defaulted by #11110
       { type: "reasoning", summary: [{ text: "not self-contained" }] },
     ]
   );
@@ -800,6 +800,7 @@ test("chatCore carries Chat reasoning_content into official DeepSeek Responses i
   assert.deepEqual(call.body.input.slice(0, 3), [
     {
       type: "reasoning",
+      summary: [], // defaulted on freshly-built reasoning items (#11129)
       content: [{ type: "reasoning_text", text: "Inspect before calling the tool" }],
     },
     {
@@ -866,7 +867,7 @@ test("chatCore replays nonstream DeepSeek Responses reasoning across a Chat tool
   assert.equal(second.result.success, true);
   assert.deepEqual(
     second.call.body.input.find((item) => item.type === "reasoning"),
-    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }] }
+    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }], summary: [] } // summary defaulted by #11129
   );
 });
 
@@ -930,7 +931,7 @@ test("chatCore replays streamed DeepSeek Responses reasoning across a Chat tool 
   assert.equal(second.result.success, true);
   assert.deepEqual(
     second.call.body.input.find((item) => item.type === "reasoning"),
-    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }] }
+    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }], summary: [] } // summary defaulted by #11129
   );
 });
 
@@ -1132,7 +1133,7 @@ test("chatCore automatically preserves provider-generated opaque reasoning for C
   assert.equal(result.success, true);
   assert.deepEqual(
     call.body.input.filter((item) => item.type === "reasoning"),
-    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" }]
+    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob", summary: [] }] // summary defaulted by #11110
   );
   assert.equal(
     call.body.input.some((item) => item.type === "item_reference"),
