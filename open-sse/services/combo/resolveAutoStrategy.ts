@@ -244,10 +244,16 @@ export async function resolveAutoStrategyOrder(
   }
 
   let lastKnownGoodProvider: string | undefined;
+  // #11181: default true (matches UI default `settings.lkgpEnabled !== false`)
+  let lkgpEnabled: boolean | undefined = true;
   try {
-    const { getLKGP } = await import("../../../src/lib/localDb");
-    const lkgp = await getLKGP(combo.name, combo.id || combo.name);
+    const { getLKGP, getSettings } = await import("../../../src/lib/localDb");
+    const [lkgp, settings] = await Promise.all([
+      getLKGP(combo.name, combo.id || combo.name),
+      getSettings().catch(() => ({}) as Record<string, unknown>),
+    ]);
     if (lkgp) lastKnownGoodProvider = lkgp.provider;
+    if (typeof settings.lkgpEnabled === "boolean") lkgpEnabled = settings.lkgpEnabled;
   } catch (err) {
     log.warn("COMBO", "Failed to retrieve Last Known Good Provider. This is non-fatal.", { err });
   }
@@ -311,6 +317,7 @@ export async function resolveAutoStrategyOrder(
             taskType,
             requestHasTools,
             lastKnownGoodProvider,
+            lkgpEnabled,
             estimatedInputTokens,
             sla: slaPolicy,
           },

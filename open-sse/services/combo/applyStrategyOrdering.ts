@@ -51,49 +51,53 @@ export async function applyStrategyOrdering(
 
   if (strategy === "lkgp") {
     try {
-      const { getLKGP } = await import("../../../src/lib/localDb");
-      const lkgpProvider = await getLKGP(combo.name, combo.id || combo.name);
+      // #11181: honor Settings → Routing LKGP toggle
+      const { getLKGP, getSettings } = await import("../../../src/lib/localDb");
+      const settings = await getSettings().catch(() => ({}) as Record<string, unknown>);
+      if (settings.lkgpEnabled !== false) {
+        const lkgpProvider = await getLKGP(combo.name, combo.id || combo.name);
 
-      if (lkgpProvider) {
-        const lkgpRecord = lkgpProvider;
-        const providerName = lkgpRecord.provider;
-        const connId = lkgpRecord.connectionId;
+        if (lkgpProvider) {
+          const lkgpRecord = lkgpProvider;
+          const providerName = lkgpRecord.provider;
+          const connId = lkgpRecord.connectionId;
 
-        let lkgpIndex = -1;
-        if (connId) {
-          lkgpIndex = orderedTargets.findIndex(
-            (target) => target.provider === providerName && target.connectionId === connId
-          );
-        }
-        if (lkgpIndex < 0) {
-          lkgpIndex = orderedTargets.findIndex(
-            (target) =>
-              target.provider === providerName ||
-              // Issue #2359: Defensive guard. The `target.modelStr` type
-              // annotation is `string`, but malformed combo entries (e.g.,
-              // local-provider rows whose `modelStr` failed to resolve when
-              // the executor catalogue was being rebuilt) have leaked
-              // through and surfaced as `e.startsWith is not a function`
-              // 500s on combo test/dispatch. The fast path stays
-              // unchanged for the common case; this only avoids the
-              // crash when the field is unexpectedly non-string.
-              (typeof target.modelStr === "string" &&
-                target.modelStr.startsWith(`${providerName}/`))
-          );
-        }
+          let lkgpIndex = -1;
+          if (connId) {
+            lkgpIndex = orderedTargets.findIndex(
+              (target) => target.provider === providerName && target.connectionId === connId
+            );
+          }
+          if (lkgpIndex < 0) {
+            lkgpIndex = orderedTargets.findIndex(
+              (target) =>
+                target.provider === providerName ||
+                // Issue #2359: Defensive guard. The `target.modelStr` type
+                // annotation is `string`, but malformed combo entries (e.g.,
+                // local-provider rows whose `modelStr` failed to resolve when
+                // the executor catalogue was being rebuilt) have leaked
+                // through and surfaced as `e.startsWith is not a function`
+                // 500s on combo test/dispatch. The fast path stays
+                // unchanged for the common case; this only avoids the
+                // crash when the field is unexpectedly non-string.
+                (typeof target.modelStr === "string" &&
+                  target.modelStr.startsWith(`${providerName}/`))
+            );
+          }
 
-        if (lkgpIndex > 0) {
-          const [lkgpTarget] = orderedTargets.splice(lkgpIndex, 1);
-          orderedTargets.unshift(lkgpTarget);
-          log.info(
-            "COMBO",
-            `[LKGP] Prioritizing last known good provider ${providerName}${connId ? ` (account ${connId})` : ""} for combo "${combo.name}"`
-          );
-        } else if (lkgpIndex === 0) {
-          log.debug?.(
-            "COMBO",
-            `[LKGP] Last known good provider ${providerName}${connId ? ` (account ${connId})` : ""} already first for combo "${combo.name}"`
-          );
+          if (lkgpIndex > 0) {
+            const [lkgpTarget] = orderedTargets.splice(lkgpIndex, 1);
+            orderedTargets.unshift(lkgpTarget);
+            log.info(
+              "COMBO",
+              `[LKGP] Prioritizing last known good provider ${providerName}${connId ? ` (account ${connId})` : ""} for combo "${combo.name}"`
+            );
+          } else if (lkgpIndex === 0) {
+            log.debug?.(
+              "COMBO",
+              `[LKGP] Last known good provider ${providerName}${connId ? ` (account ${connId})` : ""} already first for combo "${combo.name}"`
+            );
+          }
         }
       }
     } catch (err) {
