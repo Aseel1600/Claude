@@ -70,9 +70,9 @@ with sync_playwright() as p:
     else:
         check("bus-jobs vorhanden", True, "kein Job-Punkt auf der Schiene (keine recent jobs im Moment)")
 
-    # --- 3. All nine nav views render ---
+    # --- 3. All ten nav views render ---
     views = {
-        "devices": "Device plane", "jobs": "Job trace", "projects": "Projekt-Portfolio",
+        "canvas": "Orchestration canvas", "devices": "Device plane", "jobs": "Job trace", "projects": "Projekt-Portfolio",
         "memory": "Kanban board", "artifacts": "Artifact registry", "ledger": "Ledger summary",
         "approvals": "Approval inbox", "settings": "Zugang & Datenschutz",
     }
@@ -82,6 +82,14 @@ with sync_playwright() as p:
         ok = page.locator(f"#{'view-' + view}").is_visible()
         heading_ok = page.get_by_role("heading", name=panel_title).is_visible() if page.get_by_role("heading", name=panel_title).count() else False
         check(f"view {view} sichtbar", ok and heading_ok)
+    # canvas view: dashboard + dashboard-panel hidden, only the big canvas visible
+    page.locator('.nav-item[data-view="canvas"]').click()
+    page.wait_for_timeout(600)
+    check("canvas: dashboard versteckt", page.locator("#dashboard-view").is_hidden())
+    check("canvas: dashboard-panel versteckt", page.locator("#dashboard-canvas-panel").is_hidden())
+    check("canvas: grosse view sichtbar", page.locator("#canvas-view-root").is_visible())
+    check("canvas: bus-jobs in grosser view", page.locator("#canvas-view-root .bus-job").count() >= 3)
+    check("canvas: legende sichtbar", page.locator(".canvas-legend").is_visible())
     # back to orchestra
     page.locator('.nav-item[data-view="orchestra"]').click()
     page.wait_for_timeout(400)
@@ -128,6 +136,21 @@ with sync_playwright() as p:
     # --- 8. Console errors ---
     real_errors = [e for e in console_errors if "401" not in e and "Failed to load resource" not in e and "favicon" not in e.lower()]
     check("keine console/page errors", len(real_errors) == 0, "; ".join(real_errors[:5]))
+
+    # --- 8b. PWA: manifest, icons, service worker, offline cache ---
+    manifest_link = page.locator('link[rel="manifest"]').first.get_attribute("href") if page.locator('link[rel="manifest"]').count() else None
+    check("pwa: manifest link da", bool(manifest_link))
+    if manifest_link:
+        with page.expect_response(lambda r: manifest_link in r.url) as resp_info:
+            page.evaluate("(href) => fetch(href)", manifest_link)
+        m = resp_info.value.json()
+        check("pwa: manifest gültig", m.get("name") == "OmniRoute Control Room" and m.get("display") == "standalone" and len(m.get("icons", [])) >= 3)
+    sw_ready = page.evaluate("""() => navigator.serviceWorker.getRegistrations().then(rs => rs.length > 0)""")
+    check("pwa: service worker registriert", sw_ready)
+    cached = page.evaluate("""() => caches.keys().then(ks => Promise.all(ks.map(k => caches.open(k).then(c => c.keys())))).then(all => all.flat().map(r => new URL(r.url).pathname))""")
+    check("pwa: offline cache gefüllt", "/static/index.html" in cached and "/" in cached)
+    icon_ok = page.evaluate("""(paths) => Promise.all(paths.map(p => fetch(p).then(r => r.ok)))""", ["/static/icon-192.png", "/static/icon-512.png"])
+    check("pwa: icons erreichbar", all(icon_ok))
 
     # --- 9. Mobile viewport: no horizontal overflow ---
     page.set_viewport_size({"width": 390, "height": 844})
