@@ -719,8 +719,6 @@ test("probeCodexAppServerAuth: no transport → unknown (does not throw)", async
   const status = await probeCodexAppServerAuth(AUTH_CONFIG, null, 3000);
   assert.equal(status.state, "unknown");
 });
-
-
 // ── Security hardening (#11205 post-merge review) ───────────────────────────
 // Two findings from the automated push review on the original #11205 merge:
 //  (1) the readyz health probe sent the bearer token to any URL a connection
