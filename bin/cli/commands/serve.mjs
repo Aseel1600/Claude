@@ -12,7 +12,7 @@ import {
   isFatalInstrumentationHookFailure,
   formatAndroidInstrumentationFailureHint,
 } from "../utils/ensureAndroidCacheDir.mjs";
-import { resolveServerHost } from "../utils/serverHost.mjs";
+import { resolveServerHost, resolveExposureWarning } from "../utils/serverHost.mjs";
 import {
   resolveMaxOldSpaceMb,
   calibrateHeapFallbackMb,
@@ -130,6 +130,15 @@ export async function runServe(opts = {}) {
      Workaround:  npm rebuild better-sqlite3
      Or run:      omniroute runtime repair  (rebuilds into a user-writable runtime; works without a C++ toolchain)\x1b[0m
 `);
+  }
+
+  // GHSA-wmgv-ph3p-rv57: the default posture (all interfaces + no API key) is a
+  // deliberate local-first choice, but it must be loud at startup — an operator
+  // on an untrusted network learns the two escape hatches here, not after a
+  // surprise quota bill.
+  const exposureWarning = resolveExposureWarning();
+  if (exposureWarning) {
+    console.warn(`\x1b[33m  ⚠  ${exposureWarning}\x1b[0m\n`);
   }
 
   const serverWsJs = join(APP_DIR, "server-ws.mjs");
