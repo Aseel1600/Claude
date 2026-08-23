@@ -244,19 +244,20 @@ export async function resolveAutoStrategyOrder(
   }
 
   let lastKnownGoodProvider: string | undefined;
-  // #11181: default true (matches UI default `settings.lkgpEnabled !== false`)
-  let lkgpEnabled: boolean | undefined = true;
   try {
-    const { getLKGP, getSettings } = await import("../../../src/lib/localDb");
-    const [lkgp, settings] = await Promise.all([
-      getLKGP(combo.name, combo.id || combo.name),
-      getSettings().catch(() => ({}) as Record<string, unknown>),
-    ]);
+    const { getLKGP } = await import("../../../src/lib/localDb");
+    const lkgp = await getLKGP(combo.name, combo.id || combo.name);
     if (lkgp) lastKnownGoodProvider = lkgp.provider;
-    if (typeof settings.lkgpEnabled === "boolean") lkgpEnabled = settings.lkgpEnabled;
   } catch (err) {
     log.warn("COMBO", "Failed to retrieve Last Known Good Provider. This is non-fatal.", { err });
   }
+  // #11181: Settings → Routing LKGP toggle. Host already loads settings once
+  // (chatCore → targetResolution); re-querying getSettings() here is redundant
+  // and races the request-scoped snapshot. Guard is `=== false` so absent/null
+  // keeps prior pin behavior.
+  const lkgpEnabled = (settings as { lkgpEnabled?: unknown } | null | undefined)?.lkgpEnabled as
+    | boolean
+    | undefined;
 
   const autoCandidateResilienceSettings =
     relayOptions?.bypassProviderQuotaPolicy === true
