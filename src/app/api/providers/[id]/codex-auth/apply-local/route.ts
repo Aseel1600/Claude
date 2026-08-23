@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { ensureCliConfigWriteAllowed } from "@/shared/services/cliRuntime";
 import {
@@ -7,6 +8,14 @@ import {
 } from "@/lib/oauth/utils/codexAuthFile";
 import { getAuditRequestContext, logAuditEvent } from "@/lib/compliance/index";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+
+// Optional body { force?: boolean }. Unknown keys are stripped rather than
+// rejected so the endpoint stays tolerant of the empty/no-body calls it
+// historically accepted. Non-boolean `force` is coerced away to the default.
+const ApplyLocalBodySchema = z
+  .object({ force: z.boolean().optional() })
+  .partial()
+  .passthrough();
 
 function toErrorResponse(error: unknown) {
   if (error instanceof CodexAuthFileError) {
@@ -43,8 +52,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // bodies are tolerated — this endpoint historically took no body.
     let force = false;
     try {
-      const body = (await request.json()) as { force?: unknown } | null;
-      force = body?.force === true;
+      const parsed = ApplyLocalBodySchema.safeParse(await request.json());
+      force = parsed.success ? parsed.data.force === true : false;
     } catch {
       /* no body — default force=false */
     }
