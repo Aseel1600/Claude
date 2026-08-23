@@ -12033,7 +12033,8 @@
       },
       "acp": {
         "title": "ACP Agents",
-        "phrase": "CLIs that OmniRoute spawns as execution backend (reverse flow)",
+        "phrase": "Run complex, long-running logic in the backend",
+        "warning": "Most users can ignore this — use only when an integration requires it.",
         "flow": "Client → OmniRoute → spawn CLI (stdio/ACP) → response",
         "seeOther": "See →"
       }
