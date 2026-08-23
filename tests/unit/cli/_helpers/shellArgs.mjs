@@ -23,8 +23,11 @@ export function unescapeWindowsShellArg(arg) {
   s = s.replace(/\^(.)/g, "$1").replace(/\^(.)/g, "$1");
   // 2. drop the wrapping quotes added by the CRT argv layer
   if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) s = s.slice(1, -1);
-  // 3. undo the doubled backslashes and the escaped embedded quotes
-  s = s.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
+  // 3. undo the doubled backslashes and the escaped embedded quotes in a single
+  // left-to-right pass — two sequential global replaces would let the first
+  // pass's output feed the second (e.g. an escaped-backslash-then-quote
+  // sequence could be misread), which is exactly what js/double-escaping flags.
+  s = s.replace(/\\\\|\\"/g, (m) => (m === "\\\\" ? "\\" : '"'));
   return s;
 }
 

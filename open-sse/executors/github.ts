@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import {
   BaseExecutor,
   ExecuteInput,
@@ -12,6 +14,11 @@ import {
 } from "../config/providerHeaderProfiles.ts";
 import { sanitizeResponsesInputItems } from "../services/responsesInputSanitizer.ts";
 import { stripUnsupportedParams } from "../translator/paramSupport.ts";
+
+/** Correlation-id fallback for runtimes without crypto.randomUUID — still CSPRNG-backed. */
+function randomIdFallback(): string {
+  return `${Date.now()}-${randomBytes(9).toString("hex")}`;
+}
 
 /**
  * What a Copilot credential refresh resolves to.
@@ -329,7 +336,7 @@ export class GithubExecutor extends BaseExecutor {
       ...getGitHubCopilotChatHeaders(stream ? "text/event-stream" : "application/json", initiator),
       Authorization: `Bearer ${token}`,
       "x-request-id":
-        crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        crypto.randomUUID?.() || randomIdFallback(),
     };
 
     // Per-call / per-conversation / per-turn correlation ids the @github/copilot
@@ -338,7 +345,7 @@ export class GithubExecutor extends BaseExecutor {
     // fresh uuids. A Copilot-aware client may pin the session/task ids across a
     // conversation via its own headers — honor those when present, else mint.
     const genId = () =>
-      crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      crypto.randomUUID?.() || randomIdFallback();
     headers["x-interaction-id"] = this.readClientHeader(clientHeaders, "x-interaction-id") || genId();
     headers["x-client-session-id"] =
       this.readClientHeader(clientHeaders, "x-client-session-id") || genId();
