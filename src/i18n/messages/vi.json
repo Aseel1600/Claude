@@ -13869,5 +13869,12 @@
     "toolsMismatch": "Nhà cung cấp không hỗ trợ gọi công cụ",
     "structuredOutputMismatch": "Nhà cung cấp không hỗ trợ đầu ra có cấu trúc",
     "contextWindowMismatch": "Yêu cầu vượt quá cửa sổ ngữ cảnh của nhà cung cấp"
+  },
+  "cheaperInferenceSponsorBanner": {
+    "title": "Cheaper Inference là Đối tác Mã nguồn Mở của OmniRoute",
+    "description": "Một cổng xếp hạng theo chi phí, bán lại hàng chục mô hình tiên phong sau một endpoint tương thích OpenAI — định tuyến mỗi yêu cầu đến nhà cung cấp đủ điều kiện rẻ nhất, không bao giờ vượt giá niêm yết.",
+    "cta": "Lấy khóa API",
+    "partnerLinkNote": "Liên kết đối tác",
+    "dismissAriaLabel": "Đóng"
   }
 }
