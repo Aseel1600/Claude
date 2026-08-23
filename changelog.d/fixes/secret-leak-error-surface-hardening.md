@@ -1,1 +1,0 @@
-- **fix(security):** refuse verbatim upstream-error passthrough when the body echoes a credential, redact relayed OCR and moderation errors, and cover the concrete `cookie`, `storageState` and `runtimeKey` call-log fields without hiding ordinary capability metadata ([#10952](https://github.com/diegosouzapw/OmniRoute/pull/10952)) — thanks @arminanton
