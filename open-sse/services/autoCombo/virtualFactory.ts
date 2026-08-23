@@ -7,6 +7,7 @@ import { getProviderRegistry } from "./providerRegistryAccessor";
 import type { ConnectionFields } from "@/lib/db/encryption";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
+import { toNumber } from "@/shared/utils/numeric";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 import { getTokenLimit } from "../contextManager";
 import {
@@ -607,7 +608,7 @@ export async function prepareVirtualAutoComboInputs(
       // remaining allowance as a percentage, and a raw ">0" comparison would
       // let a reading of e.g. 0.3% (rounding noise, not real headroom) pass.
       minRemainingAllowance: 1,
-      maxStateAgeMs: (Number(settings.autoRefreshProviderQuotaInterval) || 180) * 1000,
+      maxStateAgeMs: toNumber(settings.autoRefreshProviderQuotaInterval, 180) * 1000,
     });
     if (strictFilteredPool !== pool) pool = strictFilteredPool;
 
