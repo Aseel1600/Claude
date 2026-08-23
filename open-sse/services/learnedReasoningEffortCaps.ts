@@ -64,6 +64,30 @@ export function getLearnedReasoningEffort(
 }
 
 /**
+ * Model-scoped lookup bridging the key-space gap between executors and the
+ * catalog: executors record under their CONNECTION id
+ * (`openai-compatible-chat-<uuid>:<model>`, cf. compatibleProviderId.ts),
+ * while the catalog loops on provider ids (`opencode`, …) — an exact
+ * `${provider}:${model}` lookup would always miss. Scans by model segment
+ * instead. Multiple connections teaching different sets for the same model
+ * name intersect (most restrictive proven set wins — conservative across
+ * connections sharing one catalog entry).
+ */
+export function getLearnedReasoningEffortForModel(
+  model: string | null | undefined
+): Set<string> | null {
+  const m = typeof model === "string" ? model.trim().toLowerCase() : "";
+  if (!m || learnedCaps.size === 0) return null;
+  let result: Set<string> | null = null;
+  for (const [key, value] of learnedCaps) {
+    const colon = key.indexOf(":");
+    if (colon === -1 || key.slice(colon + 1) !== m) continue;
+    result = result ? new Set([...result].filter((v) => value.has(v))) : new Set(value);
+  }
+  return result && result.size > 0 ? result : null;
+}
+
+/**
  * Record that `acceptedValues` is the enum the upstream advertised for
  * provider+model, and store the accepted set. Returns the stored set, or null
  * when `acceptedValues` contained no token from `REASONING_EFFORT_ORDER`.
@@ -85,7 +109,13 @@ export function recordLearnedReasoningEffort(
     const lowered = typeof raw === "string" ? raw.trim().toLowerCase() : "";
     if (lowered && REASONING_EFFORT_ORDER.includes(lowered)) newSet.add(lowered);
   }
-  if (newSet.size === 0) return null;
+  if (newSet.size === 0) {
+    // OBS2/M5: a 4xx advertised an enum we cannot map — say so, never learn silently.
+    console.warn(
+      `[learnedReasoningEffortCaps] unrecognized reasoning_effort enum for ${key}: ${acceptedValues.join(", ")} — nothing learned`
+    );
+    return null;
+  }
 
   const existing = learnedCaps.get(key);
   if (existing !== undefined) {

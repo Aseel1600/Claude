@@ -91,7 +91,12 @@ test("records the highest recognized value from the accepted list", () => {
   ]) as unknown as Set<string>;
   assert.ok(learned instanceof Set);
   assert.ok(learned.has("high"));
-  assert.equal((getLearnedReasoningEffort("ovh", "qwen3-coder-30b-a3b-instruct") as unknown as Set<string>).has("high"), true);
+  assert.equal(
+    (
+      getLearnedReasoningEffort("ovh", "qwen3-coder-30b-a3b-instruct") as unknown as Set<string>
+    ).has("high"),
+    true
+  );
 });
 
 test("returns null and stores nothing when acceptedValues has no recognized token", () => {
@@ -116,7 +121,10 @@ test("monotonic decrease: a later, higher accepted-list never ratchets the cap b
 
 test("a later, lower accepted-list does ratchet the cap down", () => {
   recordLearnedReasoningEffort("acme", "model-x", ["none", "low", "medium", "high"]);
-  const learned = recordLearnedReasoningEffort("acme", "model-x", ["none", "low"]) as unknown as Set<string>;
+  const learned = recordLearnedReasoningEffort("acme", "model-x", [
+    "none",
+    "low",
+  ]) as unknown as Set<string>;
   assert.equal(learned.size, 2);
   assert.ok(learned.has("low"));
   assert.equal((getLearnedReasoningEffort("acme", "model-x") as unknown as Set<string>).size, 2);
@@ -177,8 +185,12 @@ test("getLearnedReasoningEffort returns null for unknown provider+model", () => 
 
 test("getLearnedReasoningEffort is keyed case-insensitively on provider+model", () => {
   recordLearnedReasoningEffort("OVH", "Qwen3-Coder-30B", ["none", "high"]);
-  assert.ok((getLearnedReasoningEffort("ovh", "qwen3-coder-30b") as unknown as Set<string>).has("high"));
-  assert.ok((getLearnedReasoningEffort("OVH", "QWEN3-CODER-30B") as unknown as Set<string>).has("high"));
+  assert.ok(
+    (getLearnedReasoningEffort("ovh", "qwen3-coder-30b") as unknown as Set<string>).has("high")
+  );
+  assert.ok(
+    (getLearnedReasoningEffort("OVH", "QWEN3-CODER-30B") as unknown as Set<string>).has("high")
+  );
 });
 
 test("different providers for the same model id have independent caps", () => {
@@ -193,4 +205,46 @@ test("handles empty/null provider or model gracefully", () => {
   assert.equal(getLearnedReasoningEffort("p", null), null);
   assert.equal(recordLearnedReasoningEffort("", "m", ["high"]), null);
   assert.equal(recordLearnedReasoningEffort("p", "", ["high"]), null);
+});
+
+// ── getLearnedReasoningEffortForModel ────────────────────────────────────────
+
+import { getLearnedReasoningEffortForModel } from "../../open-sse/services/learnedReasoningEffortCaps.ts";
+
+test("getLearnedReasoningEffortForModel finds a set recorded under any provider key", () => {
+  recordLearnedReasoningEffort("openai-compatible-chat-eaff6869", "X-Preview-F-Free", [
+    "low",
+    "high",
+    "max",
+  ]);
+  const set = getLearnedReasoningEffortForModel("x-preview-f-free");
+  assert.ok(set);
+  assert.deepEqual([...set].sort(), ["high", "low", "max"]);
+});
+
+test("getLearnedReasoningEffortForModel intersects when multiple providers disagree", () => {
+  recordLearnedReasoningEffort("conn-a", "shared-model", ["low", "high", "max"]);
+  recordLearnedReasoningEffort("conn-b", "shared-model", ["low"]);
+  const set = getLearnedReasoningEffortForModel("shared-model");
+  assert.ok(set);
+  assert.deepEqual([...set], ["low"]);
+});
+
+test("getLearnedReasoningEffortForModel returns null when nothing learned or empty model", () => {
+  assert.equal(getLearnedReasoningEffortForModel("never-learned"), null);
+  assert.equal(getLearnedReasoningEffortForModel(""), null);
+  assert.equal(getLearnedReasoningEffortForModel(undefined), null);
+});
+
+test("recordLearnedReasoningEffort warns when every token is unrecognized", () => {
+  const warnings: string[] = [];
+  const orig = console.warn;
+  console.warn = (msg: string) => warnings.push(msg);
+  try {
+    const result = recordLearnedReasoningEffort("p", "m", ["bogus-one", "bogus-two"]);
+    assert.equal(result, null);
+    assert.ok(warnings.some((w) => w.includes("reasoning_effort") && w.includes("bogus-one")));
+  } finally {
+    console.warn = orig;
+  }
 });
