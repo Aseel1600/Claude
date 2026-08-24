@@ -378,14 +378,39 @@ or download a second media copy; without that explicit track, it remains
 video-only.
 
 The internal `/api/modality-bridge/video/drilldown` lifecycle is a separate,
-loopback/token-authenticated cache. It stores at most 16 JPEG frames per entry,
-keeps entries isolated by session and video reference, expires them after ten
-minutes, and supports bounded `start`/`end` reads or explicit session deletion.
-Besides the per-entry limits, the cache enforces a global 256 MiB decoded-byte
-budget: least-recently-used entries are evicted until new content fits, and an
-entry larger than the whole budget is rejected outright.
-It only slices materialized frames and cannot increase the cost of the primary
-video request.
+loopback/token-authenticated cache substrate. Every operation also requires a
+canonical opaque principal ID. Before a production caller is enabled, it must
+derive that ID from the authenticated tenant and must never forward a
+client-selected value. Cache keys bind that principal to canonical session and
+video-reference IDs, store only their SHA-256-derived keys, and scope both reads
+and deletion to the same principal. The cache stores at most 16 derived JPEG
+frames per entry, expires them after ten minutes, and supports bounded
+`start`/`end` reads or explicit session deletion.
+
+Each principal is limited to 16 entries and 64 MiB of canonical JPEG data. Those
+limits are independent from the global 64-entry/256 MiB ceiling: principal quota
+pressure evicts only that principal's least-recently-used entries before global
+LRU eviction is considered. Expired entries are swept from both principal and
+global accounting on cache activity, while cancellation and validation failure do
+not commit a partial replacement.
+
+The cache rejects non-canonical Base64, excess padding, non-JPEG media, malformed or
+truncated JPEGs, and JPEGs that produce a warning during a bounded full-image `sharp`
+decode. It re-encodes each accepted image as a canonical JPEG, derives width and height
+from the decoded bytes instead of trusting caller fields, and discards any trailing
+polyglot bytes rather than retaining them. Only the bounded canonical compressed buffer
+is charged to both quotas. The JSON wire limit includes Base64 overhead for the 32 MiB
+decoded-input ceiling. Every
+stored derivation records its validated JPEG format/resolution, sampling policy,
+derivation version, creation time, server-computed content hash, and hashed parent
+reference plus the trusted caller's parent-content hash. Cancellation is checked
+between asynchronous decode/hash phases before the atomic cache commit.
+
+This tranche does not yet connect a production producer to the route and does not
+provide multi-resolution variant selection. The transparent Video Bridge request
+path therefore incurs no added work, while tenant-bound principal derivation and
+the full FU-08 multi-resolution lifecycle remain explicit follow-up work rather
+than documented as complete behavior.
 
 Frames are captioned sequentially with the configured Video model. An empty
 Video override inherits the Vision setting; if both are empty, the Vision
