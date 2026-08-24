@@ -39,6 +39,8 @@ import {
   newConversationId,
 } from "./maxai/protocol.ts";
 import { estimateMaxaiTokens, isMaxaiTextFrame, ThinkSplitter } from "./maxai/stream.ts";
+import { prepareToolMessages } from "../translator/webTools.ts";
+import { buildToolModeResponse } from "./chatgptWebTools.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const SSE_HEADERS = {
@@ -108,9 +110,20 @@ export class MaxAiExecutor extends BaseExecutor {
     const accessToken = await this.ensureFreshAccess(cred, input);
 
     const body = (input.body ?? {}) as OpenAiChatBody;
+
+    // Tool-calling (prompted protocol): when the request carries tools[], inject
+    // the <tool> contract into the messages so the model learns the client tools
+    // and how to invoke them (see translator/webTools.ts). MaxAI has no native
+    // function-calling; this is the same prompted-tool shim the web-cookie
+    // providers use. The response side parses <tool> blocks back into tool_calls.
+    const { hasTools, requestedTools, effectiveMessages } = prepareToolMessages(
+      body as Record<string, unknown>,
+      (body.messages ?? []) as Array<{ role: string; content: unknown }>
+    );
+
     let text: string;
     try {
-      text = assembleMaxaiContext(body.messages ?? []);
+      text = assembleMaxaiContext(effectiveMessages);
     } catch {
       return errorResponse(400, "No user message to send to MaxAI.", "maxai_empty_request");
     }
@@ -165,6 +178,49 @@ export class MaxAiExecutor extends BaseExecutor {
     const id = `chatcmpl-${conversationId}`;
     const created = Math.floor(Date.now() / 1000);
     const promptTokens = estimateMaxaiTokens(text);
+
+    // Tool mode: MaxAI streams plain text, and the <tool> protocol is only
+    // parseable once the full reply is in hand. So when tools are active we
+    // buffer the whole body, build a chat.completion, and let the shared shim
+    // parse <tool> blocks into tool_calls (emitting a terminal SSE replay for
+    // streaming callers). This mirrors every web-cookie provider's tool path.
+    if (hasTools) {
+      const raw = await upstream.text();
+      const { reasoning, answer } = collectNonStream(raw);
+      const completionTokens = estimateMaxaiTokens(reasoning + answer);
+      const buffered = new Response(
+        JSON.stringify({
+          id,
+          object: "chat.completion",
+          created,
+          model: input.model,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: "assistant",
+                content: answer,
+                ...(reasoning ? { reasoning_content: reasoning } : {}),
+              },
+              finish_reason: "stop",
+            },
+          ],
+          usage: {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
+          },
+        }),
+        { status: 200, headers: JSON_HEADERS }
+      );
+      const response = await buildToolModeResponse(buffered, requestedTools, input.stream, {
+        cid: id,
+        created,
+        model: input.model,
+        idSeed: "maxai",
+      });
+      return { response, url };
+    }
 
     if (input.stream) {
       const stream = this.buildStream(upstream.body, id, created, input.model, promptTokens);

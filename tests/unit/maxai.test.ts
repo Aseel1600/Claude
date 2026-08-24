@@ -424,3 +424,142 @@ test("email login guards missing inputs", async () => {
     false
   );
 });
+
+// ── Tool calling (prompted <tool> protocol) ──────────────────────────────────
+
+import { MaxAiExecutor } from "../../open-sse/executors/maxai.ts";
+
+const TOOL_CRED = {
+  providerSpecificData: {
+    maxaiAccessToken: "acc.tok.en",
+    maxaiDeviceId: "dev-1",
+    maxaiUserId: USER_ID,
+  },
+  accessToken: "acc.tok.en",
+};
+
+const WEATHER_TOOL = {
+  type: "function",
+  function: {
+    name: "get_weather",
+    description: "Get the current weather for a city.",
+    parameters: {
+      type: "object",
+      properties: { city: { type: "string" } },
+      required: ["city"],
+    },
+  },
+};
+
+/** Build a MaxAI SSE body streaming `full` as one mergeable text frame. */
+function maxaiSseBody(full: string): string {
+  return (
+    `data: ${JSON.stringify({ data_key: "text", need_merge: true, text: full })}\n\n` +
+    "data: [DONE]\n\n"
+  );
+}
+
+/** Run MaxAiExecutor.execute with a stubbed global fetch returning `sseText`. */
+async function runToolExecute(opts: {
+  sseText: string;
+  stream: boolean;
+  tools?: unknown[];
+}): Promise<{ captured: { url: string; body: string } | null; response: Response }> {
+  const realFetch = globalThis.fetch;
+  let captured: { url: string; body: string } | null = null;
+  globalThis.fetch = (async (url: unknown, init: unknown) => {
+    captured = {
+      url: String(url),
+      body: String((init as RequestInit)?.body ?? ""),
+    };
+    return new Response(opts.sseText, { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const executor = new MaxAiExecutor();
+    const result = await executor.execute({
+      model: "gpt-5.6-luna",
+      stream: opts.stream,
+      credentials: TOOL_CRED,
+      body: {
+        model: "gpt-5.6-luna",
+        messages: [{ role: "user", content: "what's the weather in Paris?" }],
+        ...(opts.tools ? { tools: opts.tools } : {}),
+        stream: opts.stream,
+      },
+    } as unknown as Parameters<MaxAiExecutor["execute"]>[0]);
+    const response = "response" in result ? result.response : (result as Response);
+    return { captured, response };
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+test("executor injects the <tool> contract into the upstream text when tools are present", async () => {
+  const { captured } = await runToolExecute({
+    sseText: maxaiSseBody("Sure, let me check."),
+    stream: false,
+    tools: [WEATHER_TOOL],
+  });
+  assert.ok(captured);
+  const chatBody = JSON.parse(captured!.body);
+  const sentText = chatBody.message_content[0].text as string;
+  // The prompted-tool contract + the tool name reach the model.
+  assert.match(sentText, /<tool>/);
+  assert.match(sentText, /get_weather/);
+});
+
+test("executor parses a <tool> block from the reply into OpenAI tool_calls (non-stream)", async () => {
+  const toolBlock =
+    '<tool>{"name": "get_weather", "arguments": {"city": "Paris"}, "_nonce": "NONCE"}</tool>';
+  // The parser needs the SAME nonce serializeToolsToPrompt derived from tools[].
+  // getToolNonce is deterministic per tools ref+content, so re-derive it here.
+  const { getToolNonce } = await import("../../open-sse/translator/webTools.ts");
+  const tools = [WEATHER_TOOL];
+  const nonce = getToolNonce(tools);
+  const reply = `<tool>{"name": "get_weather", "arguments": {"city": "Paris"}, "_nonce": "${nonce}"}</tool>`;
+  void toolBlock;
+
+  const { response } = await runToolExecute({
+    sseText: maxaiSseBody(reply),
+    stream: false,
+    tools,
+  });
+  assert.equal(response.status, 200);
+  const json = await response.json();
+  const choice = json.choices[0];
+  assert.equal(choice.finish_reason, "tool_calls");
+  assert.ok(Array.isArray(choice.message.tool_calls));
+  assert.equal(choice.message.tool_calls[0].function.name, "get_weather");
+  assert.deepEqual(JSON.parse(choice.message.tool_calls[0].function.arguments), { city: "Paris" });
+});
+
+test("executor tool mode emits a terminal SSE replay with tool_calls (stream)", async () => {
+  const { getToolNonce } = await import("../../open-sse/translator/webTools.ts");
+  const tools = [WEATHER_TOOL];
+  const nonce = getToolNonce(tools);
+  const reply = `<tool>{"name": "get_weather", "arguments": {"city": "Paris"}, "_nonce": "${nonce}"}</tool>`;
+
+  const { response } = await runToolExecute({
+    sseText: maxaiSseBody(reply),
+    stream: true,
+    tools,
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("Content-Type") ?? "", /text\/event-stream/);
+  const sse = await response.text();
+  assert.match(sse, /"tool_calls"/);
+  assert.match(sse, /get_weather/);
+  assert.match(sse, /\[DONE\]/);
+});
+
+test("executor without tools streams normally (no tool_calls, plain content)", async () => {
+  const { response } = await runToolExecute({
+    sseText: maxaiSseBody("Paris is sunny today."),
+    stream: false,
+  });
+  assert.equal(response.status, 200);
+  const json = await response.json();
+  assert.equal(json.choices[0].finish_reason, "stop");
+  assert.equal(json.choices[0].message.content, "Paris is sunny today.");
+  assert.equal(json.choices[0].message.tool_calls, undefined);
+});
