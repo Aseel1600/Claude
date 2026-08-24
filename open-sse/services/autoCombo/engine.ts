@@ -295,14 +295,16 @@ export function selectProvider(
 
   // Selection: exploration vs exploitation
   let selected: ScoredProvider;
-  const isExploration = Math.random() < effectiveExplorationRate && candidates_.length > 1;
+  const isExploration =
+    effectiveExplorationRate > 0 &&
+    Math.random() < effectiveExplorationRate &&
+    candidates_.length > 1;
 
   if (isExploration) {
     const idx = Math.floor(Math.random() * candidates_.length);
     selected = candidates_[idx];
   } else {
-    const rotator = getRotator(config.name);
-    selected = rotator.pick(candidates_);
+    selected = candidates_[0];
   }
 
   // Budget cap enforcement

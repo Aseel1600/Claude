@@ -74,6 +74,40 @@ test("selectProvider infers coding intent from prompt messages when taskType is 
   assert.equal(result.isExploration, false);
 });
 
+test("selectProvider with zero exploration always chooses the highest-scored candidate", () => {
+  Math.random = () => 0.99;
+  const config = { ...baseConfig, name: "zero-exploration-regression" };
+  const candidates = [
+    {
+      provider: "top",
+      model: "top-model",
+      quotaRemaining: 100,
+      quotaTotal: 100,
+      circuitBreakerState: "CLOSED",
+      costPer1MTokens: 1,
+      p95LatencyMs: 100,
+      latencyStdDev: 1,
+      errorRate: 0,
+    },
+    {
+      provider: "lower",
+      model: "lower-model",
+      quotaRemaining: 99,
+      quotaTotal: 100,
+      circuitBreakerState: "CLOSED",
+      costPer1MTokens: 1,
+      p95LatencyMs: 100,
+      latencyStdDev: 1,
+      errorRate: 0,
+    },
+  ];
+  selectProvider(config, candidates, "coding");
+  const result = selectProvider(config, candidates, "coding");
+
+  assert.equal(result.provider, "top");
+  assert.equal(result.isExploration, false);
+});
+
 test("selectProvider falls back to the full candidate list when candidatePool removes everything", () => {
   const result = selectProvider(
     {

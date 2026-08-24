@@ -57,8 +57,16 @@ describe("Connection Density Factor", () => {
   const baseCandidate = makeCandidate({ provider: "cerebras", model: "llama-70b" });
 
   it("multi-connection provider scores higher than single-connection at same quality", () => {
-    const multiConn = makeCandidate({ provider: "cerebras", model: "llama-70b", connectionPoolSize: 43 });
-    const singleConn = makeCandidate({ provider: "anthropic", model: "claude-sonnet", connectionPoolSize: 1 });
+    const multiConn = makeCandidate({
+      provider: "cerebras",
+      model: "llama-70b",
+      connectionPoolSize: 43,
+    });
+    const singleConn = makeCandidate({
+      provider: "anthropic",
+      model: "claude-sonnet",
+      connectionPoolSize: 1,
+    });
     const pool = [multiConn, singleConn];
 
     const multiFactors = calculateFactors(multiConn, pool, "coding", getTaskFitness);
@@ -106,7 +114,7 @@ describe("Tiered Rotation in selectProvider", () => {
     resetDiversity();
   });
 
-  it("smart combo rotates within top tier across many requests", () => {
+  it("smart combo consistently selects the highest-scored candidate", () => {
     const topA = makeCandidate({ provider: "openai", model: "gpt-4o", quotaRemaining: 95 });
     const topB = makeCandidate({ provider: "anthropic", model: "claude-opus", quotaRemaining: 90 });
     const topC = makeCandidate({ provider: "google", model: "gemini-ultra", quotaRemaining: 88 });
@@ -119,11 +127,11 @@ describe("Tiered Rotation in selectProvider", () => {
       const result = selectProvider(config, pool, "coding");
       seen.add(`${result.provider}/${result.model}`);
     }
-    expect(seen.size).toBeGreaterThanOrEqual(2);
-    expect(seen.has("openai/gpt-4o") || seen.has("anthropic/claude-opus")).toBe(true);
+    const expected = scorePool(pool, "coding", DEFAULT_WEIGHTS, getTaskFitness)[0];
+    expect(seen).toEqual(new Set([`${expected.provider}/${expected.model}`]));
   });
 
-  it("cheap combo pulls from rest tier (lower scores) more often than smart", () => {
+  it("zero exploration selects the highest score regardless of combo name", () => {
     const top = makeCandidate({ provider: "openai", model: "gpt-4o", quotaRemaining: 100 });
     const rest = makeCandidate({
       provider: "cheap-provider",
@@ -135,12 +143,13 @@ describe("Tiered Rotation in selectProvider", () => {
     const pool = [top, rest];
 
     const config = makeConfig("cheap");
+    const expected = scorePool(pool, "coding", DEFAULT_WEIGHTS, getTaskFitness)[0];
     const counts: Record<string, number> = {};
     for (let i = 0; i < 200; i++) {
       const result = selectProvider(config, pool, "coding");
       counts[result.provider] = (counts[result.provider] ?? 0) + 1;
     }
-    expect(counts["cheap-provider"]).toBeGreaterThan(0);
+    expect(counts).toEqual({ [expected.provider]: 200 });
   });
 
   it("single-candidate pool always returns the same candidate", () => {
@@ -174,34 +183,26 @@ describe("scorePool with connectionDensity", () => {
   });
 });
 
-describe("Per-Connection Rotation", () => {
-  it(
-    "rotates across all 43 Cerebras connection IDs, not just one",
-    () => {
-      const cerebrasCandidates: ProviderCandidate[] = Array.from({ length: 43 }, (_, i) =>
-        makeCandidate({
-          provider: "cerebras",
-          model: "llama-3.1-70b",
-          connectionId: `cerebras-conn-${i + 1}`,
-        })
-      );
-      const config = makeConfig("smart");
+describe("Per-Connection Selection", () => {
+  it("preserves stable input order for tied Cerebras connection IDs", () => {
+    const cerebrasCandidates: ProviderCandidate[] = Array.from({ length: 43 }, (_, i) =>
+      makeCandidate({
+        provider: "cerebras",
+        model: "llama-3.1-70b",
+        connectionId: `cerebras-conn-${i + 1}`,
+      })
+    );
+    const config = makeConfig("smart");
 
-      const seenConnections = new Set<string>();
-      for (let i = 0; i < 200; i++) {
-        const result = selectProvider(config, cerebrasCandidates, "coding");
-        if (result.connectionId) seenConnections.add(result.connectionId);
-      }
-      expect(seenConnections.size).toBeGreaterThanOrEqual(10);
-    },
-    // 200 synchronous selectProvider() calls over a 43-connection pool are CPU-bound and
-    // vitest's 5000ms default is too tight under shared-devbox contention (load avg 40+
-    // observed alongside parallel test/tsc/lint runs) — the assertion itself is unchanged,
-    // only the execution-time budget is widened. Refs #9985.
-    20000
-  );
+    const seenConnections = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const result = selectProvider(config, cerebrasCandidates, "coding");
+      if (result.connectionId) seenConnections.add(result.connectionId);
+    }
+    expect(seenConnections).toEqual(new Set(["cerebras-conn-1"]));
+  }, 20000);
 
-  it("different combos maintain independent round-robin state", () => {
+  it("different combo names preserve stable tied-candidate order", () => {
     const candidates: ProviderCandidate[] = Array.from({ length: 5 }, (_, i) =>
       makeCandidate({ provider: "p", model: "m", connectionId: `c-${i}` })
     );
@@ -226,13 +227,11 @@ describe("Per-Connection Rotation", () => {
       if (r.connectionId) fastResults.push(r.connectionId);
     }
 
-    expect(smartResults.length).toBe(5);
-    expect(fastResults.length).toBe(5);
-    expect(new Set(smartResults).size).toBeGreaterThan(1);
-    expect(new Set(fastResults).size).toBeGreaterThan(1);
+    expect(smartResults).toEqual(Array(5).fill("c-0"));
+    expect(fastResults).toEqual(Array(5).fill("c-0"));
   });
 
-  it("tied-score candidates from same provider+model are all reachable", () => {
+  it("tied-score candidates preserve stable input order", () => {
     const candidates: ProviderCandidate[] = Array.from({ length: 5 }, (_, i) =>
       makeCandidate({ provider: "free", model: "free-model", connectionId: `key-${i}` })
     );
@@ -242,6 +241,6 @@ describe("Per-Connection Rotation", () => {
       const result = selectProvider(config, candidates, "coding");
       if (result.connectionId) visited.add(result.connectionId);
     }
-    expect(visited.size).toBeGreaterThan(1);
+    expect(visited).toEqual(new Set(["key-0"]));
   });
 });
