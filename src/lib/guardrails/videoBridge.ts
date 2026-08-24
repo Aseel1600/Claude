@@ -23,7 +23,11 @@ import {
   formatVideoTimestamp,
   loadVideoPartBytes,
   replaceVideoParts,
+  resolveVideoDedupCandidateFrameCount,
   VIDEO_BRIDGE_MAX_BYTES,
+  VIDEO_DEDUP_MAX_CANDIDATE_FRAMES,
+  VIDEO_DEDUP_POLICY_VERSION,
+  VIDEO_DEDUP_THRESHOLD,
   type DescribeVideoDependencies,
   type DescribedVideo,
   type VideoFusionTelemetry,
@@ -86,9 +90,9 @@ function waitForVideoBridgePromise<T>(promise: Promise<T>, signal: AbortSignal):
   });
 }
 
-const VIDEO_BRIDGE_RESULT_CACHE_VERSION = "v3";
-const VIDEO_BRIDGE_RESULT_CACHE_POLICY = "default";
-const VIDEO_BRIDGE_RESULT_CACHE_KEY_KIND = "video-result-v3";
+const VIDEO_BRIDGE_RESULT_CACHE_VERSION = "v4";
+const VIDEO_BRIDGE_RESULT_CACHE_POLICY = "sampling-then-dedup-v2";
+const VIDEO_BRIDGE_RESULT_CACHE_KEY_KIND = "video-result-v4";
 const VIDEO_BRIDGE_DOWNLOAD_FLIGHT_VERSION = "v1";
 
 function buildVideoDownloadFlightKey(
@@ -132,6 +136,9 @@ interface VideoResultCacheMetadata {
   prompt: string;
   frameCount: number;
   maxVideos: number;
+  dedupCandidateFrameCount: number;
+  dedupPolicyVersion: string;
+  dedupThreshold: number;
   durationSeconds: number;
   framesRequested: number;
   framesExtracted: number;
@@ -152,6 +159,9 @@ interface VideoResultCacheMetadata {
 type VideoResultCacheIdentity = Pick<
   VideoResultCacheMetadata,
   | "cacheVersion"
+  | "dedupCandidateFrameCount"
+  | "dedupPolicyVersion"
+  | "dedupThreshold"
   | "extractorVersion"
   | "frameCount"
   | "maxVideos"
@@ -163,6 +173,9 @@ type VideoResultCacheIdentity = Pick<
 
 const VIDEO_RESULT_CACHE_IDENTITY_KEYS: readonly (keyof VideoResultCacheIdentity)[] = [
   "cacheVersion",
+  "dedupCandidateFrameCount",
+  "dedupPolicyVersion",
+  "dedupThreshold",
   "extractorVersion",
   "frameCount",
   "maxVideos",
@@ -179,6 +192,9 @@ function createVideoResultCacheIdentity(
 ): VideoResultCacheIdentity {
   return {
     cacheVersion: VIDEO_BRIDGE_RESULT_CACHE_VERSION,
+    dedupCandidateFrameCount: resolveVideoDedupCandidateFrameCount(runtime.frameCount),
+    dedupPolicyVersion: VIDEO_DEDUP_POLICY_VERSION,
+    dedupThreshold: VIDEO_DEDUP_THRESHOLD,
     extractorVersion: VIDEO_BRIDGE_RESULT_CACHE_VERSION,
     frameCount: runtime.frameCount,
     maxVideos: runtime.maxVideos,
@@ -196,6 +212,9 @@ function buildVideoResultCacheKey(
 ): string {
   return bridgeCacheKey(contentFingerprint, identity.prompt, identity.model, {
     kind: VIDEO_BRIDGE_RESULT_CACHE_KEY_KIND,
+    dedupCandidateFrameCount: identity.dedupCandidateFrameCount,
+    dedupPolicyVersion: identity.dedupPolicyVersion,
+    dedupThreshold: identity.dedupThreshold,
     extractorVersion: identity.extractorVersion,
     policyVersion: identity.policyVersion,
     strategy: identity.strategy,
@@ -269,7 +288,11 @@ function isVideoResultCacheMetadata(
     !isFiniteNonNegativeInteger(record.framesRequested) ||
     !isFiniteNonNegativeInteger(record.framesExtracted) ||
     !isFiniteNonNegativeInteger(record.framesUsed) ||
-    record.framesExtracted > record.framesRequested ||
+    !isFiniteNonNegativeInteger(record.dedupCandidateFrameCount) ||
+    record.dedupCandidateFrameCount < 1 ||
+    record.dedupCandidateFrameCount > VIDEO_DEDUP_MAX_CANDIDATE_FRAMES ||
+    record.framesExtracted > record.dedupCandidateFrameCount ||
+    record.framesUsed > record.framesRequested ||
     record.framesUsed > record.framesExtracted
   ) {
     return false;
@@ -293,6 +316,11 @@ function isVideoResultCacheMetadata(
   }
   return (
     typeof record.cacheVersion === "string" &&
+    typeof record.dedupPolicyVersion === "string" &&
+    typeof record.dedupThreshold === "number" &&
+    Number.isFinite(record.dedupThreshold) &&
+    record.dedupThreshold >= 0 &&
+    record.dedupThreshold <= 1 &&
     typeof record.policyVersion === "string" &&
     typeof record.extractorVersion === "string" &&
     typeof record.strategy === "string" &&

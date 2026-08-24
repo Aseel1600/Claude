@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { VideoBridgeGuardrail } from "../../../src/lib/guardrails/videoBridge.ts";
-import { BridgeCache } from "../../../src/lib/guardrails/modalityBridge/bridgeCache.ts";
+import {
+  BridgeCache,
+  type BridgeCacheEntry,
+} from "../../../src/lib/guardrails/modalityBridge/bridgeCache.ts";
 import { getBridgeStats } from "../../../src/lib/guardrails/modalityBridge/bridgeStats.ts";
 import {
   getSharedVideoResultCacheFor,
@@ -382,6 +385,58 @@ test("an unavailable result cache fails open to normal video processing", async 
   ]);
 });
 
+test("result-cache metadata carries the exact visual dedup policy identity", async () => {
+  let storedMetadata: Record<string, unknown> | undefined;
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeCacheEnabled: true,
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoFrameCount: 8,
+        modalityBridgeVideoModel: "openai/gpt-4o-mini",
+        modalityBridgeVisionPrompt: "FU-03 policy identity",
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      selectVisionModel: async () => "openai/gpt-4o-mini",
+      resultCache: {
+        delete: () => undefined,
+        getEntry: () => undefined,
+        setEntry: (_key: string, entry: BridgeCacheEntry) => {
+          storedMetadata = entry.metadata;
+        },
+      },
+      describePart: async () => ({
+        dedupDropped: 2,
+        description: "[Video description: policy-bound result]",
+        durationSeconds: 3,
+        framesExtracted: 16,
+        framesRequested: 8,
+        framesUsed: 8,
+      }),
+    },
+  });
+
+  await bridge.preCall(
+    {
+      model: "example/text-only",
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "input_video", video_url: "data:video/mp4;base64,RlUtMDM=" }],
+        },
+      ],
+    },
+    {}
+  );
+
+  assert.ok(storedMetadata);
+  assert.equal(storedMetadata.cacheVersion, "v4");
+  assert.equal(storedMetadata.policyVersion, "sampling-then-dedup-v2");
+  assert.equal(storedMetadata.dedupPolicyVersion, "grayscale-16x16-mean-cells-v2");
+  assert.equal(storedMetadata.dedupThreshold, 0.04);
+  assert.equal(storedMetadata.dedupCandidateFrameCount, 16);
+});
+
 test("a corrupt result-cache payload is discarded and recomputed", async () => {
   let describeCalls = 0;
   const corruptCache = {
@@ -390,9 +445,12 @@ test("a corrupt result-cache payload is discarded and recomputed", async () => {
       value: 42 as unknown as string,
       producerModel: "openai/gpt-4o-mini",
       metadata: {
-        cacheVersion: "v3",
-        policyVersion: "default",
-        extractorVersion: "v3",
+        cacheVersion: "v4",
+        dedupCandidateFrameCount: 16,
+        dedupPolicyVersion: "grayscale-16x16-mean-cells-v2",
+        dedupThreshold: 0.04,
+        policyVersion: "sampling-then-dedup-v2",
+        extractorVersion: "v4",
         strategy: "uniform",
         model: "openai/gpt-4o-mini",
         prompt: "FU-01 corrupt cache",
@@ -449,9 +507,12 @@ test("a corrupt result-cache payload is discarded and recomputed", async () => {
 test("invalid numeric result-cache metadata is deleted and recomputed", async (t) => {
   const cachedValue = "[Video description: cached numeric metadata]";
   const validMetadata = (): Record<string, unknown> => ({
-    cacheVersion: "v3",
-    policyVersion: "default",
-    extractorVersion: "v3",
+    cacheVersion: "v4",
+    dedupCandidateFrameCount: 16,
+    dedupPolicyVersion: "grayscale-16x16-mean-cells-v2",
+    dedupThreshold: 0.04,
+    policyVersion: "sampling-then-dedup-v2",
+    extractorVersion: "v4",
     strategy: "uniform",
     model: "openai/gpt-4o-mini",
     prompt: "FU-01 numeric cache validation",
@@ -482,9 +543,10 @@ test("invalid numeric result-cache metadata is deleted and recomputed", async (t
     },
     { name: "negative frame count", mutate: (metadata) => (metadata.framesUsed = -1) },
     {
-      name: "more extracted than requested",
-      mutate: (metadata) => (metadata.framesExtracted = 9),
+      name: "more extracted than the dedup candidate budget",
+      mutate: (metadata) => (metadata.framesExtracted = 17),
     },
+    { name: "more used than requested", mutate: (metadata) => (metadata.framesUsed = 9) },
     { name: "more used than extracted", mutate: (metadata) => (metadata.framesUsed = 7) },
     {
       name: "dedup and used exceed extracted",

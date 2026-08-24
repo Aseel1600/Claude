@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
 version: 3.8.50
-lastUpdated: 2026-08-14
+lastUpdated: 2026-08-24
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-08-15 — v3.8.50 (Video Bridge broker confinement)
+> **Last updated:** 2026-08-24 — v3.8.50 (Video Bridge visual dedup hardening)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -340,11 +340,20 @@ serialized broker response to 32 MiB. A private temporary directory is removed
 in `finally`. OmniRoute does not bundle FFmpeg and does not accept a custom
 executable path. Before captioning, the bridge applies a conservative visual
 deduplication pass: each JPEG is reduced to a 16×16 grayscale buffer and is
-compared only with the last frame retained, using a fixed similarity threshold
-of 0.04 — a deliberate constant chosen for predictability, not a runtime
-setting. The first and final timeline frames
-are always retained; comparator or decoder errors fail open and keep coverage.
-The output metadata reports how many frames were dropped.
+compared only with the last frame retained. For a requested caption budget
+above one frame, extraction supplies a
+bounded candidate pool of up to twice that budget and never more than 16 frames.
+The requested cap is applied only after deduplication, with the first and final
+selected candidates preserved during final thinning when the budget is at least
+two. The versioned
+`grayscale-16x16-mean-cells-v2` policy uses the larger of mean luma delta and
+the ratio of thumbnail cells whose normalized delta is at least 0.05. The
+duplicate threshold is the constant 0.04, chosen for predictability rather than
+exposed as a runtime setting. This secondary
+high-contrast signal preserves small motion and visible-text changes that a
+mean-only comparison can hide. Comparator or decoder errors fail open and keep
+coverage. Output metadata separates extracted candidates, successfully used
+frames, and visual duplicates dropped.
 
 An explicitly marked video part may request a timestamped contact sheet. The
 bridge builds at most a 4-column, 16-frame JPEG grid and labels the resulting
@@ -401,7 +410,10 @@ instead of relabeling it as the requested routing plan. The whole-video result
 cache is keyed on every input that changes the output — prompt, effective
 model, sampling policy, frame count, focus window, `transcript`,
 `audioTranscript`, and the contact-sheet flag — so changing any of those
-dimensions is a cache miss, never a stale reuse.
+dimensions is a cache miss, never a stale reuse. The visual dedup policy
+version, threshold, and bounded candidate-frame count are also explicit in the
+result-cache key and metadata; a policy change therefore cannot reuse a stale
+whole-video description.
 
 The guardrail extracts every supported video part but describes no more than
 `modalityBridgeVideoMaxVideos`. For a target proven to have

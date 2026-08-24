@@ -274,40 +274,86 @@ export interface VideoFrameDeduplicationResult {
 
 type VideoFrameComparator = (
   previous: VideoCaptionFrame,
-  current: VideoCaptionFrame
+  current: VideoCaptionFrame,
+  signal?: AbortSignal
 ) => Promise<number>;
 
-const VIDEO_DEDUP_THRESHOLD = 0.04;
+export const VIDEO_DEDUP_POLICY_VERSION = "grayscale-16x16-mean-cells-v2";
+export const VIDEO_DEDUP_THRESHOLD = 0.04;
+const VIDEO_DEDUP_CELL_DELTA_THRESHOLD = 0.05;
+export const VIDEO_DEDUP_MAX_CANDIDATE_FRAMES = 16;
 
-async function compareVideoFramesByGrayscale(
+/**
+ * Expand a final caption budget into the bounded pool evaluated by visual deduplication.
+ *
+ * @param frameCount - Requested number of frames that may reach captioning.
+ * @returns One candidate for a one-frame budget, otherwise twice the budget capped at 16.
+ */
+export function resolveVideoDedupCandidateFrameCount(frameCount: number): number {
+  const normalizedFrameCount = Number.isFinite(frameCount) ? Math.floor(frameCount) : 1;
+  const finalFrameCount = Math.max(
+    1,
+    Math.min(VIDEO_DEDUP_MAX_CANDIDATE_FRAMES, normalizedFrameCount)
+  );
+  if (finalFrameCount === 1) return 1;
+  return Math.min(VIDEO_DEDUP_MAX_CANDIDATE_FRAMES, finalFrameCount * 2);
+}
+
+function throwIfVideoDedupAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error("Video Bridge processing timed out or was aborted");
+}
+
+/**
+ * Compare JPEG frames using the versioned 16x16 grayscale visual policy.
+ *
+ * @param previous - Last frame retained by deduplication.
+ * @param current - Candidate frame being evaluated.
+ * @param signal - Optional request cancellation signal checked around asynchronous image work.
+ * @returns The larger of mean luma delta and the ratio of materially changed cells.
+ * @throws When cancelled or when either frame cannot be decoded as a JPEG data URI.
+ */
+export async function compareVideoFramesByGrayscale(
   previous: VideoCaptionFrame,
-  current: VideoCaptionFrame
+  current: VideoCaptionFrame,
+  signal?: AbortSignal
 ): Promise<number> {
+  throwIfVideoDedupAborted(signal);
   const decode = (dataUri: string): Buffer => {
     const match = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/i.exec(dataUri);
     if (!match) throw new Error("Video frame is not a JPEG data URI");
     return Buffer.from(match[1], "base64");
   };
   const { default: sharp } = await import("sharp");
+  throwIfVideoDedupAborted(signal);
   const [left, right] = await Promise.all(
     [previous, current].map((frame) =>
       sharp(decode(frame.dataUri)).resize(16, 16, { fit: "fill" }).greyscale().raw().toBuffer()
     )
   );
+  throwIfVideoDedupAborted(signal);
   if (left.length !== right.length || left.length === 0) {
     throw new Error("Video frame comparison returned invalid dimensions");
   }
   let difference = 0;
+  let changedCells = 0;
   for (let index = 0; index < left.length; index++) {
-    difference += Math.abs(left[index] - right[index]) / 255;
+    const cellDifference = Math.abs(left[index] - right[index]) / 255;
+    difference += cellDifference;
+    if (cellDifference >= VIDEO_DEDUP_CELL_DELTA_THRESHOLD) changedCells += 1;
   }
-  return difference / left.length;
+  return Math.max(difference / left.length, changedCells / left.length);
 }
 
 export async function deduplicateVideoFrames(
   frames: readonly VideoCaptionFrame[],
-  options: { compare?: VideoFrameComparator; threshold?: number } = {}
+  options: {
+    compare?: VideoFrameComparator;
+    maxFrames?: number;
+    signal?: AbortSignal;
+    threshold?: number;
+  } = {}
 ): Promise<VideoFrameDeduplicationResult> {
+  throwIfVideoDedupAborted(options.signal);
   if (frames.length < 2) return { dropped: 0, frames: [...frames] };
   const compare = options.compare ?? compareVideoFramesByGrayscale;
   const threshold =
@@ -317,23 +363,37 @@ export async function deduplicateVideoFrames(
   const kept: VideoCaptionFrame[] = [frames[0]];
   let dropped = 0;
   for (let index = 1; index < frames.length; index++) {
+    throwIfVideoDedupAborted(options.signal);
     const current = frames[index];
     if (index === frames.length - 1) {
       kept.push(current);
       continue;
     }
     try {
-      const distance = await compare(kept[kept.length - 1], current);
+      const distance = await compare(kept[kept.length - 1], current, options.signal);
+      throwIfVideoDedupAborted(options.signal);
       if (Number.isFinite(distance) && distance <= threshold) {
         dropped += 1;
         continue;
       }
     } catch {
+      throwIfVideoDedupAborted(options.signal);
       // A malformed or unsupported frame must never reduce visual coverage.
     }
     kept.push(current);
   }
-  return { dropped, frames: kept };
+  throwIfVideoDedupAborted(options.signal);
+  const maxFrames =
+    typeof options.maxFrames === "number" && Number.isFinite(options.maxFrames)
+      ? Math.max(1, Math.floor(options.maxFrames))
+      : kept.length;
+  if (kept.length <= maxFrames) return { dropped, frames: kept };
+  if (maxFrames === 1) return { dropped, frames: [kept[0]] };
+  const capped = Array.from({ length: maxFrames }, (_unused, index) => {
+    const sourceIndex = Math.round((index * (kept.length - 1)) / (maxFrames - 1));
+    return kept[sourceIndex];
+  });
+  return { dropped, frames: capped };
 }
 
 function normalizeBase64(base64: string): string {
@@ -456,15 +516,19 @@ export async function describeVideoPart(
     if (signal.aborted) throw new Error("Video Bridge processing timed out or was aborted");
     if (bytes.byteLength > maxBytes) throw new Error("Video exceeds the maximum size");
     const extractFrames = deps.extractFrames ?? extractVideoFramesViaBroker;
+    const candidateFrameCount = resolveVideoDedupCandidateFrameCount(options.frameCount);
     const extracted = await extractFrames(bytes, {
       focusWindow: options.focusWindow,
-      frameCount: options.frameCount,
+      frameCount: candidateFrameCount,
       samplingPolicy: options.samplingPolicy,
       signal,
       timeoutMs: options.timeoutMs,
     });
 
-    const deduplicated = await deduplicateVideoFrames(extracted.frames);
+    const deduplicated = await deduplicateVideoFrames(extracted.frames, {
+      maxFrames: options.frameCount,
+      signal,
+    });
     const contactSheet = part.contactSheet
       ? await buildVideoContactSheet(deduplicated.frames, {
           signal,

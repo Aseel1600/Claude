@@ -11,6 +11,9 @@ import type { VisionBridgeRuntimeSettings } from "@/shared/constants/modalityBri
 
 export interface BridgeCacheKeyOptions {
   kind?: string;
+  dedupCandidateFrameCount?: number;
+  dedupPolicyVersion?: string;
+  dedupThreshold?: number;
   extractorVersion?: string;
   policyVersion?: string;
   strategy?: string;
@@ -38,6 +41,9 @@ export function bridgeCacheKey(
     kind: options.kind ?? "media-frame",
     model,
     prompt,
+    dedupCandidateFrameCount: options.dedupCandidateFrameCount,
+    dedupPolicyVersion: options.dedupPolicyVersion,
+    dedupThreshold: options.dedupThreshold,
     policyVersion: options.policyVersion,
     extractorVersion: options.extractorVersion,
     strategy: options.strategy,
