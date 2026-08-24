@@ -36,6 +36,7 @@ import {
   MAXAI_SIGNIN_EMAIL_PATH,
   MAXAI_VERIFY_CODE_PATH,
 } from "../../open-sse/executors/maxai/emailLogin.ts";
+import { discoverMaxaiModels } from "../../open-sse/services/maxaiModels.ts";
 
 const USER_ID = "217f0819-965c-4926-8397-6059aacd2dcd";
 
@@ -640,4 +641,133 @@ test("executor does NOT retry a genuine no-tool answer (no narration signal)", a
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+// ── Model discovery (/models/get_config → per-model context windows) ──────────
+
+const DISCOVERY_CRED = {
+  providerSpecificData: {
+    maxaiAccessToken: "acc.tok.en",
+    maxaiDeviceId: "dev-1",
+    maxaiUserId: USER_ID,
+  },
+  accessToken: "acc.tok.en",
+};
+
+/** A minimal /models/get_config body with the fields the mapper reads. */
+function modelsConfigBody(models: unknown[]): string {
+  return JSON.stringify({ data: { chat_models: models } });
+}
+
+test("discoverMaxaiModels maps curated chat models with live max_tokens as the window", async () => {
+  const fakeFetch = (async () =>
+    new Response(
+      modelsConfigBody([
+        {
+          model_name: "gpt-5.6-luna",
+          ui_display_name: "GPT-5.6 Luna",
+          type: "chat",
+          group: "fast",
+          max_tokens: 1_050_000,
+          is_deprecated: false,
+          capabilities: { vision: true, thinking_mode: false },
+        },
+        {
+          model_name: "gpt-5.6-thinking",
+          ui_display_name: "GPT-5.6 Thinking",
+          type: "chat",
+          group: "reasoning",
+          max_tokens: 1_050_000,
+          is_deprecated: false,
+          capabilities: { vision: false, thinking_mode: true },
+        },
+      ]),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+
+  const { models, warning } = await discoverMaxaiModels({
+    providerSpecificData: DISCOVERY_CRED.providerSpecificData,
+    accessToken: DISCOVERY_CRED.accessToken,
+    fetchImpl: fakeFetch,
+  });
+
+  const luna = models.find((m) => m.id === "gpt-5.6-luna");
+  assert.ok(luna);
+  assert.equal(luna!.inputTokenLimit, 1_050_000);
+  assert.equal(luna!.name, "GPT-5.6 Luna");
+  assert.equal(luna!.toolCalling, true);
+  assert.equal(luna!.supportsVision, true);
+  const thinking = models.find((m) => m.id === "gpt-5.6-thinking");
+  assert.equal(thinking!.supportsReasoning, true);
+  // Two curated returned, so the "no longer offered" warning names the rest.
+  assert.ok(warning && /no longer offers/.test(warning));
+});
+
+test("discoverMaxaiModels drops deprecated, non-chat, and non-curated models", async () => {
+  const fakeFetch = (async () =>
+    new Response(
+      modelsConfigBody([
+        { model_name: "gpt-5.6-luna", type: "chat", max_tokens: 1_050_000, is_deprecated: false },
+        { model_name: "gpt-5-mini", type: "chat", max_tokens: 400_000, is_deprecated: true }, // deprecated
+        { model_name: "some-image-model", type: "image", max_tokens: 0 }, // non-chat
+        { model_name: "not-in-catalog", type: "chat", max_tokens: 123 }, // non-curated
+      ]),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+
+  const { models } = await discoverMaxaiModels({
+    providerSpecificData: DISCOVERY_CRED.providerSpecificData,
+    accessToken: DISCOVERY_CRED.accessToken,
+    fetchImpl: fakeFetch,
+  });
+  assert.deepEqual(
+    models.map((m) => m.id),
+    ["gpt-5.6-luna"]
+  );
+});
+
+test("discoverMaxaiModels falls back to the catalog window when max_tokens is absent", async () => {
+  const fakeFetch = (async () =>
+    new Response(
+      modelsConfigBody([{ model_name: "claude-5-sonnet", type: "chat" }]),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+  const { models } = await discoverMaxaiModels({
+    providerSpecificData: DISCOVERY_CRED.providerSpecificData,
+    accessToken: DISCOVERY_CRED.accessToken,
+    fetchImpl: fakeFetch,
+  });
+  const sonnet = models.find((m) => m.id === "claude-5-sonnet");
+  assert.ok(sonnet);
+  assert.ok(sonnet!.inputTokenLimit > 0); // from catalog fallback (1_000_000)
+});
+
+test("discoverMaxaiModels throws on non-200 and on missing chat_models", async () => {
+  const err418 = (async () => new Response("nope", { status: 418 })) as unknown as typeof fetch;
+  await assert.rejects(
+    discoverMaxaiModels({
+      providerSpecificData: DISCOVERY_CRED.providerSpecificData,
+      accessToken: DISCOVERY_CRED.accessToken,
+      fetchImpl: err418,
+    }),
+    /418/
+  );
+
+  const noModels = (async () =>
+    new Response(JSON.stringify({ data: {} }), { status: 200 })) as unknown as typeof fetch;
+  await assert.rejects(
+    discoverMaxaiModels({
+      providerSpecificData: DISCOVERY_CRED.providerSpecificData,
+      accessToken: DISCOVERY_CRED.accessToken,
+      fetchImpl: noModels,
+    }),
+    /no chat_models/
+  );
+});
+
+test("discoverMaxaiModels refuses when the connection is unconfigured", async () => {
+  await assert.rejects(
+    discoverMaxaiModels({ providerSpecificData: {}, accessToken: "" }),
+    /not configured/
+  );
 });
