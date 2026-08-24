@@ -1,5 +1,5 @@
 import test from "node:test";
-import { makeMcpResp, makeMcpStreamFetch } from "./helpers/mcpStreamMock.ts";
+import { makeMcpStreamFetch } from "./helpers/mcpStreamMock.ts";
 import assert from "node:assert/strict";
 
 const SKILLS_DATA = [

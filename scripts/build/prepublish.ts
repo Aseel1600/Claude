@@ -673,10 +673,15 @@ for (const relativePath of APP_STAGING_REMOVAL_PATHS) {
 }
 
 // ── Step 10.7: Prune any staged dist/ file outside the allowed runtime set ──
+// #9985: neverAllowedSegments is EMPTY here on purpose — unlike the publish
+// tarball gate, the staged dist/ legitimately contains node_modules (the
+// standalone server's runtime deps, including Turbopack-hashed packages whose
+// wasm files DB init requires). The allowlist prefixes above are the contract.
 const stagedFiles = walkFiles(DIST_DIR);
 const unexpectedStagedFiles = findUnexpectedArtifactPaths(stagedFiles, {
   exactPaths: APP_STAGING_ALLOWED_EXACT_PATHS,
   prefixPaths: APP_STAGING_ALLOWED_PATH_PREFIXES,
+  neverAllowedSegments: [],
 });
 
 if (unexpectedStagedFiles.length > 0) {
@@ -691,6 +696,7 @@ if (unexpectedStagedFiles.length > 0) {
 const remainingUnexpectedFiles = findUnexpectedArtifactPaths(walkFiles(DIST_DIR), {
   exactPaths: APP_STAGING_ALLOWED_EXACT_PATHS,
   prefixPaths: APP_STAGING_ALLOWED_PATH_PREFIXES,
+  neverAllowedSegments: [],
 });
 
 if (remainingUnexpectedFiles.length > 0) {
