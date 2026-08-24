@@ -19,10 +19,15 @@ test("web-session contract mirrors canonical extraction and credential metadata"
   });
 
   assert.equal(contract.providers.length, expected.length);
-  assert.equal(new Set(contract.providers.map((provider) => provider.providerId)).size, expected.length);
+  assert.equal(
+    new Set(contract.providers.map((provider) => provider.providerId)).size,
+    expected.length
+  );
 
   for (const { config, requirement } of expected) {
-    const published = contract.providers.find((provider) => provider.providerId === config.providerId);
+    const published = contract.providers.find(
+      (provider) => provider.providerId === config.providerId
+    );
     assert.ok(published, `${config.providerId} must be published`);
     assert.equal(published.displayName, config.displayName);
     assert.equal(published.loginUrl, config.loginUrl);
@@ -30,10 +35,7 @@ test("web-session contract mirrors canonical extraction and credential metadata"
     assert.deepEqual(published.tokenSources, config.tokenSources);
     assert.equal(published.credential.kind, requirement.kind);
     assert.deepEqual(published.credential.storageKeys, [...requirement.storageKeys]);
-    assert.equal(
-      published.credential.acceptsFullCookieHeader,
-      requirement.acceptsFullCookieHeader
-    );
+    assert.equal(published.credential.acceptsFullCookieHeader, requirement.acceptsFullCookieHeader);
   }
 });
 
@@ -57,7 +59,9 @@ test("web-session contract preserves representative token and cookie semantics",
       .get("gemini-web")
       ?.tokenSources.some(
         (source) =>
-          source.type === "cookie" && source.name === "__Secure-1PSID" && source.domain === ".google.com"
+          source.type === "cookie" &&
+          source.name === "__Secure-1PSID" &&
+          source.domain === ".google.com"
       )
   );
 });
@@ -73,7 +77,11 @@ test("web-session contract excludes credential values and operator-only guidance
     "guideSteps",
     "guideNote",
   ]) {
-    assert.equal(serialized.includes(`\"${forbidden}\"`), false, `${forbidden} must not be published`);
+    assert.equal(
+      serialized.includes(`\"${forbidden}\"`),
+      false,
+      `${forbidden} must not be published`
+    );
   }
 });
 
