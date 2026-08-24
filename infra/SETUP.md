@@ -63,7 +63,8 @@ Không cần làm lại, ghi ra để bạn biết trạng thái hiện tại.
 
 ## 2. Trước khi bắt đầu ⬜
 
-- ⬜ **VPS** Ubuntu 22.04+ · tối thiểu 2 vCPU / 2 GB RAM / 25 GB SSD
+- ⬜ **VPS** Ubuntu 22.04+ **hoặc** RHEL-family 8/9 (Oracle Linux, Rocky, Alma) ·
+  tối thiểu 2 vCPU / 2 GB RAM / 25 GB SSD
   *(OmniRoute mặc định `OMNIROUTE_MEMORY_MB=1024`; trong cửa sổ blue/green có
   lúc 2 container cùng sống nên 1 GB RAM là quá chật)*
 - ⬜ **Domain** đang trỏ nameserver về Cloudflare
@@ -80,15 +81,25 @@ Không cần làm lại, ghi ra để bạn biết trạng thái hiện tại.
 uname -m
 ```
 
-| Kết quả | Cần làm |
+| Kết quả | Cần làm ở bước 6.2 |
 |---|---|
-| `x86_64` | không cần gì, mặc định đã là `linux/amd64` |
-| `aarch64` | **bắt buộc** đặt repo variable `DEPLOY_PLATFORM=linux/arm64` ở bước 6.2 |
+| `x86_64` | không cần gì (mặc định `DEPLOY_PLATFORM=linux/amd64`, runner `ubuntu-latest`) |
+| `aarch64` | **bắt buộc cả hai**: `DEPLOY_PLATFORM=linux/arm64` **và** `BUILD_RUNNER=ubuntu-24.04-arm` |
 
-Đặt sai thì Actions build emulated qua QEMU — image này mất hàng giờ thay vì
-khoảng 20 phút.
+Đặt thiếu `BUILD_RUNNER` là lỗi tốn thời gian nhất ở đây: `DEPLOY_PLATFORM`
+chỉ nói *build ra kiến trúc nào*, không nói *build trên máy nào*. Runner x86
+build `linux/arm64` sẽ chạy qua QEMU — image này mất hàng giờ (và hay OOM) thay
+vì khoảng 20 phút. Runner ARM64 của GitHub **miễn phí với repo public**.
+
+Đồng thời xác định họ distro, vì lệnh cài Docker khác nhau:
+
+```bash
+cat /etc/os-release | head -3
+```
 
 ### 3.2 Cài Docker + sqlite3
+
+#### Debian / Ubuntu
 
 ```bash
 apt update && apt upgrade -y
@@ -107,6 +118,36 @@ usermod -aG docker "$USER"
 newgrp docker
 ```
 
+#### Oracle Linux / Rocky / Alma / RHEL 8–9
+
+Không có `apt`. Ngoài ra RHEL-family cài sẵn `podman`/`runc`, xung đột với
+`containerd.io` — `--allowerasing` để dnf gỡ chúng ra.
+
+```bash
+sudo dnf -y install dnf-plugins-core sqlite cronie
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo dnf -y install --allowerasing docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo systemctl enable --now docker
+sudo systemctl enable --now crond          # /etc/cron.d cần crond đang chạy
+sudo usermod -aG docker "$USER"
+```
+
+Ba khác biệt so với Ubuntu, đừng bỏ qua:
+
+- **Package tên `sqlite`**, không phải `sqlite3` (binary vẫn là `sqlite3`).
+- **`cronie` thường không có sẵn** trên image minimal. Thiếu nó thì cron backup
+  hàng đêm không bao giờ chạy mà cũng không báo lỗi. `bootstrap-vps.sh` sẽ cảnh
+  báo nếu không tìm thấy cron daemon.
+- **SELinux mặc định `Enforcing`.** `compose.yml` gắn `:z` lên các bind mount để
+  Docker tự relabel — không cần `setenforce 0`. Nếu bạn thấy container không ghi
+  được `storage.sqlite`, kiểm tra `:z` còn nguyên trong `/opt/omniroute/compose.yml`.
+
+Không có `ufw` — `bootstrap-vps.sh` tự chuyển sang `firewalld`. Trên Oracle
+Cloud, inbound còn bị chặn thêm một lớp nữa ở Security List / NSG của VCN;
+không cần mở gì thêm vì Cloudflare Tunnel là kết nối **đi ra**.
+
+#### Cả hai họ distro
+
 `sqlite3` là bắt buộc — `backup.sh` dùng `sqlite3 .backup` để snapshot DB đang
 chạy WAL. Không có nó thì cron backup fail mỗi đêm.
 
@@ -117,9 +158,10 @@ git clone https://github.com/TheDemonTuan/OmniRoute.git -b prod /tmp/omniroute-i
 sudo bash /tmp/omniroute-infra/infra/bootstrap-vps.sh
 ```
 
-Script tạo `/opt/omniroute`, cài 4 file hạ tầng, bật UFW (chỉ mở port 22), đặt
-cron backup 03:17 hàng ngày, và **không khởi động gì cả**. Lần deploy đầu tiên
-do `deploy.sh` làm.
+Script tạo `/opt/omniroute`, cài 4 file hạ tầng, siết firewall về chỉ port 22
+(UFW trên Debian/Ubuntu, `firewalld` trên RHEL-family, bỏ qua nếu không có cả
+hai), đặt cron backup 03:17 hàng ngày, và **không khởi động gì cả**. Lần deploy
+đầu tiên do `deploy.sh` làm.
 
 Đây là lần **duy nhất** VPS cần source code. Xoá được ngay sau đó:
 
@@ -258,6 +300,7 @@ Settings → Secrets and variables → Actions → tab **Variables**.
 | Variable | Mặc định | Khi nào đặt |
 |---|---|---|
 | `DEPLOY_PLATFORM` | `linux/amd64` | đặt `linux/arm64` nếu bước 3.1 ra `aarch64` |
+| `BUILD_RUNNER` | `ubuntu-latest` | đặt `ubuntu-24.04-arm` nếu bước 3.1 ra `aarch64` — **luôn đi kèm** `DEPLOY_PLATFORM` |
 | `IMAGE_TARGET` | `runner-base` | đặt `runner-web` nếu cần provider web-cookie (gemini-web, claude-web, claude-turnstile) — image nặng thêm ~300 MB |
 
 ---
@@ -401,7 +444,8 @@ CHUẨN BỊ
 
 VPS
 [ ] uname -m  -> ghi lại kết quả: ______________
-[ ] cài docker-ce + docker-compose-plugin + sqlite3
+[ ] /etc/os-release -> họ distro: ______________
+[ ] cài docker-ce + docker-compose-plugin + sqlite3 (+ cronie nếu RHEL-family)
 [ ] usermod -aG docker <user>
 [ ] chạy infra/bootstrap-vps.sh
 [ ] điền /opt/omniroute/.app.env  (JWT_SECRET, API_KEY_SECRET, INITIAL_PASSWORD, NEXT_PUBLIC_BASE_URL)
@@ -429,6 +473,7 @@ GITHUB
 [ ] secret VPS_SSH_KEY
 [ ] secret VPS_KNOWN_HOSTS
 [ ] variable DEPLOY_PLATFORM  (chỉ khi VPS là aarch64)
+[ ] variable BUILD_RUNNER     (chỉ khi VPS là aarch64 — đi kèm DEPLOY_PLATFORM)
 [ ] variable IMAGE_TARGET     (chỉ khi cần provider web-cookie)
 
 DEPLOY

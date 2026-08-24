@@ -35,7 +35,11 @@ permissions:
 jobs:
   build:
     name: 1 · Build image → GHCR
-    runs-on: ubuntu-latest
+    # Must match the VPS architecture. A native arm64 runner builds in minutes;
+    # `platforms: linux/arm64` on an x86 runner falls back to QEMU emulation and
+    # takes hours. GitHub-hosted arm64 runners are free on public repositories.
+    # Set the BUILD_RUNNER repo variable to `ubuntu-24.04-arm` for an aarch64 VPS.
+    runs-on: ${{ vars.BUILD_RUNNER || 'ubuntu-latest' }}
 
     permissions:
       contents: read

@@ -28,7 +28,14 @@ x-app: &app
   volumes:
     # Bind mount (not a named volume) so infra/backup.sh can run sqlite3 .backup
     # against the live file from the host. Must be owned by UID/GID 1000 (`node`).
-    - ./data:/app/data
+    #
+    # `:z` = shared SELinux relabel. Required on RHEL-family hosts (Oracle Linux,
+    # Rocky, Alma, Fedora) where SELinux runs Enforcing and would otherwise deny
+    # the container every write to storage.sqlite. It must be `z` (shared), not
+    # `Z` (private): blue and green mount the same directory, and `Z` would give
+    # each slot an exclusive label the other cannot read. On hosts without
+    # SELinux (Debian/Ubuntu) Docker ignores the flag, so it is safe everywhere.
+    - ./data:/app/data:z
 
   # The image already ships a HEALTHCHECK probing /healthz (pure in-memory
   # lifecycle check, no DB access — see scripts/dev/healthcheck.mjs). It is
@@ -116,7 +123,8 @@ services:
       - "8080"
 
     volumes:
-      - ./caddy:/etc/caddy:ro
+      # `,z` for the same SELinux reason as the app data mount above.
+      - ./caddy:/etc/caddy:ro,z
       - caddy_data:/data
       - caddy_config:/config
 

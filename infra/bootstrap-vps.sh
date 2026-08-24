@@ -60,18 +60,47 @@ chown -R "$SUDO_USER":"$SUDO_USER" "$APP_DIR"
 chown -R "$APP_UID":"$APP_GID" "$APP_DIR/data"
 chmod 750 "$APP_DIR/data"
 
-echo "==> Firewall (UFW): SSH only — Cloudflare Tunnel is the only web ingress"
+echo "==> Firewall: SSH only — Cloudflare Tunnel is the only web ingress"
+# The tunnel dials OUT to Cloudflare, so no inbound port other than 22 is ever
+# needed. Debian/Ubuntu ship ufw; RHEL-family (Oracle Linux, Rocky, Alma) ship
+# firewalld and no ufw at all.
 if command -v ufw >/dev/null 2>&1; then
     ufw --force default deny incoming
     ufw --force default allow outgoing
     ufw allow 22/tcp
     ufw --force enable
     ufw status verbose
+elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    # Only ensure SSH survives; deliberately open nothing else. firewalld's
+    # default zone already drops unsolicited inbound traffic.
+    firewall-cmd --permanent --add-service=ssh >/dev/null
+    firewall-cmd --reload >/dev/null
+    firewall-cmd --list-all
 else
-    echo "    ufw not installed — skipping. Ensure 80/443/8080/20128 stay closed."
+    echo "    no ufw/firewalld — skipping. Ensure 80/443/8080/20128 stay closed."
+fi
+
+# On RHEL-family hosts SELinux is Enforcing by default and would deny the
+# container every write to the bind-mounted data dir. compose.yml carries `:z`
+# on those mounts so Docker relabels them; warn if that assumption is broken.
+if command -v getenforce >/dev/null 2>&1; then
+    echo "==> SELinux: $(getenforce) (compose.yml uses :z relabelling — no action needed)"
 fi
 
 echo "==> Nightly SQLite backup at 03:17"
+# /etc/cron.d needs a running cron daemon. Ubuntu ships `cron`; RHEL-family
+# minimal images often do not ship `cronie` at all, which would silently mean
+# no backups ever run.
+# Read the listing into a variable first. Piping it straight into `grep -q`
+# looks cleaner but is wrong under `set -o pipefail`: grep exits the moment it
+# matches, systemctl takes SIGPIPE while still writing, and the pipeline returns
+# 141 — so a HIT would be reported as a MISS.
+cron_units="$(systemctl list-unit-files 2>/dev/null || true)"
+if ! grep -qE '^(crond?|cronie)\.service' <<<"$cron_units"; then
+    echo "    WARNING: no cron daemon found. Install it or backups will never run:"
+    echo "      RHEL-family: sudo dnf install -y cronie && sudo systemctl enable --now crond"
+    echo "      Debian/Ubuntu: sudo apt install -y cron && sudo systemctl enable --now cron"
+fi
 cat > /etc/cron.d/omniroute-backup <<CRON
 # OmniRoute — online SQLite backup. In-app auto-backup is disabled
 # (DISABLE_SQLITE_AUTO_BACKUP=true) so it cannot run twice during a
