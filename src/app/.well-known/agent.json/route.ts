@@ -12,12 +12,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getFleetSkills } from "@/lib/conductor/fleetSkills";
+import { getBaseUrl } from "@/lib/wellKnown";
 
 const PACKAGE_VERSION = process.env.npm_package_version || "1.8.1";
-
-function getBaseUrl(request: NextRequest): string {
-  return process.env.OMNIROUTE_BASE_URL || request.nextUrl.origin;
-}
 
 /**
  * GET /.well-known/agent.json
@@ -29,14 +26,14 @@ export async function GET(request: NextRequest) {
   // Conductor PRD RF2: fleet skills from the OmniConductor hub (cached ~60s; [] when
   // the hub is unset/offline — the card stays valid without the fleet section).
   const fleetSkills = await getFleetSkills();
-  const BASE_URL = getBaseUrl(request);
+  const baseUrl = getBaseUrl(request);
   const agentCard = {
     name: "OmniRoute AI 网关",
     description:
       "智能 AI 路由网关，支持 36+ 个提供者、智能回退、配额跟踪、" +
       "格式转换和自动管理组合。根据成本、延迟、配额可用性" +
       "和任务要求将 AI 请求路由到最优提供者。",
-    url: `${BASE_URL}/a2a`,
+    url: `${baseUrl}/a2a`,
     version: PACKAGE_VERSION,
     capabilities: {
       streaming: true,

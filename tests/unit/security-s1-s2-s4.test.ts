@@ -206,16 +206,17 @@ describe("S1 — login rate-limit key uses anti-spoofed peer IP", () => {
     // The login route derives clientIp from the trusted peer IP header.
     // We make multiple requests with the same trusted peer IP but different
     // forged XFF headers to verify they share the same rate-limit bucket.
-    // The login route calls:
-    //   clientIp = request.headers.get("x-omniroute-trusted-peer-ip") || auditContext.ipAddress || null
     //
-    // When the trusted peer IP header is present, XFF forgeries are ignored.
+    // The route only trusts the header when OMNIROUTE_PEER_STAMP_TOKEN is set.
+    // Without the token, spoofed headers are rejected (tested separately below).
+
+    process.env.OMNIROUTE_PEER_STAMP_TOKEN = "test-stamp-token";
 
     const TRUSTED_IP = "203.0.113.42";
     const FORGED_XFF = "192.168.1.1, 10.0.0.1";
 
     // Make enough requests to trigger the rate limit
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < loginGuardMod.LOGIN_GUARD_TUNABLES.FAILURE_THRESHOLD + 1; i++) {
       const request = new Request("http://localhost:20128/api/auth/login", {
         method: "POST",
         headers: {
@@ -241,7 +242,49 @@ describe("S1 — login rate-limit key uses anti-spoofed peer IP", () => {
         return;
       }
     }
-    assert.fail("Expected at least one 429 response after 10 failed attempts with the same trusted peer IP");
+    assert.fail("Expected at least one 429 response after threshold failed attempts with the same trusted peer IP");
+  });
+
+  it("ignores spoofed x-omniroute-trusted-peer-ip when OMNIROUTE_PEER_STAMP_TOKEN is not set", async () => {
+    loginGuardModRef.resetLoginGuardForTests();
+
+    // OMNIROUTE_PEER_STAMP_TOKEN is already deleted in beforeEach.
+    // The route should NOT trust the spoofed header and fall back to
+    // auditContext.ipAddress (derived from X-Forwarded-For).
+    //
+    // TDD: each iteration uses a DIFFERENT spoofed IP. With the bug
+    // (unconditional trust), each request goes to a different rate-limit
+    // bucket — no bucket reaches the threshold → test FAILS (RED).
+    // With the fix (gate on OMNIROUTE_PEER_STAMP_TOKEN), all requests
+    // share the REAL_IP bucket → threshold hit → test PASSES (GREEN).
+
+    const REAL_IP = "10.0.0.200";
+
+    for (let i = 0; i < loginGuardMod.LOGIN_GUARD_TUNABLES.FAILURE_THRESHOLD + 1; i++) {
+      const SPOOFED_IP = `203.0.113.${i}`;
+      const request = new Request("http://localhost:20128/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-omniroute-trusted-peer-ip": SPOOFED_IP,
+          "x-forwarded-for": REAL_IP,
+        },
+        body: JSON.stringify({ password: "wrong-password" }),
+      }) as unknown as NextRequest;
+      Object.defineProperty(request, "nextUrl", {
+        value: new URL("http://localhost:20128/api/auth/login"),
+        configurable: true,
+      });
+
+      const res = await loginRoute.POST(request);
+      if (res.status === 429) {
+        // Locked out — rate-limit key is tied to REAL_IP (XFF), not the spoofed header
+        const retryAfter = res.headers.get("Retry-After");
+        assert.ok(retryAfter !== null, "429 response must include Retry-After header");
+        return;
+      }
+    }
+    assert.fail("Expected 429 after threshold failures — spoofed header should not bypass rate-limit");
   });
 
   it("falls back to auditContext.ipAddress when trusted peer IP header is absent", async () => {
@@ -254,7 +297,7 @@ describe("S1 — login rate-limit key uses anti-spoofed peer IP", () => {
 
     const REQUEST_IP = "10.0.0.99";
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < loginGuardMod.LOGIN_GUARD_TUNABLES.FAILURE_THRESHOLD + 1; i++) {
       const request = new Request("http://localhost:20128/api/auth/login", {
         method: "POST",
         headers: {
@@ -277,13 +320,13 @@ describe("S1 — login rate-limit key uses anti-spoofed peer IP", () => {
         return;
       }
     }
-    assert.fail("Expected 429 after 10 failed attempts from the same IP");
+    assert.fail("Expected 429 after threshold failures from the same IP");
   });
 
   it("S4 — 429 response includes Retry-After header in login route", async () => {
     loginGuardModRef.resetLoginGuardForTests();
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < loginGuardMod.LOGIN_GUARD_TUNABLES.FAILURE_THRESHOLD + 1; i++) {
       const request = new Request("http://localhost:20128/api/auth/login", {
         method: "POST",
         headers: {
@@ -305,6 +348,6 @@ describe("S1 — login rate-limit key uses anti-spoofed peer IP", () => {
         return;
       }
     }
-    assert.fail("Expected at least one 429 response after 10 failed attempts");
+    assert.fail("Expected at least one 429 response after threshold failed attempts");
   });
 });
