@@ -2,7 +2,7 @@
  * Netzwerk-first für Navigationen (immer aktuelle Version),
  * Cache-Fallback für Offline-Nutzung. Statische Assets werden
  * im Cache gehalten, aber bei jedem Lauf aktualisiert. */
-const CACHE = "omniroute-ui-v1";
+const CACHE = "omniroute-ui-v2";
 const CORE = [
   "/",
   "/static/index.html",
@@ -44,7 +44,8 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/projects") ||
     url.pathname.startsWith("/ledger") ||
     url.pathname.startsWith("/artifacts") ||
-    url.pathname.startsWith("/health")
+    url.pathname.startsWith("/health") ||
+    url.pathname.startsWith("/memory")
   )
     return;
 

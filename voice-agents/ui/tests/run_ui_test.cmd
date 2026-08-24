@@ -12,6 +12,13 @@ set ROOT=C:\OmniRoute\voice-agents
 set SKILL=C:\Users\Sebastian\.agents\skills\webapp-testing
 set PY=%ROOT%\.venv\Scripts\python.exe
 
+rem Verwaiste Server auf dem Zielport beenden (Windows zeigt LISTEN als "ABHOEREN")
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr /i "ABH"') do (
+  echo [ui-test] Verwaisten Prozess %%p auf Port %PORT% beenden ...
+  taskkill /F /PID %%p >nul 2>&1
+)
+timeout /t 1 /nobreak >nul
+
 echo [ui-test] Server auf Port %PORT% starten ...
 "%PY%" "%SKILL%\scripts\with_server.py" ^
   --server "cd /d %ROOT% && %PY% -m uvicorn ui.main:app --host 0.0.0.0 --port %PORT%" ^
