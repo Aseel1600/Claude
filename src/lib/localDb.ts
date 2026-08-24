@@ -65,6 +65,8 @@ export {
   getModelIsHidden,
   setModelIsHidden,
   getHiddenModelsByProvider,
+  isModelHiddenInBulkMap,
+  providerKeysToCheck,
   // Synced Available Models
   getSyncedAvailableModels,
   getAllSyncedAvailableModels,

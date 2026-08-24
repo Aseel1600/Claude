@@ -5,6 +5,11 @@
  */
 
 import { isRetiredGitHubCopilotModelId } from "@omniroute/open-sse/config/providers/registry/github/retiredModels.ts";
+import {
+  getProviderAlias,
+  getProviderConnectionFamilyIds,
+  resolveProviderId,
+} from "@/shared/constants/providers";
 
 import type { SqliteAdapter } from "./adapters/types";
 import { getDbInstance } from "./core";
@@ -959,12 +964,67 @@ export function getModelPreserveOpenAIDeveloperRole(
  * Check if the model is flagged as hidden from the public catalog.
  */
 export function getModelIsHidden(providerId: string, modelId: string): boolean {
-  const m = getCustomModelRow(providerId, modelId);
-  if (m && Object.prototype.hasOwnProperty.call(m, "isHidden")) {
-    return Boolean(m.isHidden);
+  // #11300: overrides are stored under whatever key the dashboard route carried
+  // (node UUID, alias like cc/gh/xao, or canonical id). Try the equivalence set
+  // instead of one exact key; first definitive answer wins.
+  for (const key of providerKeysToCheck(providerId)) {
+    const m = getCustomModelRow(key, modelId);
+    if (m && Object.prototype.hasOwnProperty.call(m, "isHidden")) {
+      return Boolean(m.isHidden);
+    }
+    const co = readCompatList(key).find((e) => e.id === modelId);
+    if (co && Object.prototype.hasOwnProperty.call(co, "isHidden")) {
+      return Boolean(co.isHidden);
+    }
   }
-  const co = readCompatList(providerId).find((e) => e.id === modelId);
-  return Boolean(co?.isHidden);
+  return false;
+}
+
+/**
+ * #11300: visibility overrides are persisted under whatever provider key the
+ * dashboard route carried (node UUID, route alias like `cc`/`gh`/`xao`, or the
+ * canonical id). Readers must try the whole equivalence set: the original key,
+ * its canonical id, that canonical's registered alias — plus any caller-supplied
+ * extras (catalog passes node prefixes here).
+ */
+export function providerKeysToCheck(
+  providerId: string,
+  extraKeys?: Array<string | null | undefined>
+): string[] {
+  const canonical = resolveProviderId(providerId);
+  return [
+    ...new Set(
+      [
+        providerId,
+        canonical,
+        getProviderAlias(canonical),
+        // Connection-family aliases (e.g. xai ↔ xai-oauth/xao, magnific ↔ freepik):
+        // hides saved on a family-alias page must be honored family-wide.
+        ...getProviderConnectionFamilyIds(canonical),
+        ...(extraKeys ?? []),
+      ].filter((k): k is string => Boolean(k))
+    ),
+  ];
+}
+
+/**
+ * Bulk-map variant of the #11300 multi-key check, used by the /v1/models catalog
+ * builder (`buildUnifiedModelsResponseCore`) against the single bulk query result
+ * of `getHiddenModelsByProvider()` — keeps the build O(1) per model (no per-call
+ * SQLite reads, preserving the #9147 guarantee).
+ */
+export function isModelHiddenInBulkMap(
+  hiddenByProvider: Map<string, Set<string>>,
+  providerId: string,
+  modelId: string,
+  extraKeys?: Array<string | null | undefined>
+): boolean {
+  if (!providerId || !modelId) return false;
+  for (const key of providerKeysToCheck(providerId, extraKeys)) {
+    const set = hiddenByProvider.get(key);
+    if (set?.has(modelId)) return true;
+  }
+  return false;
 }
 
 /**

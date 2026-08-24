@@ -9,6 +9,7 @@ import {
   getModelAliases,
   getDatabaseSettings,
   getHiddenModelsByProvider,
+  isModelHiddenInBulkMap,
 } from "@/lib/localDb";
 import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView";
 import { extractAliasBackedModels } from "./aliasBackedModels";
@@ -265,10 +266,17 @@ async function buildUnifiedModelsResponseCore(
     // try would let a crash here propagate as an unhandled rejection instead
     // (catalogCache.ts's in-flight coalescing does not fully consume rejections).
     const hiddenModelsByProvider = getHiddenModelsByProvider();
-    const isModelHiddenBulk = (providerId: string, modelId: string): boolean => {
-      const hiddenSet = hiddenModelsByProvider.get(providerId);
-      return hiddenSet ? hiddenSet.has(modelId) : false;
-    };
+    // #11300: overrides are stored under whatever key the dashboard route carried
+    // (node UUID, alias like cc/gh/xao, canonical id). `isModelHiddenInBulkMap`
+    // resolves the equivalence set [key, canonical, alias-of-canonical] plus the
+    // caller extras below (this loop's own alias + node prefix). The alias/prefix
+    // maps are declared further down but only READ here at call time (first call
+    // site is ~L850), so the closure reference is safe.
+    const isModelHiddenBulk = (providerId: string, modelId: string): boolean =>
+      isModelHiddenInBulkMap(hiddenModelsByProvider, providerId, modelId, [
+        providerIdToAlias[providerId],
+        providerIdToPrefix[providerId],
+      ]);
     let settings: Record<string, any> = {};
     try {
       settings = await getSettings();
@@ -1018,7 +1026,10 @@ async function buildUnifiedModelsResponseCore(
 
     for (const modelId of CODEX_NATIVE_UNPREFIXED_MODELS) {
       if (!providerSupportsModel("codex", modelId)) continue;
-      if (isModelHiddenBulk("codex", modelId)) continue;
+      // #11300: a codex-native model hidden under the `openai` family page (or the
+      // `cx` alias, resolved inside isModelHiddenBulk) must not stay published here.
+      if (isModelHiddenBulk("codex", modelId) || isModelHiddenBulk("openai", modelId))
+        continue;
 
       const alias = providerIdToAlias.codex || "cx";
       const aliasId = `${alias}/${modelId}`;
