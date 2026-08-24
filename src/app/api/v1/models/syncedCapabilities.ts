@@ -34,6 +34,7 @@ import {
 
 interface SyncedCapabilityFlags {
   id?: string;
+  supportsThinking?: boolean;
   supportsVision?: boolean;
   supportedThinkingEfforts?: string[];
 }
