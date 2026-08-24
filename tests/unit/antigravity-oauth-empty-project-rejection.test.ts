@@ -19,7 +19,8 @@
  *      - "discovery_failed" → loadCodeAssist/onboardUser errored or timed out.
  *      - absent/undefined → projectId discovered normally.
  *   2. mapTokens surfaces that outcome as tokenData.projectDiscoveryOutcome so
- *      the OAuth route can reject the connect instead of persisting a dead row.
+ *      the OAuth route can mark the connection degraded (saved, not active)
+ *      instead of silently persisting a false "Connected" row.
  *
  * Run: node --import tsx/esm --test tests/unit/antigravity-oauth-empty-project-rejection.test.ts
  */
@@ -70,7 +71,7 @@ test("postExchange reports requires_manual_project when onboardUser answers 200 
   assert.equal(
     result.projectDiscoveryOutcome,
     "requires_manual_project",
-    "BYOP outcome must be reported so the route rejects the connect"
+    "BYOP outcome must be reported so the route marks the connection degraded"
   );
 });
 
@@ -170,7 +171,7 @@ test("postExchange still fails when onboarding carries a project but every disco
   assert.equal(result.projectDiscoveryOutcome, "discovery_failed");
 });
 
-test("mapTokens surfaces projectDiscoveryOutcome for the OAuth route rejection gate", async () => {
+test("mapTokens surfaces projectDiscoveryOutcome for the OAuth route degrade gate", async () => {
   // The route can only act on what mapTokens hands it — the outcome must
   // survive into tokenData.
   globalThis.fetch = (async (url: unknown) => {
@@ -191,6 +192,6 @@ test("mapTokens surfaces projectDiscoveryOutcome for the OAuth route rejection g
   assert.equal(
     mapped.projectDiscoveryOutcome,
     "requires_manual_project",
-    "route gate needs the outcome on the mapped payload"
+    "degrade gate needs the outcome on the mapped payload"
   );
 });
