@@ -219,6 +219,10 @@ with sync_playwright() as p:
             with _req.urlopen(req, timeout=15) as resp:
                 return _json.loads(resp.read().decode())
 
+        def _column_of(card_id):
+            return page.evaluate("(cid) => fetch('/kanban', { headers: { 'X-Access-Token': localStorage.getItem('ui_token') } }).then(r => r.json()).then(d => { const c = (d.cards || []).find(x => x.id === cid); return c ? c.column : null; })", card_id)
+
+        # --- Approvals path 1: approve moves card to done ---
         appr_card_id = None
         try:
             created = _api("POST", "kanban", {"title": "TEST-Approval Karte", "note": "Verdrahtungs-Test", "source": "e2e-test"})
@@ -231,7 +235,7 @@ with sync_playwright() as p:
             appr_row.locator("[data-approve]").click()
             page.wait_for_timeout(600)
             check("approvals: freigeben zeigt erfolg", "Freigegeben" in appr_row.inner_text())
-            state = page.evaluate("(cid) => fetch('/kanban', { headers: { 'X-Access-Token': localStorage.getItem('ui_token') } }).then(r => r.json()).then(d => { const c = (d.cards || []).find(x => x.id === cid); return c ? c.column : null; })", appr_card_id)
+            state = _column_of(appr_card_id)
             check("approvals: karte nach done verschoben", state == "done", f"| column={state}")
         except Exception as e:
             check("approvals: verdrahtung", False, str(e)[:120])
@@ -243,6 +247,32 @@ with sync_playwright() as p:
                     check("approvals: test-karte aufgeräumt", not any(c["id"] == appr_card_id for c in gone))
                 except Exception as e:
                     check("approvals: test-karte aufgeräumt", False, str(e)[:120])
+
+        # --- Approvals path 2: deny moves card to archive ---
+        deny_card_id = None
+        try:
+            created = _api("POST", "kanban", {"title": "TEST-Approval Ablehnen", "note": "Verdrahtungs-Test", "source": "e2e-test"})
+            deny_card_id = created["card"]["id"]
+            check("approvals-deny: test-karte angelegt", bool(deny_card_id))
+            page.locator('.nav-item[data-view="approvals"]').click()
+            page.wait_for_timeout(800)
+            deny_row = page.locator(f'[data-card="{deny_card_id}"]')
+            check("approvals-deny: test-karte in inbox sichtbar", deny_row.count() == 1)
+            deny_row.locator("[data-deny]").click()
+            page.wait_for_timeout(600)
+            check("approvals-deny: ablehnen zeigt erfolg", "Abgelehnt" in deny_row.inner_text())
+            state = _column_of(deny_card_id)
+            check("approvals-deny: karte nach archive verschoben", state == "archive", f"| column={state}")
+        except Exception as e:
+            check("approvals-deny: verdrahtung", False, str(e)[:120])
+        finally:
+            if deny_card_id:
+                try:
+                    _api("DELETE", "kanban/" + deny_card_id)
+                    gone = _api("GET", "kanban")["cards"]
+                    check("approvals-deny: test-karte aufgeräumt", not any(c["id"] == deny_card_id for c in gone))
+                except Exception as e:
+                    check("approvals-deny: test-karte aufgeräumt", False, str(e)[:120])
     else:
         check("token: UI_ACCESS_TOKEN in .env gefunden", False, "kein Token in .env gefunden")
 
@@ -269,7 +299,10 @@ with sync_playwright() as p:
             page.locator('.nav-item[data-view="orchestra"]').click()
             page.wait_for_timeout(400)
             page.reload()
-            page.wait_for_load_state("networkidle")
+            # networkidle ist hier unzuverlässig: die UI pollt alle 10s (syncDashboard)
+            # und der Service Worker hält nach Reload Requests offen → auf DOM + Inhalt warten.
+            page.wait_for_load_state("domcontentloaded")
+            page.wait_for_selector("#main-content", timeout=15000)
             page.wait_for_timeout(800)
             page.locator('.nav-item[data-view="jobs"]').click()
             page.wait_for_timeout(800)
