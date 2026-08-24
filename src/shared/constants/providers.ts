@@ -294,6 +294,19 @@ export function supportsBulkApiKey(providerId: unknown): boolean {
 
 // ── System Providers (virtual, not user-connectable) ──────────────────────────
 
+import {
+  NOAUTH_PROVIDERS,
+  OAUTH_PROVIDERS,
+  WEB_COOKIE_PROVIDERS,
+  APIKEY_PROVIDERS,
+  LOCAL_PROVIDERS,
+  SEARCH_PROVIDERS,
+  AUDIO_ONLY_PROVIDERS,
+  UPSTREAM_PROXY_PROVIDERS,
+  CLOUD_AGENT_PROVIDERS,
+  SYSTEM_PROVIDERS,
+} from "./providerDefinitions";
+
 const _PROVIDER_SECTIONS = [
   NOAUTH_PROVIDERS,
   OAUTH_PROVIDERS,
@@ -307,10 +320,29 @@ const _PROVIDER_SECTIONS = [
   SYSTEM_PROVIDERS,
 ] as const;
 
+import { validateProviders } from "../validation/providerSchema";
+
+let _validated = false;
+
+function ensureProvidersValidated() {
+  if (_validated) return;
+  validateProviders(NOAUTH_PROVIDERS, "NOAUTH_PROVIDERS");
+  validateProviders(OAUTH_PROVIDERS, "OAUTH_PROVIDERS");
+  validateProviders(APIKEY_PROVIDERS, "APIKEY_PROVIDERS");
+  validateProviders(WEB_COOKIE_PROVIDERS, "WEB_COOKIE_PROVIDERS");
+  validateProviders(LOCAL_PROVIDERS, "LOCAL_PROVIDERS");
+  validateProviders(SEARCH_PROVIDERS, "SEARCH_PROVIDERS");
+  validateProviders(AUDIO_ONLY_PROVIDERS, "AUDIO_ONLY_PROVIDERS");
+  validateProviders(UPSTREAM_PROXY_PROVIDERS, "UPSTREAM_PROXY_PROVIDERS");
+  validateProviders(CLOUD_AGENT_PROVIDERS, "CLOUD_AGENT_PROVIDERS");
+  _validated = true;
+}
+
 let _aiProviders: Record<string, any> | null = null;
 
 function getOrCreateAiProviders(): Record<string, any> {
   if (!_aiProviders) {
+    ensureProvidersValidated();
     _aiProviders = {};
     for (const section of _PROVIDER_SECTIONS) {
       Object.assign(_aiProviders, section);
@@ -382,6 +414,18 @@ export const AI_PROVIDERS = new Proxy({} as Record<string, any>, {
     return undefined;
   },
 });
+
+export type AiProviderId =
+  | keyof typeof NOAUTH_PROVIDERS
+  | keyof typeof OAUTH_PROVIDERS
+  | keyof typeof APIKEY_PROVIDERS
+  | keyof typeof WEB_COOKIE_PROVIDERS
+  | keyof typeof LOCAL_PROVIDERS
+  | keyof typeof SEARCH_PROVIDERS
+  | keyof typeof AUDIO_ONLY_PROVIDERS
+  | keyof typeof UPSTREAM_PROXY_PROVIDERS
+  | keyof typeof CLOUD_AGENT_PROVIDERS
+  | keyof typeof SYSTEM_PROVIDERS;
 
 export type AiProviderDefinition =
   | (typeof NOAUTH_PROVIDERS)[keyof typeof NOAUTH_PROVIDERS]
@@ -490,36 +534,17 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "vertex",
   "vertex-partner",
   "codebuddy-cn",
-  // PromptQL playground credits (getCreditSummary → USD micros)
   "promptql",
   "pql",
-  // Adobe Firefly web (cookie/JWT as apikey) — GET firefly.adobe.io/v1/credits/balance
   "adobe-firefly",
   "firefly",
   "hyperagent",
   "ha",
-  // xAI OAuth (Grok) weekly quota (id + public alias, same pattern as ha/agy)
   "xai-oauth",
   "xao",
-  // Grok Build subscription, billing credits, and auto top-up status
-  "grok-cli",
-  // Firecrawl team credits (GET /v2/team/credit-usage)
   "firecrawl",
-  // Command Code credits + 5h/weekly rolling windows
-  "command-code",
-  "conol-web",
-  "cnl",
-  // Alibaba Coding Plan triple-window quota (#9603 UI gap — fetcher existed, list entry missing)
-  "bailian-coding-plan",
-  // Qwen Cloud / Model Studio personal Token Plan (cookie-authenticated console gateway)
-  "qwen-cloud-token-plan",
-  // AgentRouter (New-API) console balance quota (consoleApiKey + newApiUserId)
-  "agentrouter",
 ];
 
-// ── Zod validation at module load (Phase 7.2) ──
-
-// Re-export the extracted data catalogs so external importers of providers.ts are unchanged.
 export {
   NOAUTH_PROVIDERS,
   OAUTH_PROVIDERS,
@@ -532,15 +557,3 @@ export {
   CLOUD_AGENT_PROVIDERS,
   SYSTEM_PROVIDERS,
 };
-
-import { validateProviders } from "../validation/providerSchema";
-
-validateProviders(NOAUTH_PROVIDERS, "NOAUTH_PROVIDERS");
-validateProviders(OAUTH_PROVIDERS, "OAUTH_PROVIDERS");
-validateProviders(APIKEY_PROVIDERS, "APIKEY_PROVIDERS");
-validateProviders(WEB_COOKIE_PROVIDERS, "WEB_COOKIE_PROVIDERS");
-validateProviders(LOCAL_PROVIDERS, "LOCAL_PROVIDERS");
-validateProviders(SEARCH_PROVIDERS, "SEARCH_PROVIDERS");
-validateProviders(AUDIO_ONLY_PROVIDERS, "AUDIO_ONLY_PROVIDERS");
-validateProviders(UPSTREAM_PROXY_PROVIDERS, "UPSTREAM_PROXY_PROVIDERS");
-validateProviders(CLOUD_AGENT_PROVIDERS, "CLOUD_AGENT_PROVIDERS");
