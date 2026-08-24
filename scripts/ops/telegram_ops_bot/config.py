@@ -25,7 +25,7 @@ class BotConfig:
     pin_hash: Optional[str] = None
     pin_salt: Optional[str] = None
     db_path: str = "data/telegram_ops_bot.sqlite3"
-    opsctl_path: str = "opsctl"
+    opsctl_path: str = "/usr/local/sbin/omniroute-opsctl"
     poll_timeout: int = 30
     poll_interval: float = 0.5
     max_retries: int = 3
@@ -225,7 +225,7 @@ def load_config_from_env(env: Optional[Mapping[str, str]] = None) -> BotConfig:
     opsctl_path = (
         e.get("OPS_OPSCTL_PATH")
         or e.get("OPSCTL_PATH")
-        or "opsctl"
+        or "/usr/local/sbin/omniroute-opsctl"
     ).strip()
 
     poll_timeout = int(e.get("TELEGRAM_POLL_TIMEOUT", e.get("POLL_TIMEOUT", "30")))

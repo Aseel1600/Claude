@@ -272,6 +272,19 @@ class TestGitHubAuthAndClient(unittest.TestCase):
         self.assertEqual(len(items), 3)
         self.assertEqual([i["id"] for i in items], [1, 2, 3])
 
+    def test_paginate_check_runs_wrapper(self):
+        page1 = {"total_count": 3, "check_runs": [{"id": 1}, {"id": 2}]}
+        page2 = {"total_count": 3, "check_runs": [{"id": 3}]}
+
+        def side_effect(req, *args, **kwargs):
+            payload = page1 if "page=1" in req.full_url else page2
+            return MockHTTPResponse(json.dumps(payload).encode("utf-8"), 200)
+
+        client = GitHubClient(token="ghp_token", opener=side_effect)
+        items = client.list_all("/repos/owner/repo/commits/sha/check-runs", per_page=2)
+
+        self.assertEqual([item["id"] for item in items], [1, 2, 3])
+
 
 if __name__ == "__main__":
     unittest.main()

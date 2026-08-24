@@ -184,30 +184,77 @@ class MetricsCollector:
         self.opsctl_path = opsctl_path
         self.github_client = github_client or GitHubClient()
 
-    def _run_opsctl_json(self, subcommand: str) -> Optional[Dict[str, Any]]:
-        """Run fixed opsctl subcommand with --json without shell."""
+    def _run_opsctl_args(
+        self,
+        args: List[str],
+        timeout: float = 5.0,
+    ) -> Optional[Dict[str, Any]]:
+        """Run one prevalidated opsctl argument array and parse its JSON output."""
         if not self.opsctl_path:
             return None
-        # Strict argument whitelist to prevent command injection
-        allowed_subcommands = {"status", "system", "containers", "omniroute", "deploy", "logs", "backups", "security"}
-        if subcommand not in allowed_subcommands:
-            return None
-
-        cmd = [self.opsctl_path, subcommand, "--json"]
+        cmd = [self.opsctl_path, *args, "--json"]
+        if os.geteuid() != 0:
+            cmd = ["sudo", "-n", *cmd]
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 shell=False,
-                timeout=5.0,
+                timeout=timeout,
                 check=False,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                return json.loads(result.stdout)
+            if result.stdout.strip():
+                payload = json.loads(result.stdout)
+                if result.returncode == 0:
+                    return payload
+                if isinstance(payload, dict):
+                    return payload
         except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as err:
-            logger.debug("opsctl execution failed (%s): %s", subcommand, err)
+            logger.debug("opsctl execution failed (%s): %s", args[0] if args else "unknown", err)
         return None
+
+    def _run_opsctl_json(self, subcommand: str) -> Optional[Dict[str, Any]]:
+        """Run a fixed read-only opsctl subcommand without shell."""
+        allowed_subcommands = {
+            "status",
+            "system",
+            "containers",
+            "omniroute",
+            "deploy",
+            "logs",
+            "backups",
+            "security",
+        }
+        if subcommand not in allowed_subcommands:
+            return None
+        return self._run_opsctl_args([subcommand])
+
+    def perform_operation(self, operation: str, target: str = "") -> Dict[str, Any]:
+        """Run one fixed host operation through the privileged helper."""
+        operation_args = {
+            "backup": (["backups", "create"], 120.0),
+            "rollback": (["rollback"], 420.0),
+        }
+        if operation == "restart":
+            allowed_services = {
+                "app",
+                "app-blue",
+                "app-green",
+                "caddy",
+                "cloudflared",
+                "redis",
+            }
+            if target not in allowed_services:
+                return {"status": "ERROR", "error": "Restart target is not allowed."}
+            args, timeout = ["restart", "--service", target], 60.0
+        elif operation in operation_args:
+            args, timeout = operation_args[operation]
+        else:
+            return {"status": "ERROR", "error": "Operation is not allowed."}
+
+        result = self._run_opsctl_args(args, timeout=timeout)
+        return result or {"status": "ERROR", "error": "Operations helper unavailable."}
 
     def get_host_metrics(self) -> HostMetrics:
         """Collect host system metrics with /proc and statvfs fallback."""
@@ -376,34 +423,26 @@ class MetricsCollector:
         )
 
     def get_logs(self, service_or_container: Optional[str] = None, lines: int = 50) -> str:
-        """Read recent service logs safely without shell injection."""
-        if not self.opsctl_path:
-            return "[Logs unavailable: opsctl path not configured]"
-
-        cmd = [self.opsctl_path, "logs", "--lines", str(min(max(1, lines), 200))]
-        if service_or_container:
-            # Clean container/service name to alphanumeric + - _ .
-            safe_target = "".join(c for c in service_or_container if c.isalnum() or c in "-_.")
-            if safe_target:
-                cmd.extend(["--service", safe_target])
-
-        try:
-            res = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                shell=False,
-                timeout=8.0,
-                check=False,
-            )
-            if res.returncode == 0 and res.stdout:
-                return redact_sensitive(res.stdout)
-            if res.stderr:
-                return f"[Logs error: {redact_sensitive(res.stderr.strip())}]"
-        except Exception as err:
-            logger.debug("Failed reading logs via opsctl: %s", err)
-
-        return "[Logs unavailable: opsctl returned no output]"
+        """Read recent allow-listed service logs through the privileged helper."""
+        allowed_services = {
+            "app",
+            "app-blue",
+            "app-green",
+            "caddy",
+            "cloudflared",
+            "redis",
+            "omniroute-ops-bot",
+        }
+        service = service_or_container or "app"
+        if service not in allowed_services:
+            return "[Logs unavailable: service is not allowed]"
+        payload = self._run_opsctl_args(
+            ["logs", "--lines", str(min(max(1, lines), 200)), "--service", service],
+            timeout=8.0,
+        )
+        if payload and isinstance(payload.get("logs"), str):
+            return redact_sensitive(payload["logs"][-12000:])
+        return "[Logs unavailable]"
 
     def get_backups_info(self) -> BackupInfo:
         """Fetch database and configuration backup status."""

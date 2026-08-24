@@ -47,6 +47,19 @@ def semver_sort_key(branch_name: str) -> Tuple[int, int, int, int, str]:
     return parsed
 
 
+def release_branch_from_sync_head(head_ref: str) -> Optional[str]:
+    """Derive the upstream release branch encoded by a sync workflow branch."""
+    prefix = "sync/upstream-"
+    if not head_ref.startswith(prefix):
+        return None
+    encoded_ref = head_ref[len(prefix):]
+    if encoded_ref.startswith("release-v"):
+        return f"release/{encoded_ref[len('release-') :]}"
+    if encoded_ref.startswith("v") and parse_semver(encoded_ref):
+        return f"release/{encoded_ref}"
+    return None
+
+
 def resolve_highest_semver(
     branch_names: List[str],
     prefix: str = "release/v",
@@ -210,8 +223,9 @@ class UpstreamManager:
                 base_red_issues.append(issue_info)
 
                 if base_branch:
-                    clean_branch = base_branch.replace("release/", "").replace("refs/heads/", "")
-                    if clean_branch.lower() in title.lower():
+                    expected_title = f"Release branch not green: {base_branch}"
+                    normalized_title = title.lstrip("🔴 ").strip()
+                    if normalized_title.casefold() == expected_title.casefold():
                         matched_issues.append(issue_info)
 
         is_red = len(matched_issues) > 0 if base_branch else len(base_red_issues) > 0
@@ -234,14 +248,12 @@ class UpstreamManager:
         mergeable = pr.get("mergeable")
         mergeable_state = pr.get("mergeable_state", "unknown")
 
-        # Check CI check-runs for the head commit
+        # Check every paginated CI check-run for the head commit.
         check_runs: List[Dict[str, Any]] = []
         if head_sha:
             cr_path = f"/repos/{self.fork_owner}/{self.fork_repo}/commits/{head_sha}/check-runs"
             try:
-                cr_resp = self.client.get(cr_path)
-                if isinstance(cr_resp, dict) and "check_runs" in cr_resp:
-                    check_runs = cr_resp["check_runs"]
+                check_runs = self.client.list_all(cr_path, per_page=100)
             except GitHubError:
                 pass
 
@@ -428,7 +440,8 @@ class UpstreamManager:
 
         # Guard 8: Upstream Base-Red
         if check_base_red and not ignore_base_red:
-            base_red_res = self.check_upstream_base_red(base_branch=inspection["base_ref"])
+            upstream_base = release_branch_from_sync_head(inspection["head_ref"])
+            base_red_res = self.check_upstream_base_red(base_branch=upstream_base)
             not_base_red = not base_red_res["is_base_red"]
             base_red_reason = "Upstream base branch is green"
             if not not_base_red:

@@ -35,7 +35,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.lockout_duration_seconds, 900)
         self.assertTrue(cfg.require_private_chat)
         self.assertEqual(cfg.db_path, "data/telegram_ops_bot.sqlite3")
-        self.assertEqual(cfg.opsctl_path, "opsctl")
+        self.assertEqual(cfg.opsctl_path, "/usr/local/sbin/omniroute-opsctl")
         self.assertIsNone(cfg.github_token)
         self.assertIsNone(cfg.github_repo)
         self.assertEqual(cfg.log_level, "INFO")

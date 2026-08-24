@@ -141,7 +141,10 @@ class GitHubActionsManager:
         wf_name = self.validate_workflow(workflow_id)
         cid = correlation_id or generate_correlation_id()
 
-        payload_inputs = dict(inputs or {})
+        payload_inputs = {
+            key: "true" if value is True else "false" if value is False else str(value)
+            for key, value in (inputs or {}).items()
+        }
         payload_inputs["ops_request_id"] = cid
 
         body = {

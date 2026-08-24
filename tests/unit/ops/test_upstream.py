@@ -7,6 +7,7 @@ from scripts.ops.telegram_ops_bot.github import GitHubClient
 from scripts.ops.telegram_ops_bot.upstream import (
     UpstreamManager,
     parse_semver,
+    release_branch_from_sync_head,
     resolve_highest_semver,
     semver_sort_key,
 )
@@ -30,6 +31,17 @@ class TestUpstreamManager(unittest.TestCase):
         self.assertEqual(parse_semver("release/v3.8.41-rc1"), (3, 8, 41, 0, "rc1"))
         self.assertIsNone(parse_semver("main"))
         self.assertIsNone(parse_semver("feat/my-feature"))
+
+    def test_release_branch_from_sync_head(self):
+        self.assertEqual(
+            release_branch_from_sync_head("sync/upstream-release-v3.8.41"),
+            "release/v3.8.41",
+        )
+        self.assertEqual(
+            release_branch_from_sync_head("sync/upstream-v3.8.41"),
+            "release/v3.8.41",
+        )
+        self.assertIsNone(release_branch_from_sync_head("feat/unrelated"))
 
     def test_resolve_highest_semver(self):
         branches = [
@@ -176,12 +188,17 @@ class TestUpstreamManager(unittest.TestCase):
             return {}
 
         self.mock_client.get.side_effect = mock_get
+        self.mock_client.list_all.return_value = check_runs_payload["check_runs"]
         return pr_payload
 
     def test_inspect_sync_pr(self):
         self._setup_mock_sync_pr()
         inspection = self.upstream.inspect_sync_pr(42)
 
+        self.mock_client.list_all.assert_called_once_with(
+            "/repos/my-fork/OmniRoute/commits/headsha123456/check-runs",
+            per_page=100,
+        )
         self.assertEqual(inspection["pull_number"], 42)
         self.assertEqual(inspection["base_ref"], "prod")
         self.assertEqual(inspection["head_ref"], "sync/upstream-v3.8.41")
@@ -192,7 +209,11 @@ class TestUpstreamManager(unittest.TestCase):
         self._setup_mock_sync_pr()
         self.mock_client.put.return_value = {"sha": "mergesha999", "message": "Pull Request successfully merged"}
 
-        result = self.upstream.guarded_merge_sync_pr(pull_number=42)
+        result = self.upstream.guarded_merge_sync_pr(
+            pull_number=42,
+            check_freeze=False,
+            check_base_red=False,
+        )
         self.assertTrue(result["success"])
         self.assertTrue(result["merged"])
         self.assertEqual(result["sha"], "mergesha999")

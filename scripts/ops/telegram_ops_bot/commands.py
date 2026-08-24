@@ -156,6 +156,7 @@ class CommandDispatcher:
         )
         keyboard = make_inline_keyboard([
             [("🔄 Refresh", "refresh:omniroute"), ("🛡️ Security", "view:security")],
+            [("♻️ Restart OmniRoute", "prepare:restart:app")],
             [("🏠 Status", "view:status")],
         ])
         return msg, keyboard
@@ -185,6 +186,7 @@ class CommandDispatcher:
         )
         keyboard = make_inline_keyboard([
             [("🔄 Refresh", "refresh:deploy"), ("⚡ OmniRoute", "view:omniroute")],
+            [("🚀 Deploy", "prepare:deploy"), ("↩️ Rollback", "prepare:rollback")],
             [("🏠 Status", "view:status")],
         ])
         return msg, keyboard
@@ -220,8 +222,8 @@ class CommandDispatcher:
             f"<b>Total Backups Retained:</b> <code>{b.total_backups}</code>"
         )
         keyboard = make_inline_keyboard([
-            [("🔄 Refresh", "refresh:backups"), ("📊 System", "view:system")],
-            [("🏠 Status", "view:status")],
+            [("🔄 Refresh", "refresh:backups"), ("➕ Create backup", "prepare:backup")],
+            [("📊 System", "view:system"), ("🏠 Status", "view:status")],
         ])
         return msg, keyboard
 
@@ -361,7 +363,7 @@ class CommandDispatcher:
                 result = self.actions.dispatch_workflow(
                     "prod-deploy.yml",
                     "prod",
-                    inputs={"skip_deploy": action_type == "build"},
+                    inputs={"skip_deploy": "true" if action_type == "build" else "false"},
                 )
                 return f"✅ {escape_html(action_type)} dispatched: <code>{escape_html(result['correlation_id'])}</code>"
             if action_type == "merge" and self.upstream:
@@ -374,6 +376,16 @@ class CommandDispatcher:
             if action_type == "cancel" and self.actions:
                 result = self.actions.cancel_run(int(payload.get("target", "0")))
                 return f"✅ Cancel requested: <code>{escape_html(str(result))}</code>"
+            if action_type in {"backup", "restart", "rollback"}:
+                result = self.metrics.perform_operation(
+                    action_type,
+                    str(payload.get("target", "")),
+                )
+                status = escape_html(str(result.get("status", "UNKNOWN")))
+                details = result.get("error") or result.get("file") or result.get("service") or result.get("action")
+                suffix = f": <code>{escape_html(str(details))}</code>" if details else ""
+                icon = "✅" if status == "SUCCESS" else "❌"
+                return f"{icon} {escape_html(action_type)} {status}{suffix}"
             return "⚠️ Operation is unavailable or not configured."
         except Exception as error:
             logger.exception("Operator action failed")
@@ -444,11 +456,18 @@ class CommandDispatcher:
         # Handle bot username mentions, e.g. /status@MyBot
         cmd = raw_cmd.split("@")[0]
         args = " ".join(parts[1:])
+        audit_args = args
+        if cmd == "/confirm":
+            audit_args = f"{parts[1]} [REDACTED_PIN]" if len(parts) > 2 else "[REDACTED_PIN]"
 
         response_text = ""
         reply_markup = None
 
         if cmd == "/confirm":
+            try:
+                self.telegram.delete_message(chat_id, int(message.get("message_id", 0)))
+            except Exception:
+                pass
             if len(parts) != 3:
                 response_text = "Usage: <code>/confirm NONCE PIN</code>"
             else:
@@ -457,15 +476,11 @@ class CommandDispatcher:
                 if not valid_pin:
                     response_text = f"❌ {escape_html(pin_message)}"
                 else:
-                    ok, message, action = self.state.consume_pending_action(nonce, user_id)
+                    ok, consume_message, action = self.state.consume_pending_action(nonce, user_id)
                     if not ok or not action:
-                        response_text = f"❌ {escape_html(message)}"
+                        response_text = f"❌ {escape_html(consume_message)}"
                     else:
                         response_text = self._execute_action(action["action_type"], action.get("payload", {}))
-                try:
-                    self.telegram.delete_message(chat_id, int(message.get("message_id", 0)))
-                except Exception:
-                    pass
         elif cmd in ("/status", "/start"):
             response_text, reply_markup = self.handle_status()
         elif cmd == "/system":
@@ -501,7 +516,7 @@ class CommandDispatcher:
             user_id=user_id,
             chat_id=chat_id,
             command=cmd,
-            args=args,
+            args=audit_args,
             status="SUCCESS",
             details="Command executed",
         )
@@ -570,7 +585,9 @@ class CommandDispatcher:
             parts = data.split(":")
             operation = parts[1]
             target = parts[2] if len(parts) > 2 else ""
-            dangerous = operation in {"deploy", "merge", "rollback", "restart-infra"}
+            dangerous = operation in {"deploy", "merge", "rollback"} or (
+                operation == "restart" and target != "app"
+            )
             nonce = self.state.create_pending_action(
                 user_id=user_id,
                 action_type=operation,

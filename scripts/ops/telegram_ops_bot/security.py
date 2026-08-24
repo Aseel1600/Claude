@@ -217,6 +217,8 @@ def check_access(
     """
     if user_id is None:
         return False, "Missing user ID"
+    if chat_id is None:
+        return False, "Missing chat ID"
 
     if not is_user_authorized(user_id, allowed_user_ids):
         return False, f"User {user_id} is not in the authorized users list."

@@ -565,7 +565,15 @@ class GitHubClient:
                 items_to_yield = result
             elif isinstance(result, dict):
                 # Check for common wrapper keys
-                for key in ("items", "workflow_runs", "jobs", "branches", "commits", "pull_requests"):
+                for key in (
+                    "items",
+                    "workflow_runs",
+                    "jobs",
+                    "branches",
+                    "commits",
+                    "pull_requests",
+                    "check_runs",
+                ):
                     if key in result and isinstance(result[key], list):
                         items_to_yield = result[key]
                         break

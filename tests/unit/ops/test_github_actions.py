@@ -106,6 +106,25 @@ class TestGitHubActionsManager(unittest.TestCase):
             },
         )
 
+    def test_dispatch_workflow_coerces_all_input_values_to_strings(self):
+        self.mock_client.post.return_value = {}
+
+        result = self.manager.dispatch_workflow(
+            workflow_id="prod-deploy.yml",
+            ref="prod",
+            inputs={"skip_deploy": True, "attempt": 2},
+            correlation_id="test-cid-strings",
+        )
+
+        self.assertEqual(
+            result["inputs"],
+            {
+                "skip_deploy": "true",
+                "attempt": "2",
+                "ops_request_id": "test-cid-strings",
+            },
+        )
+
     def test_rerun_and_cancel(self):
         self.mock_client.post.return_value = {}
         res_rerun = self.manager.rerun_failed_jobs(1001)

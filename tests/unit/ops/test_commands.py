@@ -242,6 +242,43 @@ class TestCommands(unittest.TestCase):
         self.assertIn("/status", kwargs["text"])
         self.assertIn("/security", kwargs["text"])
 
+    def test_confirm_deletes_cleartext_pin_message(self) -> None:
+        nonce = self.state.create_pending_action(
+            user_id=1001,
+            action_type="deploy",
+            payload={},
+        )
+        message = {
+            "message_id": 4321,
+            "from": {"id": 1001},
+            "chat": {"id": 2001, "type": "private"},
+            "text": f"/confirm {nonce} 123456",
+        }
+        self.dispatcher._execute_action = MagicMock(return_value="✅ deployed")
+
+        self.dispatcher.dispatch_message(message)
+
+        self.mock_telegram.delete_message.assert_called_once_with(2001, 4321)
+        self.dispatcher._execute_action.assert_called_once_with("deploy", {})
+        audits = self.state.get_recent_audit_logs()
+        self.assertEqual(audits[0]["args"], f"{nonce} [REDACTED_PIN]")
+        self.assertNotIn("123456", audits[0]["args"])
+
+    def test_malformed_confirm_also_deletes_possible_pin_message(self) -> None:
+        message = {
+            "message_id": 4322,
+            "from": {"id": 1001},
+            "chat": {"id": 2001, "type": "private"},
+            "text": "/confirm possible-cleartext-pin",
+        }
+
+        self.dispatcher.dispatch_message(message)
+
+        self.mock_telegram.delete_message.assert_called_once_with(2001, 4322)
+        audits = self.state.get_recent_audit_logs()
+        self.assertEqual(audits[0]["args"], "[REDACTED_PIN]")
+        self.assertNotIn("possible-cleartext-pin", audits[0]["args"])
+
     def test_unauthorized_user_rejection(self) -> None:
         msg = {
             "from": {"id": 9999},  # Unauthorized user
@@ -292,6 +329,110 @@ class TestCommands(unittest.TestCase):
         self.assertEqual(kwargs["chat_id"], 2001)
         self.assertEqual(kwargs["message_id"], 555)
         self.assertIn("OmniRoute Ops Dashboard", kwargs["text"])
+
+    def test_callback_without_chat_context_is_denied(self) -> None:
+        callback = {
+            "id": "cb_missing_chat",
+            "from": {"id": 1001},
+            "data": "prepare:deploy",
+        }
+
+        self.dispatcher.dispatch_callback_query(callback)
+
+        self.mock_telegram.answer_callback_query.assert_called_once()
+        _, kwargs = self.mock_telegram.answer_callback_query.call_args
+        self.assertTrue(kwargs["show_alert"])
+        self.mock_telegram.edit_message_text.assert_not_called()
+
+    def test_callback_with_unauthorized_user_is_denied(self) -> None:
+        callback = {
+            "id": "cb_bad_user",
+            "from": {"id": 9999},
+            "message": {
+                "message_id": 555,
+                "chat": {"id": 2001, "type": "private"},
+            },
+            "data": "prepare:deploy",
+        }
+
+        self.dispatcher.dispatch_callback_query(callback)
+
+        self.mock_telegram.answer_callback_query.assert_called_once()
+        _, kwargs = self.mock_telegram.answer_callback_query.call_args
+        self.assertTrue(kwargs["show_alert"])
+        self.assertIsNone(self.state.get_pending_action("cb_bad_user"))
+
+    def test_prepare_backup_uses_button_confirmation(self) -> None:
+        callback = {
+            "id": "cb_backup",
+            "from": {"id": 1001},
+            "message": {
+                "message_id": 556,
+                "chat": {"id": 2001, "type": "private"},
+            },
+            "data": "prepare:backup",
+        }
+
+        self.dispatcher.dispatch_callback_query(callback)
+
+        _, kwargs = self.mock_telegram.edit_message_text.call_args
+        button = kwargs["reply_markup"]["inline_keyboard"][0][0]
+        self.assertEqual(button["text"], "✅ Confirm")
+        self.assertTrue(button["callback_data"].startswith("execute:"))
+
+    def test_prepare_rollback_requires_pin(self) -> None:
+        callback = {
+            "id": "cb_rollback",
+            "from": {"id": 1001},
+            "message": {
+                "message_id": 557,
+                "chat": {"id": 2001, "type": "private"},
+            },
+            "data": "prepare:rollback",
+        }
+
+        self.dispatcher.dispatch_callback_query(callback)
+
+        _, kwargs = self.mock_telegram.edit_message_text.call_args
+        self.assertIn("YOUR_PIN", kwargs["text"])
+        self.assertNotIn("execute:", str(kwargs["reply_markup"]))
+
+    def test_execute_host_operations_through_metrics_collector(self) -> None:
+        self.mock_metrics.perform_operation.side_effect = [
+            {"status": "SUCCESS", "file": "backup.sqlite.gz"},
+            {"status": "SUCCESS", "service": "app"},
+            {"status": "SUCCESS", "action": "rollback"},
+        ]
+
+        backup_text = self.dispatcher._execute_action("backup", {})
+        restart_text = self.dispatcher._execute_action("restart", {"target": "app"})
+        rollback_text = self.dispatcher._execute_action("rollback", {})
+
+        self.assertIn("SUCCESS", backup_text)
+        self.assertIn("SUCCESS", restart_text)
+        self.assertIn("SUCCESS", rollback_text)
+        self.assertEqual(
+            self.mock_metrics.perform_operation.call_args_list,
+            [
+                unittest.mock.call("backup", ""),
+                unittest.mock.call("restart", "app"),
+                unittest.mock.call("rollback", ""),
+            ],
+        )
+
+    def test_build_dispatch_uses_string_boolean_input(self) -> None:
+        self.dispatcher.actions = MagicMock()
+        self.dispatcher.actions.dispatch_workflow.return_value = {
+            "correlation_id": "ops-123"
+        }
+
+        self.dispatcher._execute_action("build", {})
+
+        self.dispatcher.actions.dispatch_workflow.assert_called_once_with(
+            "prod-deploy.yml",
+            "prod",
+            inputs={"skip_deploy": "true"},
+        )
 
     def test_pin_verification_fails_closed_when_unconfigured(self) -> None:
         config = BotConfig(

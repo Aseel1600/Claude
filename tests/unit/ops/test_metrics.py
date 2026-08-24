@@ -75,13 +75,110 @@ class TestMetrics(unittest.TestCase):
         )
 
         collector = MetricsCollector(opsctl_path="/usr/bin/opsctl")
-        metrics = collector.get_host_metrics()
+        with patch("os.geteuid", return_value=1000):
+            metrics = collector.get_host_metrics()
         self.assertIsInstance(metrics, HostMetrics)
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            ["sudo", "-n", "/usr/bin/opsctl", "system", "--json"],
+        )
         self.assertEqual(metrics.hostname, "prod-vps-01")
         self.assertEqual(metrics.cpu_count, 8)
         self.assertEqual(metrics.cpu_usage_pct, 24.5)
         self.assertEqual(metrics.mem_used_mb, 4096.0)
         self.assertEqual(metrics.disk_pct, 20.0)
+
+    @patch("subprocess.run")
+    @patch("os.geteuid", return_value=1000)
+    def test_opsctl_fixed_operations_use_sudo_and_argument_arrays(
+        self,
+        _mock_geteuid: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"status":"SUCCESS"}',
+            stderr="",
+        )
+        collector = MetricsCollector(opsctl_path="/usr/local/sbin/omniroute-opsctl")
+
+        collector.perform_operation("backup")
+        collector.perform_operation("restart", "caddy")
+        collector.perform_operation("rollback")
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ["sudo", "-n", "/usr/local/sbin/omniroute-opsctl", "backups", "create", "--json"],
+                ["sudo", "-n", "/usr/local/sbin/omniroute-opsctl", "restart", "--service", "caddy", "--json"],
+                ["sudo", "-n", "/usr/local/sbin/omniroute-opsctl", "rollback", "--json"],
+            ],
+        )
+
+    def test_opsctl_operation_rejects_unknown_target(self) -> None:
+        collector = MetricsCollector(opsctl_path="/usr/local/sbin/omniroute-opsctl")
+        result = collector.perform_operation("restart", "attacker-controlled")
+        self.assertEqual(result["status"], "ERROR")
+
+    @patch("subprocess.run")
+    @patch("os.geteuid", return_value=1000)
+    def test_logs_use_sudo_and_reject_unknown_service(
+        self,
+        _mock_geteuid: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"logs":"safe log line"}',
+            stderr="",
+        )
+        collector = MetricsCollector(opsctl_path="/usr/local/sbin/omniroute-opsctl")
+
+        logs = collector.get_logs("caddy", lines=25)
+        rejected = collector.get_logs("attacker-controlled")
+
+        self.assertEqual(logs, "safe log line")
+        self.assertIn("not allowed", rejected)
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            [
+                "sudo",
+                "-n",
+                "/usr/local/sbin/omniroute-opsctl",
+                "logs",
+                "--lines",
+                "25",
+                "--service",
+                "caddy",
+                "--json",
+            ],
+        )
+        self.assertEqual(mock_run.call_count, 1)
+
+    @patch("subprocess.run")
+    @patch("os.geteuid", return_value=0)
+    def test_root_runs_opsctl_without_sudo(
+        self,
+        _mock_geteuid: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="{}",
+            stderr="",
+        )
+
+        MetricsCollector(opsctl_path="/usr/local/sbin/omniroute-opsctl")._run_opsctl_json(
+            "system"
+        )
+
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            ["/usr/local/sbin/omniroute-opsctl", "system", "--json"],
+        )
 
     @patch("subprocess.run")
     def test_opsctl_containers_parsing(self, mock_run: MagicMock) -> None:
@@ -114,7 +211,7 @@ class TestMetrics(unittest.TestCase):
     @patch("subprocess.run")
     def test_opsctl_omniroute_and_deploy_parsing(self, mock_run: MagicMock) -> None:
         def side_effect(cmd, *args, **kwargs):
-            subcommand = cmd[1]
+            subcommand = cmd[-2]
             if subcommand == "omniroute":
                 return subprocess.CompletedProcess(
                     args=cmd,
@@ -170,23 +267,30 @@ class TestMetrics(unittest.TestCase):
         self.assertEqual(containers, [])
 
     @patch("subprocess.run")
-    def test_get_logs_sanitization_and_arguments(self, mock_run: MagicMock) -> None:
+    @patch("os.geteuid", return_value=0)
+    def test_get_logs_sanitization_and_arguments(
+        self,
+        _mock_geteuid: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
-            args=["opsctl", "logs", "--lines", "30", "--service", "omniroute-app"],
+            args=[],
             returncode=0,
-            stdout="2026-08-24 INFO Authorization: Bearer secret_bearer_token_123456789 from client\n",
+            stdout=json.dumps({
+                "logs": "2026-08-24 INFO Authorization: Bearer secret_bearer_token_123456789 from client\n"
+            }),
             stderr="",
         )
 
         collector = MetricsCollector(opsctl_path="opsctl")
-        logs = collector.get_logs(service_or_container="omniroute-app", lines=30)
+        logs = collector.get_logs(service_or_container="app", lines=30)
         self.assertNotIn("secret_bearer_token_123456789", logs)
         self.assertIn("[REDACTED_BEARER]", logs)
 
-        # Check call arguments
-        call_args = mock_run.call_args[0][0]
-        self.assertEqual(call_args[:4], ["opsctl", "logs", "--lines", "30"])
-        self.assertEqual(call_args[4:], ["--service", "omniroute-app"])
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            ["opsctl", "logs", "--lines", "30", "--service", "app", "--json"],
+        )
 
     def test_subcommand_whitelist_guard(self) -> None:
         collector = MetricsCollector(opsctl_path="opsctl")
