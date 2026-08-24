@@ -1,0 +1,1 @@
+- **fix(providers):** Antigravity OAuth rejects connects with no Cloud Code projectId instead of persisting a dead "Connected" account; BYOP detection at connect time, auto-disable of confirmed-missing accounts, and selection-side rotation ([#11284](https://github.com/diegosouzapw/OmniRoute/issues/11284))
