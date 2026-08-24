@@ -4,14 +4,14 @@
  * Each model's `supportedGenerationMethods` is mapped to OmniRoute endpoints:
  *   - generateContent / generateAnswer → "chat"
  *   - predict                          → "images"  (Imagen image generation)
- *   - predictLongRunning               → "video"   (Veo video generation)
+ *   - predictLongRunning               → "videos"  (Veo video generation)
  *   - embedContent                     → "embeddings"
  *   - bidiGenerateContent              → "audio"   (Live real-time audio)
  *
  * Model-id heuristics refine the long-running bucket because Google exposes both
  * Imagen and Veo via long-running methods on the same endpoint:
- *   - id contains "veo"    → ensure "video"
- *   - id contains "imagen" → force "images" (never "video")
+ *   - id contains "veo"    → ensure "videos"
+ *   - id contains "imagen" → force "images" (never "videos")
  *
  * Note: `gemini-*-image` models (e.g. gemini-3-pro-image) generate images via the
  * regular `generateContent` path, so they stay "chat" (image output is a chat
@@ -26,7 +26,7 @@ const METHOD_TO_ENDPOINT: Record<string, string> = {
   generateContent: "chat",
   embedContent: "embeddings",
   predict: "images",
-  predictLongRunning: "video",
+  predictLongRunning: "videos",
   bidiGenerateContent: "audio",
   generateAnswer: "chat",
 };
@@ -68,10 +68,10 @@ export function parseGeminiModelsList(data: any): GeminiDiscoveryModel[] {
     // Google exposes Imagen (image) and Veo (video) via long-running methods; the
     // method alone can't always distinguish them, so refine by model id.
     if (lowerId.includes("veo")) {
-      endpoints.add("video");
+      endpoints.add("videos");
     }
     if (lowerId.includes("imagen")) {
-      endpoints.delete("video");
+      endpoints.delete("videos");
       endpoints.add("images");
     }
 
