@@ -78,8 +78,8 @@ class TelegramOpsBot:
             upstream_manager=upstream,
         )
         self.alerts = AlertManager(
-            resource_thresholds=config.resource_thresholds(),
-            action_thresholds=config.action_thresholds(),
+            resource_thresholds=config.get_resource_thresholds(),
+            action_thresholds=config.get_action_thresholds(),
             persistence_adapter=StateManagerAlertPersistenceAdapter(self.state),
             default_cooldown_seconds=config.alert_cooldown_seconds,
             default_debounce_consecutive=config.alert_debounce_consecutive,

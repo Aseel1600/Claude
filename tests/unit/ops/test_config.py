@@ -41,6 +41,17 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.log_level, "INFO")
         self.assertEqual(cfg.validate(), [])
 
+    def test_alert_threshold_factories_match_runtime_api(self) -> None:
+        cfg = BotConfig(
+            bot_token="123456789:ABCdefGHIjklMNOpqrSTUvwxYZ_1234",
+            allowed_user_ids={111222333},
+            pin_hash="hash",
+            pin_salt="salt",
+        )
+
+        self.assertEqual(cfg.get_resource_thresholds().cpu_warning_pct, 80.0)
+        self.assertEqual(cfg.get_action_thresholds().sync_lag_warning_commits, 5)
+
     def test_load_ops_prefixed_production_config(self) -> None:
         env = {
             "OPS_TELEGRAM_BOT_TOKEN": "987654321:XYZabc12345_67890abcdefghijklm",
