@@ -530,3 +530,110 @@ test("Claude extra-usage block stays locked through the real sync chain when rec
     "extra_usage marker must survive the general recovery-clearing logic"
   );
 });
+
+// --- issue #11277: active cooldown wiped on every provider-limits sync ---------
+// `lastErrorType` is not normalized across writers. src/app/api/providers/[id]/test/route.ts
+// persists `diagnosis.type` ("upstream_rate_limited", "network_error", ...), which never
+// equals "quota_exhausted", while still persisting a real `rateLimitedUntil`. Because all
+// the defensive guards lived inside `if (lastErrorType === "quota_exhausted")`, any other
+// error type fell straight through to clearRecoveredProviderState.
+
+async function createConnectionWithCooldown(rateLimitedUntil: string | null) {
+  const created = await providersDb.createProviderConnection({
+    provider: "glm",
+    authType: "apikey",
+    name: `GLM 11277 ${Date.now()}-${Math.random()}`,
+    apiKey: "glm-test-key",
+    testStatus: "unavailable",
+    isActive: true,
+    lastError: "429 weekly quota exhausted",
+    lastErrorType: "upstream_rate_limited",
+    lastErrorSource: "executor",
+    errorCode: 429,
+    rateLimitedUntil,
+    backoffLevel: 2,
+  });
+  const connectionId = (created as { id: string }).id;
+  return {
+    connectionId,
+    connection: await providersDb.getProviderConnectionById(connectionId),
+  };
+}
+
+// Mirrors production: a 5h window with quota left next to the weekly window that
+// actually governs the block sitting at zero. hasUsableQuota() returns true on the
+// first non-zero window, so the connection looks "recovered".
+const MIXED_QUOTAS = {
+  quotas: {
+    "session (5h)": { remaining: 500, remainingPercentage: 42 },
+    "weekly (7d)": { remaining: 0, remainingPercentage: 0 },
+  },
+};
+
+test("active cooldown survives a quota sync even when lastErrorType is not quota_exhausted (#11277)", async () => {
+  const cooldown = new Date(Date.now() + 146 * 60 * 60 * 1000).toISOString();
+  const { connectionId, connection } = await createConnectionWithCooldown(cooldown);
+
+  const result = await providerLimits.maybeClearRecoveredQuotaState(connection, MIXED_QUOTAS);
+
+  assert.equal(result.rateLimitedUntil, cooldown, "146h cooldown must not be wiped");
+  assert.equal(result.testStatus, "unavailable", "connection must stay unavailable");
+  assert.equal(result.lastErrorType, "upstream_rate_limited");
+
+  const after = await providersDb.getProviderConnectionById(connectionId);
+  assert.equal(after.rateLimitedUntil, cooldown, "persisted cooldown must survive the sync");
+  assert.equal(after.testStatus, "unavailable");
+  assert.equal(Number(after.errorCode), 429, "error code must survive the sync");
+});
+
+test("expired cooldown still clears transient state (no-regression, #11277)", async () => {
+  const expired = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { connectionId, connection } = await createConnectionWithCooldown(expired);
+
+  const result = await providerLimits.maybeClearRecoveredQuotaState(connection, MIXED_QUOTAS);
+
+  assert.equal(result.testStatus, "active", "expired cooldown must not block recovery");
+  assert.equal(result.rateLimitedUntil, null);
+
+  const after = await providersDb.getProviderConnectionById(connectionId);
+  assert.equal(after.testStatus, "active");
+  assert.equal(after.rateLimitedUntil, undefined);
+  assert.equal(after.lastErrorType, undefined);
+  assert.equal(after.backoffLevel, 0);
+});
+
+test("corrupt rateLimitedUntil fails OPEN and does not pin the connection (#11277)", async () => {
+  const { connectionId, connection } = await createConnectionWithCooldown("not-a-timestamp");
+
+  const result = await providerLimits.maybeClearRecoveredQuotaState(connection, MIXED_QUOTAS);
+
+  assert.equal(result.testStatus, "active", "unparseable cooldown must not lock the connection");
+
+  const after = await providersDb.getProviderConnectionById(connectionId);
+  assert.equal(after.testStatus, "active");
+  assert.equal(after.rateLimitedUntil, undefined);
+});
+
+test("hasActiveCooldown fails open on unparseable and absent timestamps (#11277)", () => {
+  const now = Date.now();
+  assert.equal(providerLimits.hasActiveCooldown({ rateLimitedUntil: null } as never, now), false);
+  assert.equal(
+    providerLimits.hasActiveCooldown({ rateLimitedUntil: "garbage" } as never, now),
+    false,
+    "corrupt value must fail open"
+  );
+  assert.equal(
+    providerLimits.hasActiveCooldown(
+      { rateLimitedUntil: new Date(now + 60_000).toISOString() } as never,
+      now
+    ),
+    true
+  );
+  assert.equal(
+    providerLimits.hasActiveCooldown(
+      { rateLimitedUntil: new Date(now - 60_000).toISOString() } as never,
+      now
+    ),
+    false
+  );
+});

@@ -459,12 +459,29 @@ function windowStillExhaustedAfterRealReset(value: unknown, nowMs: number): bool
   return resetMs > nowMs;
 }
 
+// An explicitly persisted cooldown is still in force when it parses to a
+// timestamp in the future. Fail OPEN on an unparseable/corrupt value: a bad
+// timestamp must never be able to pin a connection offline forever.
+export function hasActiveCooldown(
+  connection: ProviderConnectionLike,
+  nowMs: number = Date.now()
+): boolean {
+  const raw = connection.rateLimitedUntil;
+  if (!raw) return false;
+  const untilMs = new Date(raw).getTime();
+  if (!Number.isFinite(untilMs)) return false;
+  return untilMs > nowMs;
+}
+
 export async function maybeClearRecoveredQuotaState(
   connection: ProviderConnectionLike,
   usage: JsonRecord
 ): Promise<ProviderConnectionLike> {
   if (!hasUsableQuota(usage)) return connection;
   if (isTerminalStatusForQuotaRecovery(connection.testStatus)) return connection;
+  const nowMs = Date.now();
+  const cooldownActive = hasActiveCooldown(connection, nowMs);
+
   if (connection.lastErrorType === "quota_exhausted") {
     if (
       connection.lastErrorSource === CLAUDE_EXTRA_USAGE_ERROR_SOURCE &&
@@ -479,7 +496,16 @@ export async function maybeClearRecoveredQuotaState(
       // below must not release it just because some quota window looks fresh.
       return connection;
     }
+  }
 
+  // An active cooldown must be honoured regardless of `lastErrorType`.
+  // `lastErrorType` is not normalized across writers: the provider test route
+  // persists diagnosis vocabulary (`upstream_rate_limited`, `network_error`, ...)
+  // that never equals "quota_exhausted", while still persisting a real
+  // `rateLimitedUntil`. Gating these guards on `quota_exhausted` alone let every
+  // other error type fall straight through to the clear, wiping multi-day
+  // cooldowns on each provider-limits sync (issue #11277).
+  if (cooldownActive || connection.lastErrorType === "quota_exhausted") {
     const quotas = usage?.quotas;
     if (isRecord(quotas)) {
       // Honor the REAL per-window resetAt from the freshly fetched quota
@@ -488,13 +514,10 @@ export async function maybeClearRecoveredQuotaState(
       // reset was parseable). Only stay locked if some window that governs
       // this connection's quota is still demonstrably exhausted.
       const anyStillBlocking = Object.values(quotas).some((value) =>
-        windowStillExhaustedAfterRealReset(value, Date.now())
+        windowStillExhaustedAfterRealReset(value, nowMs)
       );
       if (anyStillBlocking) return connection;
-    } else if (
-      connection.rateLimitedUntil &&
-      new Date(connection.rateLimitedUntil).getTime() > Date.now()
-    ) {
+    } else if (cooldownActive) {
       // No quota object at all (degraded/failed fetch shape) — fall back to
       // the previous synthetic-cooldown guard.
       return connection;
