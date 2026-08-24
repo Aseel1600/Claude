@@ -68,6 +68,14 @@ class TestUpstreamManager(unittest.TestCase):
         # Empty or non-matching
         self.assertIsNone(resolve_highest_semver(["main", "dev"]))
 
+    def test_get_upstream_default_branch(self):
+        self.mock_client.get.return_value = {"default_branch": "release/v3.8.50"}
+
+        branch = self.upstream.get_upstream_default_branch()
+
+        self.assertEqual(branch, "release/v3.8.50")
+        self.mock_client.get.assert_called_once_with("/repos/diegosouzapw/OmniRoute")
+
     def test_get_highest_upstream_release(self):
         self.mock_client.list_all.return_value = [
             {"name": "main"},

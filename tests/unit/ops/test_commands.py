@@ -228,6 +228,23 @@ class TestCommands(unittest.TestCase):
         self.assertIn("Security & Access Posture", kwargs["text"])
         self.assertIn("ACTIVE (ufw)", kwargs["text"])
 
+    def test_handle_upstream_distinguishes_default_and_newest_branch(self) -> None:
+        self.dispatcher.upstream = MagicMock()
+        self.dispatcher.upstream.get_upstream_default_branch.return_value = "release/v3.8.50"
+        self.dispatcher.upstream.get_highest_upstream_release.return_value = "release/v3.8.51"
+        self.dispatcher.upstream.compare_commits.return_value = {
+            "status": "ahead",
+            "ahead_by": 32,
+            "behind_by": 0,
+            "commits": [],
+        }
+
+        text, _keyboard = self.dispatcher.handle_upstream()
+
+        self.assertIn("Default branch:</b> <code>release/v3.8.50", text)
+        self.assertIn("Newest release branch:</b> <code>release/v3.8.51", text)
+        self.assertIn("not the current default branch", text)
+
     def test_handle_help_command(self) -> None:
         msg = {
             "from": {"id": 1001},

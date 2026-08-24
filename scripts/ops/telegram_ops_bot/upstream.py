@@ -108,6 +108,12 @@ class UpstreamManager:
         self.upstream_owner = upstream_owner
         self.upstream_repo = upstream_repo
 
+    def get_upstream_default_branch(self) -> Optional[str]:
+        """Return the branch GitHub currently presents as upstream's default."""
+        repository = self.client.get(f"/repos/{self.upstream_owner}/{self.upstream_repo}")
+        default_branch = repository.get("default_branch") if isinstance(repository, dict) else None
+        return str(default_branch) if default_branch else None
+
     def get_highest_upstream_release(self, prefix: str = "release/v") -> Optional[str]:
         """Fetch all upstream branches and resolve the highest semver release branch."""
         path = f"/repos/{self.upstream_owner}/{self.upstream_repo}/branches"

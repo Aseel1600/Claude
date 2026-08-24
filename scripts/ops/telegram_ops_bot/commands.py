@@ -284,18 +284,24 @@ class CommandDispatcher:
         """Show the active upstream release and fork comparison."""
         if not self.upstream:
             return "<b>⬆️ Upstream</b>\n\n<i>GitHub App is not configured.</i>", {}
-        branch = self.upstream.get_highest_upstream_release()
-        if not branch:
+        default_branch = self.upstream.get_upstream_default_branch()
+        newest_branch = self.upstream.get_highest_upstream_release()
+        if not newest_branch:
             return "<b>⬆️ Upstream</b>\n\nUnable to resolve an upstream release branch.", {}
-        comparison = self.upstream.compare_commits(branch, "prod", cross_upstream=True)
+        comparison = self.upstream.compare_commits(newest_branch, "prod", cross_upstream=True)
         commits = comparison.get("commits", [])[:10]
         lines = [
             "<b>⬆️ Upstream Status</b>",
             "",
-            f"<b>Release:</b> <code>{escape_html(branch)}</code>",
-            f"<b>Status:</b> <code>{escape_html(str(comparison.get('status', 'unknown')))}</code>",
-            f"<b>Ahead / behind:</b> {comparison.get('ahead_by', 0)} / {comparison.get('behind_by', 0)}",
+            f"<b>Default branch:</b> <code>{escape_html(default_branch or 'unknown')}</code>",
+            f"<b>Newest release branch:</b> <code>{escape_html(newest_branch)}</code>",
         ]
+        if default_branch and newest_branch != default_branch:
+            lines.append("<i>The newest release branch exists, but it is not the current default branch.</i>")
+        lines.extend([
+            f"<b>Newest vs prod:</b> <code>{escape_html(str(comparison.get('status', 'unknown')))}</code>",
+            f"<b>Ahead / behind:</b> {comparison.get('ahead_by', 0)} / {comparison.get('behind_by', 0)}",
+        ])
         for commit in commits:
             lines.append(
                 f"• <code>{escape_html(str(commit.get('sha', ''))[:7])}</code> "
