@@ -30,6 +30,12 @@ import {
   maxaiRefreshAccessToken,
   MAXAI_REFRESH_PATH,
 } from "../../open-sse/executors/maxai/refresh.ts";
+import {
+  requestMaxaiEmailCode,
+  verifyMaxaiEmailCode,
+  MAXAI_SIGNIN_EMAIL_PATH,
+  MAXAI_VERIFY_CODE_PATH,
+} from "../../open-sse/executors/maxai/emailLogin.ts";
 
 const USER_ID = "217f0819-965c-4926-8397-6059aacd2dcd";
 
@@ -290,4 +296,131 @@ test("maxaiRefreshAccessToken refuses when required inputs are missing", async (
   const result = await maxaiRefreshAccessToken({ refreshToken: "", deviceId: "" });
   assert.equal(result.ok, false);
   assert.equal(result.status, 0);
+});
+
+// ── Email login (browserless device-pair) ────────────────────────────────────
+
+test("requestMaxaiEmailCode posts the signed signin request + treats status OK as success", async () => {
+  let seen: { url: string; init: RequestInit } | null = null;
+  const fakeFetch = (async (url: string, init: RequestInit) => {
+    seen = { url: String(url), init };
+    return new Response(JSON.stringify({ data: { status: "OK" } }), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  const r = await requestMaxaiEmailCode({
+    email: "arminantondm@gmail.com",
+    deviceId: "46a0703d-8841-44b9-9287-efbc49091454",
+    fetchImpl: fakeFetch,
+  });
+
+  assert.equal(r.ok, true);
+  assert.ok(seen);
+  const { url, init } = seen!;
+  assert.ok(url.endsWith(MAXAI_SIGNIN_EMAIL_PATH));
+  assert.equal(init.method, "POST");
+  assert.equal(init.body, JSON.stringify({ email: "arminantondm@gmail.com", app: "maxai_webapp" }));
+  const headers = init.headers as Record<string, string>;
+  assert.ok(headers["X-Authorization"] && headers["X-Authorization"].length > 0);
+});
+
+test("requestMaxaiEmailCode surfaces a non-OK detail as an error", async () => {
+  const fakeFetch = (async () =>
+    new Response(JSON.stringify({ data: { status: "FAIL", detail: "Invalid email" } }), {
+      status: 200,
+    })) as unknown as typeof fetch;
+  const r = await requestMaxaiEmailCode({ email: "x@y.z", deviceId: "dev", fetchImpl: fakeFetch });
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? "", /Invalid email/);
+});
+
+test("verifyMaxaiEmailCode returns the full credential from auth_user", async () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const accessToken = "acc.jwt.token";
+  const refreshToken = "ref.jwt.token";
+  let seen: { url: string; init: RequestInit } | null = null;
+  const fakeFetch = (async (url: string, init: RequestInit) => {
+    seen = { url: String(url), init };
+    return new Response(
+      JSON.stringify({
+        data: {
+          status: "OK",
+          auth_user: {
+            accessToken,
+            refreshToken,
+            userId: USER_ID,
+            email: "arminantondm@gmail.com",
+            clientUserId: "client-uuid-1",
+          },
+        },
+      }),
+      { status: 200 }
+    );
+  }) as unknown as typeof fetch;
+
+  const r = await verifyMaxaiEmailCode({
+    email: "arminantondm@gmail.com",
+    code: "123456",
+    deviceId: "device-uuid-1",
+    clientUserId: "client-uuid-1",
+    fetchImpl: fakeFetch,
+  });
+
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.credential, {
+    accessToken,
+    refreshToken,
+    userId: USER_ID,
+    email: "arminantondm@gmail.com",
+    deviceId: "device-uuid-1",
+    clientUserId: "client-uuid-1",
+  });
+  assert.ok(nowSec > 0); // sanity anchor
+
+  // Request shape: verify path + pinned body fields.
+  const { url, init } = seen!;
+  assert.ok(url.endsWith(MAXAI_VERIFY_CODE_PATH));
+  const body = JSON.parse(String(init.body));
+  assert.equal(body.email, "arminantondm@gmail.com");
+  assert.equal(body.secret_code, "123456");
+  assert.equal(body.app, "maxai_webapp");
+  assert.equal(body.env, "prod_co");
+  assert.equal(body.client_user_id, "client-uuid-1");
+});
+
+test("verifyMaxaiEmailCode maps code 10119 to an expired-code message", async () => {
+  const fakeFetch = (async () =>
+    new Response(JSON.stringify({ data: { status: "FAIL", code: 10119 } }), {
+      status: 200,
+    })) as unknown as typeof fetch;
+  const r = await verifyMaxaiEmailCode({
+    email: "x@y.z",
+    code: "000000",
+    deviceId: "dev",
+    clientUserId: "cu",
+    fetchImpl: fakeFetch,
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? "", /expired|too many/i);
+});
+
+test("verifyMaxaiEmailCode defaults to an invalid-code message otherwise", async () => {
+  const fakeFetch = (async () =>
+    new Response(JSON.stringify({ data: { status: "FAIL" } }), { status: 200 })) as unknown as typeof fetch;
+  const r = await verifyMaxaiEmailCode({
+    email: "x@y.z",
+    code: "999999",
+    deviceId: "dev",
+    clientUserId: "cu",
+    fetchImpl: fakeFetch,
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? "", /Invalid code/);
+});
+
+test("email login guards missing inputs", async () => {
+  assert.equal((await requestMaxaiEmailCode({ email: "", deviceId: "" })).ok, false);
+  assert.equal(
+    (await verifyMaxaiEmailCode({ email: "", code: "", deviceId: "", clientUserId: "" })).ok,
+    false
+  );
 });
