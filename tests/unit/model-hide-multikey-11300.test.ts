@@ -25,7 +25,6 @@ process.env.DATA_DIR = tmpDir;
 const {
   setModelIsHidden,
   getModelIsHidden,
-  getHiddenModelsByProvider,
 } = await import("../../src/lib/localDb.ts");
 const { resetDbInstance } = await import("../../src/lib/db/core.ts");
 const { isModelHiddenInBulkMap, providerKeysToCheck } = await import(
