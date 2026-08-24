@@ -349,7 +349,7 @@ test("submitCode transitions to mfa_waiting when the console demands MFA", async
   const fake = makeFakePlaywright();
   happyPathVisible(fake);
   // After the login click the MFA step-up modal appears (no cookies yet).
-  const originalClicks = fake.__state.clicks;
+  // (click-state baseline captured implicitly)
   fake.__state.cookiesFn = () => [
     { name: "digest", domain: ".volcengine.com", value: "d1" },
     { name: "csrfToken", domain: ".volcengine.com", value: "c1" },
@@ -360,8 +360,7 @@ test("submitCode transitions to mfa_waiting when the console demands MFA", async
     session: { sessionId: string };
   };
   // Simulate: login button clicked → MFA modal opens
-  const loginBtn = fake.__state.clicks;
-  assert.ok(loginBtn.length > 0);
+  assert.ok(fake.__state.clicks.length > 0, "login flow clicked through");
   fake.__state.visible.add(MFA_MODAL);
   fake.__state.visible.add(MFA_INPUT);
   fake.__state.visible.add(MFA_CONFIRM_BTN);
