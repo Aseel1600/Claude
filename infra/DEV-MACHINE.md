@@ -248,8 +248,9 @@ git checkout prod
 git pull
 ```
 
-Repo trên máy cũ (`D:\omniroute\OmniRoute`) đã có sẵn cả hai remote nên chạy
-được ngay.
+Các máy đã dựng trước đó (`D:\omniroute\OmniRoute` trên Windows,
+`/media/tuannv/Projects/OmniRoute` trên Linux Mint) đều đã có sẵn cả hai remote
+nên chạy được ngay.
 
 ---
 

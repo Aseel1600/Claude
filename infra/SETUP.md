@@ -55,7 +55,9 @@ Không cần làm lại, ghi ra để bạn biết trạng thái hiện tại.
 - ✅ Bật GitHub Actions trên fork
 - ✅ Tắt 25 workflow của upstream, chỉ chừa `Production Deploy` + `Sync Upstream`
   *(quan trọng: `build.yml` của upstream trigger trên `push: branches: ["**"]`)*
-- ✅ Repo local tại `D:\omniroute\OmniRoute`, remote đã cấu hình:
+- ✅ Repo local trên máy dev đang dùng: `/media/tuannv/Projects/OmniRoute` (Linux Mint).
+  Máy Windows cũ ở `D:\omniroute\OmniRoute` vẫn dùng được, hai máy độc lập nhau.
+  Cả hai đều có:
   - `origin` → fork của bạn
   - `upstream` → repo gốc (chỉ đọc)
 
@@ -203,17 +205,27 @@ Các giá trị đã set sẵn hợp lý, đừng sửa nếu không có lý do:
 
 ### 3.5 Quyền pull image — không cần làm gì
 
-Image trên GHCR là private. VPS vẫn pull được mà **không** giữ credential nào:
-job deploy tự cho VPS mượn `GITHUB_TOKEN` của chính lần chạy đó (step 2.3b),
-pull xong thì logout (step 2.6).
+Package `ghcr.io/thedemontuan/omniroute` hiện **public**: nó được publish từ một
+repo public nên GitHub cho pull ẩn danh. Kiểm chứng bằng một máy chưa từng
+`docker login ghcr.io`:
 
-Token ấy sống đúng bằng thời gian job chạy và chỉ có `packages: read`. Nghĩa là
-`~/.docker/config.json` trên VPS trống giữa hai lần deploy — không có PAT dài
-hạn nào để rò rỉ, không có gì phải xoay vòng.
+```bash
+T=$(curl -s "https://ghcr.io/token?scope=repository:thedemontuan/omniroute:pull&service=ghcr.io" \
+    | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $T" \
+  -H "Accept: application/vnd.oci.image.index.v1+json" \
+  https://ghcr.io/v2/thedemontuan/omniroute/manifests/<digest>
+# 200 = public
+```
 
-> Nếu bạn cần pull tay trên VPS để debug, lúc đó mới tạo một PAT scope
-> `read:packages` và `docker login ghcr.io -u TheDemonTuan --password-stdin`.
-> Nhớ `docker logout ghcr.io` sau khi xong.
+Nghĩa là VPS không cần credential gì để pull. Ai cũng pull được bản build của
+bạn — image không chứa secret (secret nằm ở `.app.env` trên VPS, không bao giờ
+vào image), và mã nguồn fork vốn đã public.
+
+Dù vậy job deploy vẫn cho VPS mượn `GITHUB_TOKEN` của lần chạy đó (step 2.3b) và
+logout ngay sau (step 2.6). Hai bước ấy tốn vài giây và hiện không bắt buộc —
+giữ lại để nếu có ngày bạn chuyển package sang private thì không phải sửa gì,
+và để `~/.docker/config.json` trên VPS luôn trống giữa hai lần deploy.
 
 ## 4. Khoá SSH cho CI ⬜
 
@@ -372,7 +384,7 @@ gh workflow run prod-sync-upstream.yml --repo TheDemonTuan/OmniRoute -f ref=main
 **Cách B — từ máy dev.**
 
 ```bash
-cd D:\omniroute\OmniRoute
+cd /media/tuannv/Projects/OmniRoute
 bash infra/sync-upstream.sh --dry-run    # xem sẽ merge gì, version trước/sau
 bash infra/sync-upstream.sh              # merge, chưa push
 git push origin prod                      # -> deploy
@@ -414,6 +426,12 @@ ssh <user>@<vps> '/opt/omniroute/deploy.sh --rollback'
 
 Quay về đúng image mà bản hiện tại đã thay thế.
 
+Chạy tay qua SSH được. Hiện package là public nên pull luôn thành công; ngoài ra
+`deploy.sh` còn một lớp dự phòng: pull hỏng thì kiểm tra image đã có sẵn trên đĩa
+chưa — có thì dùng bản local, không có mới báo lỗi. Slot cũ vẫn giữ tham chiếu
+tới image đó nên `docker image prune` không xoá nó. Lớp này chỉ thành thiết yếu
+nếu bạn chuyển package sang private.
+
 ⚠️ `--rollback` không cứu được khi bản mới đã chạy một migration DB phá vỡ tương
 thích ngược. Lúc đó thứ cứu bạn là backup — xem 8.4.
 
@@ -428,6 +446,59 @@ tail /opt/omniroute/backups/backup.log
 ```
 
 Restore: xem [README.md §7](./README.md).
+
+Về dung lượng: backup là ảnh chụp `storage.sqlite` đã gzip. Với DB 2 MB thì mỗi
+bản khoảng 0.3–0.5 MB, giữ 14 bản là ~5 MB. Nó **không** phải thứ chiếm đĩa —
+xem 8.5 trước khi định tắt nó đi.
+
+Và đây là thứ duy nhất cứu được dữ liệu. `storage.sqlite` chứa toàn bộ provider
+connection kèm API key đã mã hoá, cấu hình combo/routing, settings dashboard,
+log usage/cost, memory, MCP audit. `--rollback` chỉ đổi image, không đụng dữ
+liệu — mất file này là ngồi nhập lại từng API key bằng tay.
+
+### 8.5 Đĩa
+
+Thứ thật sự ăn đĩa là image, không phải backup:
+
+| | Dung lượng |
+|---|---|
+| Image OmniRoute (`runner-base`, arm64) | ~5.6 GB |
+| redis + caddy + cloudflared | ~350 MB |
+| `storage.sqlite` | vài MB |
+| 14 bản backup | ~5 MB |
+
+Blue/green giữ **2 image** ở trạng thái ổn định (slot đang dừng vẫn tham chiếu
+image cũ, nên `docker image prune -f` ở cuối `deploy.sh` chỉ dọn image thật sự
+mồ côi). Trong cửa sổ deploy có lúc tồn tại 3 image cùng lúc, tức đỉnh khoảng
+**17 GB** chỉ riêng cho image.
+
+Kiểm tra:
+
+```bash
+docker system df
+df -h /
+```
+
+Nếu sắp đầy, hai đường:
+
+1. **Resize boot volume** trong OCI Console (Always Free cho tổng 200 GB block
+   storage), rồi trên VPS:
+
+   ```bash
+   sudo /usr/libexec/oci-growfs -y
+   sudo lvextend -l +100%FREE /dev/ocivolume/root
+   sudo xfs_growfs /
+   ```
+
+   Không cần reboot, XFS nở online.
+
+2. **Thu hồi `/var/oled`** nếu máy còn LV đó. Image Oracle Linux mặc định cắt
+   15 GB cho dữ liệu chẩn đoán (PCP + kdump) mà gần như không bao giờ dùng tới.
+   Trên VPS này đã làm rồi: dừng/disable PCP, chuyển `path` trong
+   `/etc/kdump.conf` sang `/var/crash`, `umount /var/oled`, bỏ dòng fstab,
+   `lvremove ocivolume/oled`, rồi `lvextend` + `xfs_growfs`. Root từ 29.5 GB
+   lên 44.5 GB. Bản sao config để ở `/etc/fstab.bak-preoled` và
+   `/etc/kdump.conf.bak-preoled`.
 
 ---
 

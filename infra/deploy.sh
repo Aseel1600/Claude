@@ -270,7 +270,22 @@ wait_container_healthy redis 60 || restore_env_and_fail "redis did not become he
 #  START THE TARGET SLOT  (overlap window opens here)
 # ─────────────────────────────────────────────────────────────────────────────
 log "Pulling $NEW_IMAGE ..."
-dc pull "$TARGET_SERVICE" || restore_env_and_fail "docker pull failed"
+if ! dc pull "$TARGET_SERVICE"; then
+    # A failed pull is not automatically fatal. This host holds no standing GHCR
+    # credential: the deploy workflow lends it one for a single run and logs out
+    # afterwards (prod-deploy.yml steps 2.3b / 2.6). Today that costs nothing,
+    # because the package is public and pulls anonymously — but the moment it is
+    # switched to private, an operator running `deploy.sh --rollback` by hand
+    # over SSH would have no way to authenticate. They do not need one: the
+    # rollback target is the image this box was running minutes ago, the stopped
+    # slot still references it so `docker image prune` leaves it alone, and it is
+    # right there on local disk.
+    if docker image inspect "$NEW_IMAGE" >/dev/null 2>&1; then
+        log "Pull failed, but $NEW_IMAGE is present locally — continuing with the local copy."
+    else
+        restore_env_and_fail "docker pull failed and $NEW_IMAGE is not on this host"
+    fi
+fi
 
 log "Starting $TARGET_SERVICE ..."
 dc up -d --no-deps "$TARGET_SERVICE" || restore_env_and_fail "failed to start $TARGET_SERVICE"
