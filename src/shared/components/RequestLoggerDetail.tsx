@@ -12,8 +12,9 @@ import {
 import { formatDuration, formatApiKeyLabel, maskAccount } from "@/shared/utils/formatting";
 import { formatErrorForDisplay } from "@/shared/utils/formatting";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { useTimestampTitles, withTimestampTitleMarker } from "@/shared/hooks/useTimestampTitles";
 import { JsonTreeExpandControls } from "@/shared/components/JsonTreeExpandControls";
-import useJsonTreeExpandStore from "@/store/jsonTreeExpandStore";
+import { useJsonTreeExpandLevel } from "@/store/jsonTreeExpandStore";
 import {
   PayloadSection,
   ConversationContextSection,
@@ -108,7 +109,7 @@ function parseStreamIntoSegments(joined: string): StreamSegment[] {
   return segments;
 }
 
-function StreamSection({ title, json, onCopy }) {
+function StreamSection({ title, sectionId, json, onCopy }) {
   const t = useTranslations("requestLogger.detail");
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(true);
@@ -122,7 +123,8 @@ function StreamSection({ title, json, onCopy }) {
   });
   const ref = useRef(null);
   const { isDark } = useTheme();
-  const expandLevel = useJsonTreeExpandStore((s) => s.level);
+  const resolvedSectionId = sectionId || title;
+  const expandLevel = useJsonTreeExpandLevel(resolvedSectionId);
   const segments = useMemo(() => parseStreamIntoSegments(json), [json]);
 
   const handleCopy = async () => {
@@ -152,6 +154,8 @@ function StreamSection({ title, json, onCopy }) {
       localStorage.setItem("pref:stream:autoscroll", next ? "1" : "0");
     } catch {}
   };
+
+  useTimestampTitles(ref, open);
 
   return (
     <div>
@@ -189,7 +193,9 @@ function StreamSection({ title, json, onCopy }) {
             </span>
             {copied ? t("copied") : t("copy")}
           </button>
-          {segments.some((s) => s.type === "json") && <JsonTreeExpandControls />}
+          {segments.some((s) => s.type === "json") && (
+            <JsonTreeExpandControls sectionId={resolvedSectionId} />
+          )}
         </div>
       </div>
       {open && (
@@ -202,7 +208,7 @@ function StreamSection({ title, json, onCopy }) {
               <div key={i} className="my-1">
                 <JsonView
                   data={segment.value}
-                  style={isDark ? darkStyles : defaultStyles}
+                  style={withTimestampTitleMarker(isDark ? darkStyles : defaultStyles)}
                   shouldExpandNode={(level) => level < expandLevel}
                 />
               </div>
@@ -976,6 +982,7 @@ export default function RequestLoggerDetail({
               {streamChunks && streamChunks.provider && (
                 <StreamSection
                   title={t("providerEventStream")}
+                  sectionId="providerEventStream"
                   json={
                     Array.isArray(streamChunks.provider)
                       ? streamChunks.provider.join("")
@@ -994,6 +1001,7 @@ export default function RequestLoggerDetail({
               {streamChunks && streamChunks.client && (
                 <StreamSection
                   title={t("clientEventStream")}
+                  sectionId="clientEventStream"
                   json={
                     Array.isArray(streamChunks.client)
                       ? streamChunks.client.join("")
@@ -1015,6 +1023,7 @@ export default function RequestLoggerDetail({
                 !streamChunks.client && (
                   <StreamSection
                     title={t("eventStream")}
+                    sectionId="eventStream"
                     json={
                       Array.isArray(streamChunks.openai)
                         ? streamChunks.openai.join("")
@@ -1035,6 +1044,7 @@ export default function RequestLoggerDetail({
                   <PayloadSection
                     key={section.key}
                     title={section.title}
+                    sectionId={section.key}
                     json={section.json}
                     onCopy={() => onCopy(section.json)}
                   />
@@ -1043,6 +1053,7 @@ export default function RequestLoggerDetail({
               {payloadSections.length === 0 && responseJson && (
                 <PayloadSection
                   title={t("responsePayloadLegacy")}
+                  sectionId="responsePayloadLegacy"
                   json={responseJson}
                   onCopy={() => onCopy(responseJson)}
                 />
@@ -1051,6 +1062,7 @@ export default function RequestLoggerDetail({
               {payloadSections.length === 0 && requestJson && (
                 <PayloadSection
                   title={t("requestPayloadLegacy")}
+                  sectionId="requestPayloadLegacy"
                   json={requestJson}
                   onCopy={() => onCopy(requestJson)}
                 />
