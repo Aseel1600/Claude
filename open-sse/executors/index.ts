@@ -124,7 +124,7 @@ const executors = {
   fb: new FreebuffExecutor(), // Alias
   "opencode-zen": new OpencodeExecutor("opencode-zen"),
   "opencode-go": new OpencodeExecutor("opencode-go"),
-  opencode: new OpencodeExecutor("opencode-zen"), // Alias for opencode-zen
+  opencode: new OpencodeExecutor("opencode"),
   vertex: new VertexExecutor(),
   "vertex-partner": new VertexExecutor(),
   cliproxyapi: new CliproxyapiExecutor(),
