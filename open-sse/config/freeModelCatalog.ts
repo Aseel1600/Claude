@@ -70,6 +70,31 @@ export interface FreeModelTotals {
 const RECURRING = new Set<FreeModelFreeType>(["recurring-daily", "recurring-monthly", "keyless"]);
 
 /**
+ * What each free-tier regime engages for "can I route here without paying?".
+ * Exhaustive by construction: adding a member to `FreeModelFreeType` will not
+ * compile until it is classified here. `discontinued` is the one regime a
+ * provider uses to retire a free tier behind a paid key — it does NOT grant
+ * free access, and the shared predicate (`isFreeModel`) must read this instead
+ * of treating every catalogued id as free. `RECURRING` (above) answers a
+ * different question (which regimes feed the headline token totals) and is left
+ * independent on purpose — deriving it from this table would silently change
+ * the homepage totals.
+ */
+const FREE_REGIME_TRAITS = {
+  "recurring-daily": { grantsFreeAccess: true },
+  "recurring-monthly": { grantsFreeAccess: true },
+  "recurring-credit": { grantsFreeAccess: true },
+  "recurring-uncapped": { grantsFreeAccess: true },
+  "one-time-initial": { grantsFreeAccess: true },
+  keyless: { grantsFreeAccess: true },
+  discontinued: { grantsFreeAccess: false },
+} satisfies Record<FreeModelFreeType, { grantsFreeAccess: boolean }>;
+
+export function grantsFreeAccess(freeType: FreeModelFreeType): boolean {
+  return FREE_REGIME_TRAITS[freeType].grantsFreeAccess;
+}
+
+/**
  * Deposit-unlock boosts: a one-time small top-up that permanently raises a
  * provider's recurring free quota. Kept OUT of the steady headline and surfaced
  * as a separate "unlock more" figure. Keyed by the provider's recurring poolKey.
