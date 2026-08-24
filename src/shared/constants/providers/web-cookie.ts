@@ -505,6 +505,20 @@ export const WEB_COOKIE_PROVIDERS = {
     authHint:
       "Use browser sign-in, or paste the full Cookie header from conol.ai. The __Secure-better-auth.session_token cookie is required.",
   },
+  maxai: {
+    id: "maxai",
+    alias: "mx",
+    name: "MaxAI",
+    icon: "auto_awesome",
+    color: "#6D28D9",
+    textIcon: "MX",
+    website: "https://www.maxai.co",
+    subscriptionRisk: true,
+    riskNoticeVariant: "webCookie",
+    toolCalling: "emulated",
+    authHint:
+      "Use browser sign-in to mint a MaxAI access token. OmniRoute signs each request and routes it through residential egress; the token is refreshed via an isolated headless browser (MaxAI's OAuth refresh cannot be called directly).",
+  },
 };
 
 /** Resolved public site for a web-session provider (href + display host). */
