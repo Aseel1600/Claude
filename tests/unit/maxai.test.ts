@@ -309,7 +309,7 @@ test("requestMaxaiEmailCode posts the signed signin request + treats status OK a
   }) as unknown as typeof fetch;
 
   const r = await requestMaxaiEmailCode({
-    email: "arminantondm@gmail.com",
+    email: "user@example.com",
     deviceId: "46a0703d-8841-44b9-9287-efbc49091454",
     fetchImpl: fakeFetch,
   });
@@ -319,7 +319,7 @@ test("requestMaxaiEmailCode posts the signed signin request + treats status OK a
   const { url, init } = seen!;
   assert.ok(url.endsWith(MAXAI_SIGNIN_EMAIL_PATH));
   assert.equal(init.method, "POST");
-  assert.equal(init.body, JSON.stringify({ email: "arminantondm@gmail.com", app: "maxai_webapp" }));
+  assert.equal(init.body, JSON.stringify({ email: "user@example.com", app: "maxai_webapp" }));
   const headers = init.headers as Record<string, string>;
   assert.ok(headers["X-Authorization"] && headers["X-Authorization"].length > 0);
 });
@@ -349,7 +349,7 @@ test("verifyMaxaiEmailCode returns the full credential from auth_user", async ()
             accessToken,
             refreshToken,
             userId: USER_ID,
-            email: "arminantondm@gmail.com",
+            email: "user@example.com",
             clientUserId: "client-uuid-1",
           },
         },
@@ -359,7 +359,7 @@ test("verifyMaxaiEmailCode returns the full credential from auth_user", async ()
   }) as unknown as typeof fetch;
 
   const r = await verifyMaxaiEmailCode({
-    email: "arminantondm@gmail.com",
+    email: "user@example.com",
     code: "123456",
     deviceId: "device-uuid-1",
     clientUserId: "client-uuid-1",
@@ -371,7 +371,7 @@ test("verifyMaxaiEmailCode returns the full credential from auth_user", async ()
     accessToken,
     refreshToken,
     userId: USER_ID,
-    email: "arminantondm@gmail.com",
+    email: "user@example.com",
     deviceId: "device-uuid-1",
     clientUserId: "client-uuid-1",
   });
@@ -381,7 +381,7 @@ test("verifyMaxaiEmailCode returns the full credential from auth_user", async ()
   const { url, init } = seen!;
   assert.ok(url.endsWith(MAXAI_VERIFY_CODE_PATH));
   const body = JSON.parse(String(init.body));
-  assert.equal(body.email, "arminantondm@gmail.com");
+  assert.equal(body.email, "user@example.com");
   assert.equal(body.secret_code, "123456");
   assert.equal(body.app, "maxai_webapp");
   assert.equal(body.env, "prod_co");
