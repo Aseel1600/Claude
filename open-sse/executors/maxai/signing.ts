@@ -6,8 +6,8 @@
  * `X-Authorization` blobs. The scheme is:
  *
  *   sign_str = `${APP_VERSION}:${req_time}:${path}:${uid}`
- *   sha1     = HMAC_SHA1_hex(sign_str, key=`${req_time}:${HMAC_SECRET}`)
- *   p        = SM3_hex(`${req_time}:${sha1}:${HMAC_SECRET}`)
+ *   sha1     = HMAC_SHA1_hex(sign_str, key=`${req_time}:${WEBAPP_HMAC_KEY}`)
+ *   p        = SM3_hex(`${req_time}:${sha1}:${WEBAPP_HMAC_KEY}`)
  *   payload  = { X-Client-Domain, X-Client-Path(page url), X-Random(6-digit),
  *               t(ms), p, d(device_id), <CTX_KEY>:{ a: context } }
  *   X-Authorization = base64( "Salted__" + salt8 + AES-256-CBC(payloadJSON) )
@@ -24,8 +24,14 @@
 import { createHmac, createHash, createCipheriv, randomBytes } from "node:crypto";
 
 export const MAXAI_APP_VERSION = "webpage_8.18.0";
-const HMAC_SECRET = "4bcbe741c53022f41bf88948e46f257e71ce826d8409a72128398863";
-const AES_PASSPHRASE = "93d2c4cb7089b5d8cb2b19565d303c0a465ea0157d7466dfd5982ebb";
+// These are PUBLIC web-app client constants, not secrets: they ship verbatim in
+// the www.maxai.co JavaScript bundle (module 69319) and are identical for every
+// visitor's browser. They are the client-side keying material the web app uses to
+// sign its own outbound requests; there is no per-user or server secret here.
+// Named *_WEBAPP_* (not *_SECRET*) to reflect that and to avoid mislabelling a
+// public constant as a credential.
+const MAXAI_WEBAPP_HMAC_KEY = "4bcbe741c53022f41bf88948e46f257e71ce826d8409a72128398863";
+const MAXAI_WEBAPP_AES_KEY = "93d2c4cb7089b5d8cb2b19565d303c0a465ea0157d7466dfd5982ebb";
 /** Content slot key (a constant hex string from the bundle). */
 const CTX_KEY = "3c86e26ccbb7274f752e7d868a1541ebfb7f37e7";
 const CLIENT_DOMAIN = "maxai.co";
@@ -66,7 +72,7 @@ function evpBytesToKey(
 }
 
 /** Reproduce CryptoJS.AES.encrypt(text, passphrase).toString() (OpenSSL Salted__ envelope). */
-export function maxaiAesEncrypt(plaintext: string, passphrase: string = AES_PASSPHRASE, salt?: Buffer): string {
+export function maxaiAesEncrypt(plaintext: string, passphrase: string = MAXAI_WEBAPP_AES_KEY, salt?: Buffer): string {
   const s = salt ?? randomBytes(8);
   const { key, iv } = evpBytesToKey(passphrase, s);
   const cipher = createCipheriv("aes-256-cbc", key, iv); // PKCS7 padding is the default
@@ -79,8 +85,8 @@ export function computeMaxaiProof(path: string, reqTime: number, userId: string)
   const p = path.endsWith("?") ? path.slice(0, -1) : path;
   const uid = BLANK_USER_ROUTES.has(p) ? "" : userId;
   const signStr = `${MAXAI_APP_VERSION}:${reqTime}:${p}:${uid}`;
-  const sha1 = hmacSha1Hex(signStr, `${reqTime}:${HMAC_SECRET}`);
-  return sm3Hex(`${reqTime}:${sha1}:${HMAC_SECRET}`);
+  const sha1 = hmacSha1Hex(signStr, `${reqTime}:${MAXAI_WEBAPP_HMAC_KEY}`);
+  return sm3Hex(`${reqTime}:${sha1}:${MAXAI_WEBAPP_HMAC_KEY}`);
 }
 
 export interface MaxaiSignInput {

@@ -97,4 +97,12 @@
       # credential; the generic-api-key rule flags the long hyphenated string.
       '''omniroute-cheaperinference-sponsor-banner-dismissed-v\d+''',
       '''SunbreakWebUI1''',
+      # MaxAI web-app PUBLIC client constants (open-sse/executors/maxai/signing.ts).
+      # Added: 2026-08-24 | Revisar em: v3.9.0 | Justificativa: NÃO são segredos —
+      # são valores client-side que a web app www.maxai.co embute VERBATIM no seu
+      # bundle JS (módulo 69319) e que são idênticos para todo visitante; é o
+      # material de assinatura que o próprio cliente web usa. Sem segredo de
+      # usuário/servidor. Renomeados para *_WEBAPP_* (não *_SECRET*) no código.
+      '''4bcbe741c53022f41bf88948e46f257e71ce826d8409a72128398863''',
+      '''93d2c4cb7089b5d8cb2b19565d303c0a465ea0157d7466dfd5982ebb''',
     ]
