@@ -3,6 +3,7 @@ import { createMDX } from "fumadocs-mdx/next";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mitmManagerAliasFor } from "./scripts/build/mitm-stub-flag.mjs";
+import { betterSqlite3AliasFor } from "./scripts/build/better-sqlite3-stub-flag.mjs";
 import { normalizeBasePath } from "./scripts/build/normalizeBasePath.mjs";
 import {
   buildSecurityHeaderRules,
@@ -138,10 +139,14 @@ const nextConfig = {
       // the stub to every npm/Electron/VPS artifact and broke Agent Bridge
       // start for all non-Docker users (#6344). See scripts/build/mitm-stub-flag.mjs.
       ...mitmManagerAliasFor(process.env),
-      // Build-time stub so the bundler never traces the native better-sqlite3
-      // addon into a build worker (SIGABRT at worker teardown). Runtime still
-      // uses the real package via serverExternalPackages. (#10060)
-      "better-sqlite3": "./src/lib/db/better-sqlite3.stub.js",
+      // Better-sqlite3 never gets bundled: during the production build the
+      // native addon must stay out of build workers (SIGABRT at teardown,
+      // #10060) so the bundler resolves it to the no-op build stub; at
+      // runtime the alias is empty and serverExternalPackages keeps the
+      // real package external (#11343 — the previous UNCONDITIONAL alias
+      // shipped the stub into the standalone server and every DB op 500ed).
+      // See scripts/build/better-sqlite3-stub-flag.mjs.
+      ...betterSqlite3AliasFor(process.env),
       ...minimalBuildAliases,
     },
     // src/lib/agentSkills/generator.ts builds its fs base path from a runtime

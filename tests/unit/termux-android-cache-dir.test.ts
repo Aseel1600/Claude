@@ -179,6 +179,23 @@ test("isFatalInstrumentationHookFailure: BUG #10028 — generic non-Android inst
   assert.equal(isFatalInstrumentationHookFailure(genericWindowsFailure), false);
 });
 
+test("isFatalInstrumentationHookFailure: DB runtime error is not misreported as Android cache bug (#11343)", () => {
+  // #11343 runtime symptom: better-sqlite3 got bundled as the no-op stub and
+  // every DB op threw a minified constructor error. That must NOT trip the
+  // Android/Termux cache hint on desktop — the real cause is the driver, not
+  // `~/.cache`.
+  assert.equal(
+    isFatalInstrumentationHookFailure("TypeError: r(...) is not a constructor"),
+    false
+  );
+  assert.equal(
+    isFatalInstrumentationHookFailure(
+      "Error: An error occurred while loading instrumentation hook: TypeError: r(...) is not a constructor"
+    ),
+    false
+  );
+});
+
 test("formatAndroidInstrumentationFailureHint: names the cache dir and TERMUX_GUIDE", () => {
   const hint = formatAndroidInstrumentationFailureHint("/data/home/.cache");
   assert.match(hint, /\/data\/home\/\.cache/);
