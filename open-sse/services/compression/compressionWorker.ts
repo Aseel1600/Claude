@@ -1,5 +1,9 @@
 import { parentPort } from "node:worker_threads";
-import { applyCompression } from "./strategySelector.ts";
+import {
+  applyCompression,
+  applyStackedCompression,
+  type StackedCompressionStep,
+} from "./strategySelector.ts";
 import type {
   CompressionWorkerJob,
   CompressionWorkerMessage,
@@ -8,15 +12,19 @@ import type {
 if (!parentPort) throw new Error("compressionWorker must run in a worker thread");
 parentPort.on("message", (job: CompressionWorkerJob) => {
   try {
-    const result = applyCompression(job.body, job.mode, {
-      ...job.options,
-      onEngineStep: (step) =>
-        parentPort.postMessage({
-          id: job.id,
-          type: "step",
-          step,
-        } satisfies CompressionWorkerMessage),
-    });
+    const onEngineStep = (step: StackedCompressionStep) =>
+      parentPort.postMessage({
+        id: job.id,
+        type: "step",
+        step,
+      } satisfies CompressionWorkerMessage);
+    const result =
+      job.mode === "stacked"
+        ? applyStackedCompression(job.body, job.options?.config?.stackedPipeline, {
+            ...job.options,
+            onEngineStep,
+          })
+        : applyCompression(job.body, job.mode, job.options);
     parentPort.postMessage({
       id: job.id,
       type: "result",
