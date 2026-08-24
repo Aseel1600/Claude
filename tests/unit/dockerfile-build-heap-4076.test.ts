@@ -78,3 +78,12 @@ test("#4076 the build heap default is at least 4096 MB (the V8 default ~2 GB OOM
     `build heap default must be >= 4096 MB to clear the #4076 OOM (found ${value})`
   );
 });
+
+test("#10060 the builder caps Next page-data workers", () => {
+  const { start, end } = builderStageRange();
+  const stage = lines.slice(start, end).join("\n");
+  const workerArg = stage.match(/ARG\s+CIRCLE_NODE_TOTAL\s*=\s*(\d+)/);
+  const workerEnv = stage.match(/ENV\s+CIRCLE_NODE_TOTAL\s*=\s*\$\{CIRCLE_NODE_TOTAL\}/);
+  assert.equal(workerArg?.[1], "8", "builder worker default should remain capped at 8");
+  assert.ok(workerEnv, "builder must expose CIRCLE_NODE_TOTAL to next build");
+});

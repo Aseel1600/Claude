@@ -170,6 +170,13 @@ const nextConfig = {
   // accept for image-bearing requests; tune via env if a deployment needs
   // more.
   experimental: {
+    // Run the custom Webpack production compilation in an isolated worker.
+    // This is the Next.js-recommended escape hatch for large module graphs and
+    // keeps the compiler heap separate from the parent build process.
+    webpackBuildWorker: true,
+    // Trade a small amount of build time for lower peak memory on the large
+    // OmniRoute module graph.
+    webpackMemoryOptimizations: true,
     serverActions: {
       bodySizeLimit: process.env.OMNIROUTE_SERVER_ACTIONS_BODY_LIMIT || "50mb",
     },

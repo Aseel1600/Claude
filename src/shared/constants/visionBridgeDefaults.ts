@@ -37,7 +37,7 @@ export function isVisionBridgeForcedModel(model: string | null | undefined): boo
 
 export const VISION_BRIDGE_DEFAULTS = {
   enabled: true,
-  model: "openai/gpt-4o-mini",
+  model: "antigravity/gemini-3.6-flash-high",
   prompt:
     "Describe this image concisely in 2-3 sentences. Focus on the most relevant visual details.",
   timeoutMs: 30000,

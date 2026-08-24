@@ -103,6 +103,8 @@ export async function recordRejectedRequestUsage(input: RejectedRequestUsageInpu
     latencyMs: duration,
     comboStrategy: comboName || null,
     endpoint: endpoint || "/v1/chat/completions",
+    comboName,
+    requestId: correlationId,
   }).catch(() => {});
 }
 

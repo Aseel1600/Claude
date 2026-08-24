@@ -325,6 +325,7 @@ export const updateSettingsSchema = z.object({
   lkgpEnabled: z.boolean().optional(),
   // #1311: echo the requested alias/combo name in the response model field (opt-in)
   echoRequestedModelName: z.boolean().optional(),
+  appendNerdStats: z.boolean().optional(),
   // #4481 layer 2: CCR-style Router.webSearch — when a request carries a native
   // web_search server tool, route the whole request to this model/provider instead of
   // the default (for providers that don't implement Anthropic's web_search server tool).

@@ -4,12 +4,89 @@
  */
 import {
   CLAUDE_OPUS_5_PRICING,
+  CLAUDE_SONNET_5_PRICING,
+  GEMINI_25_FLASH_PRICING,
+  GEMINI_31_FLASH_LITE_PRICING,
+  GEMINI_31_PRO_PRICING,
+  GEMINI_35_FLASH_PRICING,
+  GEMINI_36_FLASH_PRICING,
+  GEMINI_37_FLASH_PRICING,
   GPT_5_3_CODEX_PRICING,
   GPT_5_5_PRICING,
   GPT_5_6_LUNA_PRICING,
   GPT_5_6_SOL_PRICING,
   GPT_5_6_TERRA_PRICING,
 } from "./shared-tiers";
+
+const CURSOR_CLAUDE_OPUS_5_FAST_PRICING = {
+  input: 10.0,
+  output: 50.0,
+  cached: 1.0,
+  reasoning: 50.0,
+  cache_creation: 12.5,
+};
+
+const CURSOR_GEMINI_37_FLASH_PRICING = {
+  input: 0.75,
+  output: 3.5,
+  cached: 0.075,
+  reasoning: 3.5,
+  cache_creation: 0.75,
+};
+
+const GPT_5_6_SOL_FAST_PRICING = {
+  input: 8.0,
+  output: 40.0,
+  cached: 0.8,
+  reasoning: 40.0,
+  cache_creation: 10.0,
+};
+
+const GPT_5_6_TERRA_FAST_PRICING = {
+  input: 4.0,
+  output: 24.0,
+  cached: 0.4,
+  reasoning: 24.0,
+  cache_creation: 5.0,
+};
+
+const GPT_5_6_LUNA_FAST_PRICING = {
+  input: 0.4,
+  output: 2.4,
+  cached: 0.04,
+  reasoning: 2.4,
+  cache_creation: 0.5,
+};
+
+const CURSOR_PRICING = {
+  "claude-opus-5": CLAUDE_OPUS_5_PRICING,
+  "claude-opus-5-fast": CURSOR_CLAUDE_OPUS_5_FAST_PRICING,
+  "claude-opus-5-high": CLAUDE_OPUS_5_PRICING,
+  "claude-opus-5-xhigh": CLAUDE_OPUS_5_PRICING,
+  "claude-opus-5-max": CLAUDE_OPUS_5_PRICING,
+  "claude-opus-5-thinking-high": CLAUDE_OPUS_5_PRICING,
+  "claude-opus-5-thinking-xhigh": CLAUDE_OPUS_5_PRICING,
+  "claude-opus-5-thinking-max": CLAUDE_OPUS_5_PRICING,
+  "claude-sonnet-5": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-low": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-medium": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-high": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-xhigh": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-max": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-thinking-low": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-thinking-medium": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-thinking-high": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-thinking-xhigh": CLAUDE_SONNET_5_PRICING,
+  "claude-sonnet-5-thinking-max": CLAUDE_SONNET_5_PRICING,
+  "gemini-3.7-flash": CURSOR_GEMINI_37_FLASH_PRICING,
+  "gemini-3.1-pro": GEMINI_31_PRO_PRICING,
+  "gpt-5.6-sol": GPT_5_6_SOL_PRICING,
+  "gpt-5.6-sol-fast": GPT_5_6_SOL_FAST_PRICING,
+  "gpt-5.6-terra": GPT_5_6_TERRA_PRICING,
+  "gpt-5.6-terra-fast": GPT_5_6_TERRA_FAST_PRICING,
+  "gpt-5.6-luna": GPT_5_6_LUNA_PRICING,
+  "gpt-5.6-luna-fast": GPT_5_6_LUNA_FAST_PRICING,
+};
 
 export const DEFAULT_PRICING_OAUTH = {
   cc: {
@@ -270,13 +347,7 @@ export const DEFAULT_PRICING_OAUTH = {
     },
   },
   ag: {
-    "gemini-3.1-pro-low": {
-      input: 2.0,
-      output: 12.0,
-      cached: 0.25,
-      reasoning: 18.0,
-      cache_creation: 2.0,
-    },
+    "gemini-3.1-pro-low": GEMINI_31_PRO_PRICING,
     // Antigravity 2.0.4+ exposes Gemini 3.5 Flash as three public client ids
     // (see ANTIGRAVITY_PUBLIC_MODELS in open-sse/config/antigravityModelAliases.ts):
     //   gemini-3.5-flash-extra-low → "Gemini 3.5 Flash (Low)"
@@ -284,62 +355,22 @@ export const DEFAULT_PRICING_OAUTH = {
     //   gemini-3.5-flash-low   → "Gemini 3.5 Flash (Medium)"
     // Without these rows, getPricingForModel("ag", id) returns null and downstream
     // cost and quota calculations silently fall back to $0.
-    "gemini-3.5-flash-extra-low": {
-      input: 0.5,
-      output: 3.0,
-      cached: 0.03,
-      reasoning: 4.5,
-      cache_creation: 0.5,
-    },
-    "gemini-3-flash-agent": {
-      input: 0.5,
-      output: 3.0,
-      cached: 0.03,
-      reasoning: 4.5,
-      cache_creation: 0.5,
-    },
-    "gemini-3.5-flash-low": {
-      input: 0.5,
-      output: 3.0,
-      cached: 0.03,
-      reasoning: 4.5,
-      cache_creation: 0.5,
-    },
+    "gemini-3.5-flash-extra-low": GEMINI_35_FLASH_PRICING,
+    "gemini-3-flash-agent": GEMINI_35_FLASH_PRICING,
+    "gemini-3.5-flash-low": GEMINI_35_FLASH_PRICING,
     // `gemini-pro-agent` is the callable Antigravity id for Gemini 3.1 Pro (High).
-    "gemini-pro-agent": {
-      input: 4.0,
-      output: 18.0,
-      cached: 0.5,
-      reasoning: 27.0,
-      cache_creation: 4.0,
-    },
+    "gemini-pro-agent": GEMINI_31_PRO_PRICING,
     // Gemini 3.6 Flash (released 2026-07-21) - three tier variants like 3.5 Flash
     // (see ANTIGRAVITY_PUBLIC_MODELS / MODEL_SPECS which already carry the catalog
     // entries). Without these rows, getPricingForModel("ag", id) returns null and
     // downstream cost and quota calculations silently fall back to $0.
-    // Pricing: $1.50 input / $7.50 output / $0.15 cached per MTok. Thinking tokens
-    // billed at output rate.
-    "gemini-3.6-flash-low": {
-      input: 1.5,
-      output: 7.5,
-      cached: 0.15,
-      reasoning: 7.5,
-      cache_creation: 1.5,
-    },
-    "gemini-3.6-flash-medium": {
-      input: 1.5,
-      output: 7.5,
-      cached: 0.15,
-      reasoning: 7.5,
-      cache_creation: 1.5,
-    },
-    "gemini-3.6-flash-high": {
-      input: 1.5,
-      output: 7.5,
-      cached: 0.15,
-      reasoning: 7.5,
-      cache_creation: 1.5,
-    },
+    // Introductory Gemini 3.6 Flash pricing applies through 2026-12-31.
+    "gemini-3.6-flash-low": GEMINI_36_FLASH_PRICING,
+    "gemini-3.6-flash-medium": GEMINI_36_FLASH_PRICING,
+    "gemini-3.6-flash-high": GEMINI_36_FLASH_PRICING,
+    "gemini-3.7-flash": GEMINI_37_FLASH_PRICING,
+    "gemini-3.1-flash-lite": GEMINI_31_FLASH_LITE_PRICING,
+    "gemini-2.5-flash-thinking": GEMINI_25_FLASH_PRICING,
     "claude-sonnet-4-6": {
       input: 3.0,
       output: 15.0,
@@ -362,6 +393,34 @@ export const DEFAULT_PRICING_OAUTH = {
       cache_creation: 0.5,
     },
   },
+  antigravity: {
+    "gemini-3.1-pro-low": GEMINI_31_PRO_PRICING,
+    "gemini-3.5-flash-extra-low": GEMINI_35_FLASH_PRICING,
+    "gemini-3-flash-agent": GEMINI_35_FLASH_PRICING,
+    "gemini-3.5-flash-low": GEMINI_35_FLASH_PRICING,
+    "gemini-pro-agent": GEMINI_31_PRO_PRICING,
+    "gemini-3.6-flash-low": GEMINI_36_FLASH_PRICING,
+    "gemini-3.6-flash-medium": GEMINI_36_FLASH_PRICING,
+    "gemini-3.6-flash-high": GEMINI_36_FLASH_PRICING,
+    "gemini-3.7-flash": GEMINI_37_FLASH_PRICING,
+    "gemini-3.1-flash-lite": GEMINI_31_FLASH_LITE_PRICING,
+    "gemini-2.5-flash-thinking": GEMINI_25_FLASH_PRICING,
+  },
+  agy: {
+    "gemini-3.1-pro-low": GEMINI_31_PRO_PRICING,
+    "gemini-3.5-flash-extra-low": GEMINI_35_FLASH_PRICING,
+    "gemini-3-flash-agent": GEMINI_35_FLASH_PRICING,
+    "gemini-3.5-flash-low": GEMINI_35_FLASH_PRICING,
+    "gemini-pro-agent": GEMINI_31_PRO_PRICING,
+    "gemini-3.6-flash-low": GEMINI_36_FLASH_PRICING,
+    "gemini-3.6-flash-medium": GEMINI_36_FLASH_PRICING,
+    "gemini-3.6-flash-high": GEMINI_36_FLASH_PRICING,
+    "gemini-3.7-flash": GEMINI_37_FLASH_PRICING,
+    "gemini-3.1-flash-lite": GEMINI_31_FLASH_LITE_PRICING,
+    "gemini-2.5-flash-thinking": GEMINI_25_FLASH_PRICING,
+  },
+  cu: CURSOR_PRICING,
+  cursor: CURSOR_PRICING,
   gh: {
     "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "gpt-5": {

@@ -22,6 +22,7 @@ export interface ScoringFactors {
   cacheAffinity?: number;
   resetWindowAffinity: number;
   connectionDensity: number;
+  billingScore: number;
 }
 
 export interface ScoringWeights {
@@ -38,6 +39,7 @@ export interface ScoringWeights {
   cacheAffinity?: number;
   resetWindowAffinity: number;
   connectionDensity: number;
+  billingScore: number;
 }
 
 export const DEFAULT_WEIGHTS: ScoringWeights = {
@@ -54,6 +56,7 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   cacheAffinity: 0,
   resetWindowAffinity: 0,
   connectionDensity: 0.05,
+  billingScore: 0,
 };
 
 /** Normalize independently configured UI weights into a scoring distribution. */
@@ -105,6 +108,8 @@ export interface ProviderCandidate {
   resetWindowAffinity?: number;
   connectionPoolSize?: number;
   connectionId?: string;
+  /** Billing classification from provider_connections.billing_mode. NULL/undefined = legacy behavior. */
+  billingMode?: "FREE" | "PLAN" | "METERED" | null;
 }
 
 export interface ScoredProvider {
@@ -136,7 +141,8 @@ export function calculateScore(factors: ScoringFactors, weights: ScoringWeights)
       (weights.contextAffinity ?? 0) * factors.contextAffinity +
       (weights.cacheAffinity ?? 0) * (factors.cacheAffinity ?? 0) +
       (weights.resetWindowAffinity ?? 0) * factors.resetWindowAffinity +
-      (weights.connectionDensity ?? 0) * factors.connectionDensity
+      (weights.connectionDensity ?? 0) * factors.connectionDensity +
+      (weights.billingScore ?? 0) * factors.billingScore
   );
 }
 
@@ -201,6 +207,27 @@ function calculateSpecificityMatch(
   }
 }
 
+/**
+ * Compute a normalized billing-class score [0..1].
+ *
+ *   FREE   → 1.0   (always preferred economically)
+ *   PLAN   → 0.7 * quotaRemaining/100 (subscription, marginal cost $0 while quota lasts)
+ *   METERED → 1/(1 + costPer1MTokens) (inverse cost — cheaper metered beats expensive metered)
+ *   null/undefined → 0.5 (neutral — legacy behavior, no billing signal)
+ */
+export function calculateBillingScore(candidate: ProviderCandidate): number {
+  const mode = candidate.billingMode;
+  if (!mode) return 0.5;
+  if (mode === "FREE") return 1.0;
+  if (mode === "PLAN") {
+    const quotaFraction = clamp01(candidate.quotaRemaining / 100);
+    return 0.7 * quotaFraction;
+  }
+  // METERED
+  const cost = Math.max(0, candidate.costPer1MTokens);
+  return clamp01(1 / (1 + cost));
+}
+
 export function calculateFactors(
   candidate: ProviderCandidate,
   pool: ProviderCandidate[],
@@ -235,6 +262,7 @@ export function calculateFactors(
     cacheAffinity: clamp01(candidate.cacheAffinity ?? 0),
     resetWindowAffinity: clamp01(candidate.resetWindowAffinity ?? 0.5),
     connectionDensity: clamp01(((candidate.connectionPoolSize ?? 1) - 1) / 10),
+    billingScore: calculateBillingScore(candidate),
   };
 }
 

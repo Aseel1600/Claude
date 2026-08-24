@@ -138,6 +138,24 @@ export function ensureUsageHistoryColumns(db: SqliteDatabase) {
       console.log("[DB] Added usage_history.combo_strategy column");
     }
     db.exec("CREATE INDEX IF NOT EXISTS idx_uh_combo_strategy ON usage_history(combo_strategy)");
+    if (!columnNames.has("endpoint")) {
+      db.exec("ALTER TABLE usage_history ADD COLUMN endpoint TEXT");
+      console.log("[DB] Added usage_history.endpoint column");
+    }
+    if (!columnNames.has("combo_name")) {
+      db.exec("ALTER TABLE usage_history ADD COLUMN combo_name TEXT");
+      console.log("[DB] Added usage_history.combo_name column");
+    }
+    if (!columnNames.has("request_id")) {
+      db.exec("ALTER TABLE usage_history ADD COLUMN request_id TEXT");
+      console.log("[DB] Added usage_history.request_id column");
+    }
+    if (!columnNames.has("task_type")) {
+      db.exec("ALTER TABLE usage_history ADD COLUMN task_type TEXT");
+      console.log("[DB] Added usage_history.task_type column");
+    }
+    db.exec("CREATE INDEX IF NOT EXISTS idx_uh_request_id ON usage_history(request_id)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_uh_combo_name ON usage_history(combo_name)");
     if (!columnNames.has("account_key")) {
       db.exec("ALTER TABLE usage_history ADD COLUMN account_key TEXT");
       console.log("[DB] Added usage_history.account_key column");
@@ -167,6 +185,61 @@ export function ensureUsageHistoryColumns(db: SqliteDatabase) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn("[DB] Failed to verify usage_history schema:", message);
+  }
+}
+
+export function ensureRoutingObservationsSchema(db: SqliteDatabase) {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS routing_observations (
+        request_id TEXT PRIMARY KEY,
+        timestamp TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        requested_model TEXT,
+        resolved_model TEXT,
+        resolved_combo TEXT,
+        combo_strategy TEXT,
+        mode TEXT,
+        task_type TEXT,
+        category TEXT,
+        lane TEXT,
+        difficulty TEXT,
+        tool_use TEXT,
+        tools_required INTEGER DEFAULT 0,
+        vision_required INTEGER DEFAULT 0,
+        complexity TEXT,
+        score REAL,
+        signals_json TEXT,
+        input_tokens_estimated INTEGER,
+        selected_provider TEXT,
+        selected_model TEXT,
+        selected_connection_id TEXT,
+        status TEXT,
+        success INTEGER,
+        latency_ms INTEGER,
+        ttft_ms INTEGER,
+        tokens_input INTEGER DEFAULT 0,
+        tokens_output INTEGER DEFAULT 0,
+        tokens_cache_read INTEGER DEFAULT 0,
+        tokens_cache_creation INTEGER DEFAULT 0,
+        tokens_reasoning INTEGER DEFAULT 0,
+        estimated_cost_usd REAL DEFAULT 0,
+        pricing_source TEXT,
+        fallback_count INTEGER DEFAULT 0,
+        attempts_json TEXT,
+        error_code TEXT,
+        error_message TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_ro_timestamp ON routing_observations(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_ro_requested_model ON routing_observations(requested_model);
+      CREATE INDEX IF NOT EXISTS idx_ro_resolved_combo ON routing_observations(resolved_combo);
+      CREATE INDEX IF NOT EXISTS idx_ro_mode_task_level ON routing_observations(mode, task_type, difficulty);
+      CREATE INDEX IF NOT EXISTS idx_ro_provider_model ON routing_observations(selected_provider, selected_model);
+      CREATE INDEX IF NOT EXISTS idx_ro_tools ON routing_observations(tools_required, tool_use);
+    `);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("[DB] Failed to verify routing_observations schema:", message);
   }
 }
 

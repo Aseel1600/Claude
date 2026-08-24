@@ -32,6 +32,7 @@ export {
 } from "./usage/usageHistory";
 
 export { calculateCost } from "./usage/costCalculator";
+export { saveRoutingObservation } from "./usage/routingObservations";
 
 export { getUsageStats } from "./usage/usageStats";
 

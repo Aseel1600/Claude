@@ -16,6 +16,12 @@ export const KIMI_CODING_MODELS: RegistryModel[] = [
     // (#8250), not on this registry fallback entry.
   },
   {
+    id: "k3-256k",
+    name: "Kimi K3 256K",
+    contextLength: 262144,
+    supportsReasoning: true,
+  },
+  {
     id: "kimi-for-coding",
     name: "Kimi K2.7 Code",
     contextLength: 262144,

@@ -45,6 +45,7 @@ import {
   protectPipelinePayloads,
   buildRequestSummary,
 } from "./callLogs/format";
+import { saveRoutingObservation } from "./routingObservations";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -670,6 +671,7 @@ export async function saveCallLog(entry: any) {
     }
 
     const db = getDbInstance();
+    const errorSummary = toStoredErrorSummary(protectedError);
     db.prepare(
       `
       INSERT INTO call_logs (
@@ -697,7 +699,7 @@ export async function saveCallLog(entry: any) {
     `
     ).run({
       ...logEntry,
-      errorSummary: toStoredErrorSummary(protectedError),
+      errorSummary,
       detailState,
       artifactRelPath,
       artifactSizeBytes,
@@ -707,6 +709,27 @@ export async function saveCallLog(entry: any) {
       hasPipelineDetails: protectedPipelinePayloads ? 1 : 0,
       requestSummary,
     });
+
+    if (logEntry.correlationId) {
+      void saveRoutingObservation({
+        requestId: logEntry.correlationId,
+        timestamp: logEntry.timestamp,
+        requestedModel: logEntry.requestedModel,
+        resolvedCombo: logEntry.comboName,
+        selectedProvider: logEntry.provider,
+        selectedModel: logEntry.model,
+        selectedConnectionId: logEntry.connectionId,
+        status: String(logEntry.status),
+        success: logEntry.status >= 200 && logEntry.status < 400,
+        latencyMs: logEntry.duration,
+        tokensInput: logEntry.tokensIn,
+        tokensOutput: logEntry.tokensOut,
+        tokensCacheRead: logEntry.tokensCacheRead,
+        tokensCacheCreation: logEntry.tokensCacheCreation,
+        tokensReasoning: logEntry.tokensReasoning,
+        errorMessage: errorSummary,
+      }).catch(() => {});
+    }
 
     scheduleCallLogRotation();
   } catch (error) {

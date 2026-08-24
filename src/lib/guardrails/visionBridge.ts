@@ -28,6 +28,46 @@ export { isProviderConnectionUsable, hasUsableCredentialsForModel };
 
 type ComboVisionBridgeDecision = "process" | "skip" | "not-combo";
 
+function isLocalBaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function shouldForwardRequestApiKeyToVisionBridge(model: string): boolean {
+  if (!model.includes("/")) return false;
+  const provider = model.split("/")[0].toLowerCase();
+  if (provider === "openai" || provider === "anthropic") return false;
+  if ((process.env.VISION_BRIDGE_API_KEY || "").trim()) return false;
+
+  const explicitBaseUrl = (
+    process.env.VISION_BRIDGE_BASE_URL ||
+    process.env.OPENAI_API_URL ||
+    ""
+  ).trim();
+  return !explicitBaseUrl || isLocalBaseUrl(explicitBaseUrl);
+}
+
+function getHeaderValue(headers: GuardrailContext["headers"], name: string): string | null {
+  if (!headers) return null;
+  if (typeof (headers as Headers).get === "function") return (headers as Headers).get(name);
+
+  const lowered = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === lowered && typeof value === "string") return value;
+  }
+  return null;
+}
+
+function extractBearerApiKey(headers: GuardrailContext["headers"]): string | undefined {
+  const authorization = getHeaderValue(headers, "authorization")?.trim();
+  const match = authorization?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || undefined;
+}
+
 /// Check if a combo model should trigger vision bridge processing.
 /// Resolves combo targets and returns:
 /// - "process" if any target cannot be proven vision-capable
@@ -288,11 +328,14 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     const callVision = this.deps.callVisionModel ?? defaultCallVisionModel;
     const logger = context.log;
     const startTime = Date.now();
+    const visionApiKey = shouldForwardRequestApiKeyToVisionBridge(config.model)
+      ? extractBearerApiKey(context.headers)
+      : undefined;
 
     // Process all images in parallel using Promise.allSettled for fail-partial behavior
     const results = await Promise.allSettled(
       limitedParts.map(async (imagePart, i) => {
-        const description = await callVision(imagePart.imageUrl, config);
+        const description = await callVision(imagePart.imageUrl, config, visionApiKey);
         return `[Image ${i + 1}]: ${description}`;
       })
     );

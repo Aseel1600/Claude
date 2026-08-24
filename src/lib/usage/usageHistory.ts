@@ -40,6 +40,8 @@ import {
   getPromptCacheReadTokens,
   getReasoningTokens,
 } from "./tokenAccounting";
+import { calculateCost } from "./costCalculator";
+import { saveRoutingObservation } from "./routingObservations";
 
 export type PendingRequestMetadata = {
   clientEndpoint?: string | null;
@@ -605,6 +607,12 @@ export interface UsageEntry {
   comboStrategy?: string | null;
   /** @deprecated legacy snake_case fallback, read only if `comboStrategy` is unset. */
   combo_strategy?: string | null;
+  /** Name of the combo that resolved this request (e.g. "orq-medium", "orq-free-hard"). */
+  comboName?: string | null;
+  /** Orchestrator request ID for task→combo→model traceability. */
+  requestId?: string | null;
+  /** Task difficulty/classification from the orchestrator (EASY/MEDIUM/HARD/AUTO). */
+  taskType?: string | null;
   endpoint?: string | null;
 }
 
@@ -677,8 +685,9 @@ export async function saveRequestUsage(entry: UsageEntry) {
         INSERT INTO usage_history (provider, model, connection_id, account_key, account_label,
           account_label_priority, api_key_id, api_key_name, tokens_input, tokens_output,
           tokens_cache_read, tokens_cache_creation, tokens_reasoning, service_tier, status, success,
-          latency_ms, ttft_ms, error_code, combo_strategy, endpoint, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          latency_ms, ttft_ms, error_code, combo_strategy, endpoint, timestamp,
+          combo_name, request_id, task_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       ).run(
         entry.provider || null,
@@ -706,7 +715,10 @@ export async function saveRequestUsage(entry: UsageEntry) {
         entry.errorCode || null,
         entry.comboStrategy || entry.combo_strategy || null,
         entry.endpoint || null,
-        timestamp
+        timestamp,
+        entry.comboName || null,
+        entry.requestId || null,
+        entry.taskType || null
       );
 
       inserted = true;
@@ -717,6 +729,48 @@ export async function saveRequestUsage(entry: UsageEntry) {
     // Only emit when a row was actually inserted — not on dedup no-ops.
     if (inserted) {
       emitUsageRecorded(entry.provider, entry.connectionId);
+    }
+    if (inserted && entry.requestId) {
+      const provider = entry.provider || "unknown";
+      const model = entry.model || "unknown";
+      const tokens = {
+        input: tokensInput,
+        output: tokensOutput,
+        cacheRead: getPromptCacheReadTokens(entry.tokens),
+        cacheCreation: getPromptCacheCreationTokens(entry.tokens),
+        reasoning: getReasoningTokens(entry.tokens),
+      };
+      void calculateCost(provider, model, tokens, {
+        provider,
+        model,
+        serviceTier,
+        flatRateAsZero: true,
+      })
+        .then((estimatedCostUsd) =>
+          saveRoutingObservation({
+            requestId: entry.requestId,
+            timestamp,
+            selectedProvider: provider,
+            selectedModel: model,
+            selectedConnectionId: entry.connectionId || null,
+            status: entry.status || null,
+            success: entry.success === false ? false : true,
+            latencyMs: entry.latencyMs,
+            timeToFirstTokenMs: entry.timeToFirstTokenMs,
+            tokensInput,
+            tokensOutput,
+            tokensCacheRead: tokens.cacheRead,
+            tokensCacheCreation: tokens.cacheCreation,
+            tokensReasoning: tokens.reasoning,
+            estimatedCostUsd,
+            pricingSource: estimatedCostUsd > 0 ? "pricing" : "unpriced_or_flat_rate",
+            comboStrategy: entry.comboStrategy || entry.combo_strategy || null,
+            resolvedCombo: entry.comboName || null,
+            taskType: entry.taskType || null,
+            errorCode: entry.errorCode || null,
+          })
+        )
+        .catch(() => {});
     }
   } catch (error) {
     console.error("Failed to save usage stats:", error);

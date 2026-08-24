@@ -1,35 +1,31 @@
 import {
   copyFileSync,
   createReadStream,
-  createWriteStream,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { dirname, join, extname, basename } from "node:path";
+import { createDecipheriv, randomBytes } from "node:crypto";
+import { join, extname, basename } from "node:path";
 import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { resolveDataDir } from "../data-dir.mjs";
 import { getBaseUrl, isServerUp } from "../api.mjs";
 import { t } from "../i18n.mjs";
-import { backupSqliteFile } from "../sqlite.mjs";
 import { CLI_TOKEN_HEADER, getCliToken } from "../utils/cliToken.mjs";
+import {
+  createFullBackup,
+  getFullBackupDir,
+  getFullBackupFileNames,
+} from "../../../src/lib/fullBackupService.ts";
 
 function getBackupDir() {
-  return join(resolveDataDir(), "backups");
+  return getFullBackupDir(resolveDataDir());
 }
 
-const FILES_TO_BACKUP = [
-  { name: "storage.sqlite" },
-  { name: "settings.json" },
-  { name: "combos.json" },
-  { name: "providers.json" },
-];
+const FILES_TO_BACKUP = getFullBackupFileNames().map((name) => ({ name }));
 
 export function registerBackup(program) {
   const backup = program.command("backup").description(t("backup.description"));
@@ -101,58 +97,6 @@ export function registerRestore(program) {
     });
 }
 
-function matchesGlob(fileName, pattern) {
-  if (!pattern.includes("*")) return fileName === pattern;
-  const parts = pattern.split("*");
-  let pos = 0;
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (!part) continue;
-    if (i === 0) {
-      if (!fileName.startsWith(part)) return false;
-      pos = part.length;
-    } else if (i === parts.length - 1) {
-      if (!fileName.endsWith(part)) return false;
-      if (fileName.length < pos + part.length) return false;
-    } else {
-      const idx = fileName.indexOf(part, pos);
-      if (idx === -1) return false;
-      pos = idx + part.length;
-    }
-  }
-  return true;
-}
-
-function shouldExclude(fileName, patterns) {
-  if (!patterns || patterns.length === 0) return false;
-  return patterns.some((p) => matchesGlob(fileName, p));
-}
-
-async function encryptFile(srcPath, destPath, passphrase) {
-  const salt = randomBytes(16);
-  const iv = randomBytes(12);
-  const key = scryptSync(passphrase, salt, 32);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  const tmpCipherPath = `${destPath}.ciphertext`;
-  await pipeline(createReadStream(srcPath), cipher, createWriteStream(tmpCipherPath));
-  const authTag = cipher.getAuthTag();
-  // Format: salt(16) + iv(12) + authTag(16) + ciphertext
-  const out = createWriteStream(destPath);
-  try {
-    await new Promise((resolve, reject) => {
-      out.write(Buffer.concat([salt, iv, authTag]), (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    await pipeline(createReadStream(tmpCipherPath), out);
-  } finally {
-    try {
-      unlinkSync(tmpCipherPath);
-    } catch {}
-  }
-}
-
 async function promptPassphrase() {
   const readline = await import("node:readline");
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -164,31 +108,7 @@ async function promptPassphrase() {
   );
 }
 
-async function pruneBackups(backupDir, retention) {
-  if (!retention || retention <= 0 || !existsSync(backupDir)) return;
-  try {
-    const dirs = readdirSync(backupDir)
-      .filter((f) => f.startsWith("omniroute-backup-"))
-      .sort()
-      .reverse();
-    for (const old of dirs.slice(retention)) {
-      const { rmSync } = await import("node:fs");
-      rmSync(join(backupDir, old), { recursive: true, force: true });
-    }
-  } catch {}
-}
-
 export async function runBackupCommand(opts = {}) {
-  const dataDir = resolveDataDir();
-  const backupDir = getBackupDir();
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const safeName = opts.name ? String(opts.name).replace(/[/\\]/g, "_") : null;
-  const backupName = safeName ? `omniroute-backup-${safeName}` : `omniroute-backup-${timestamp}`;
-  const backupPath = join(backupDir, backupName);
-  const excludePatterns = opts.exclude || [];
-
-  console.log(t("backup.creating"));
-
   let passphrase = null;
   if (opts.encrypt) {
     if (opts.keyFile) {
@@ -202,75 +122,20 @@ export async function runBackupCommand(opts = {}) {
     }
   }
 
-  try {
-    if (!existsSync(backupDir)) mkdirSync(backupDir, { recursive: true });
-
-    let backedUp = 0;
-    let skipped = 0;
-
-    for (const file of FILES_TO_BACKUP) {
-      if (shouldExclude(file.name, excludePatterns)) {
-        skipped++;
-        continue;
-      }
-      const sourcePath = join(dataDir, file.name);
-      if (existsSync(sourcePath)) {
-        const destName = opts.encrypt ? `${file.name}.enc` : file.name;
-        const destPath = join(backupPath, destName);
-        mkdirSync(dirname(destPath), { recursive: true });
-        if (file.name.endsWith(".sqlite")) {
-          const tmpPath = destPath.replace(/\.enc$/, "");
-          await backupSqliteFile(sourcePath, tmpPath);
-          if (opts.encrypt) {
-            await encryptFile(tmpPath, destPath, passphrase);
-            unlinkSync(tmpPath);
-          }
-        } else if (opts.encrypt) {
-          await encryptFile(sourcePath, destPath, passphrase);
-        } else {
-          copyFileSync(sourcePath, destPath);
-        }
-        backedUp++;
-      } else {
-        skipped++;
-      }
-    }
-
-    if (backedUp > 0) {
-      const info = {
-        timestamp: new Date().toISOString(),
-        version: "omniroute-cli-v1",
-        encrypted: !!opts.encrypt,
-        files: FILES_TO_BACKUP.filter(
-          (f) => existsSync(join(dataDir, f.name)) && !shouldExclude(f.name, excludePatterns)
-        ).map((f) => (opts.encrypt ? `${f.name}.enc` : f.name)),
-      };
-      writeFileSync(join(backupPath, "backup-info.json"), JSON.stringify(info, null, 2), "utf8");
-
-      if (opts.cloud) {
-        const cloudCode = await _uploadBackupToCloud(backupPath, info);
-        if (cloudCode !== 0) {
-          console.warn(t("backup.cloudFailed"));
-        }
-      }
-
-      if (opts.retention) {
-        await pruneBackups(backupDir, opts.retention);
-      }
-
-      console.log(t("backup.done", { path: backupPath }));
-      console.log(
-        `\x1b[2m  ${backedUp} backed up, ${skipped} skipped${opts.encrypt ? " (encrypted)" : ""}\x1b[0m`
-      );
-      return 0;
-    }
-
-    console.log(t("backup.noFiles"));
-    return 0;
-  } catch (err) {
-    console.error(t("backup.failed", { error: err instanceof Error ? err.message : String(err) }));
-    return 1;
-  }
+  return createFullBackup(opts, {
+    dataDir: resolveDataDir(),
+    uploadBackupToCloud: ({ backupPath, info }) => _uploadBackupToCloud(backupPath, info),
+    messages: {
+      creating: t("backup.creating"),
+      noPassphrase: t("backup.noPassphrase"),
+      noFiles: t("backup.noFiles"),
+      done: (backupPath) => t("backup.done", { path: backupPath }),
+      failed: (error) => t("backup.failed", { error }),
+      cloudUploaded: (url) => t("backup.cloudUploaded", { url }),
+      cloudFailed: t("backup.cloudFailed"),
+      serverOffline: t("common.serverOffline"),
+    },
+  });
 }
 
 async function _uploadBackupToCloud(backupPath, info) {

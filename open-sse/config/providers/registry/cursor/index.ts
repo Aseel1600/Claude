@@ -20,6 +20,13 @@ export const cursorProvider: RegistryEntry = {
     { id: "composer-2-fast", name: "Composer 2 Fast" },
     { id: "composer-2", name: "Composer 2" },
     //
+    { id: "gpt-5.6-luna", name: "GPT 5.6 Luna" },
+    { id: "gpt-5.6-luna-fast", name: "GPT 5.6 Luna Fast" },
+    { id: "gpt-5.6-terra", name: "GPT 5.6 Terra" },
+    { id: "gpt-5.6-terra-fast", name: "GPT 5.6 Terra Fast" },
+    { id: "gpt-5.6-sol", name: "GPT 5.6 Sol" },
+    { id: "gpt-5.6-sol-fast", name: "GPT 5.6 Sol Fast" },
+    //
     { id: "gpt-5.5-none", name: "GPT 5.5 None" },
     { id: "gpt-5.5-none-fast", name: "GPT 5.5 None Fast" },
     { id: "gpt-5.5-low", name: "GPT 5.5 Low" },
@@ -74,6 +81,15 @@ export const cursorProvider: RegistryEntry = {
     { id: "gpt-5.2-high-fast", name: "GPT 5.2 High Fast" },
     { id: "gpt-5.2-xhigh", name: "GPT 5.2 XHigh" },
     { id: "gpt-5.2-xhigh-fast", name: "GPT 5.2 XHigh Fast" },
+    //
+    { id: "claude-opus-5", name: "Claude Opus 5" },
+    { id: "claude-opus-5-fast", name: "Claude Opus 5 Fast" },
+    { id: "claude-opus-5-high", name: "Claude Opus 5 High" },
+    { id: "claude-opus-5-xhigh", name: "Claude Opus 5 XHigh" },
+    { id: "claude-opus-5-max", name: "Claude Opus 5 Max" },
+    { id: "claude-opus-5-thinking-high", name: "Claude Opus 5 Thinking High" },
+    { id: "claude-opus-5-thinking-xhigh", name: "Claude Opus 5 Thinking XHigh" },
+    { id: "claude-opus-5-thinking-max", name: "Claude Opus 5 Thinking Max" },
     //
     { id: "claude-opus-4-8-low", name: "Claude Opus 4.8 Low" },
     { id: "claude-opus-4-8-low-fast", name: "Claude Opus 4.8 Low Fast" },
@@ -143,6 +159,7 @@ export const cursorProvider: RegistryEntry = {
     { id: "claude-4.5-sonnet", name: "Claude 4.5 Sonnet" },
     { id: "claude-4.5-sonnet-thinking", name: "Claude 4.5 Sonnet Thinking" },
     //
+    { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash" },
     { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro" },
     //
     { id: "gemini-3-flash", name: "Gemini 3 Flash" },

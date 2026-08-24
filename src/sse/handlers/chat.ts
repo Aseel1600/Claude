@@ -106,10 +106,15 @@ import { enforceApiKeyPolicy } from "../../shared/utils/apiKeyPolicy";
 import { hasProviderQuotaBypassScope } from "../../shared/constants/apiKeyPolicyScopes";
 import { cloneBoundedForLog } from "@omniroute/open-sse/utils/requestLogger.ts";
 import { handleInternalUsageCommand } from "@/lib/usage/internalUsageCommand";
+import { saveRoutingObservation } from "@/lib/usage/routingObservations";
 import {
   applyTaskAwareRouting,
   getTaskRoutingConfig,
 } from "@omniroute/open-sse/services/taskAwareRouter.ts";
+import {
+  normalizeBruxoRoutingConfig,
+  resolveBruxoRoute,
+} from "@omniroute/open-sse/services/bruxoMasterRouter.ts";
 import {
   hasNativeWebSearchTool,
   resolveWebSearchRouteOverride,
@@ -230,6 +235,15 @@ function intersectAllowedConnectionIds(primary: unknown, secondary: unknown): st
 const comboPromoteDeps = { updateCombo, info: log.info, warn: log.warn };
 
 export { shouldTripProviderBreakerForResult } from "./chatPredicates";
+
+function inferBruxoLane(route: any): string | null {
+  const combo = typeof route?.resolvedCombo === "string" ? route.resolvedCombo.toLowerCase() : "";
+  const category = typeof route?.category === "string" ? route.category : null;
+  const taskType = typeof route?.taskType === "string" ? route.taskType : null;
+  if (route?.toolUse === "required" || combo.includes("tools")) return "tools";
+  if (category === "vision" || taskType === "vision") return "vision";
+  return category || taskType || null;
+}
 
 /**
  * Handle chat completion request
@@ -489,13 +503,14 @@ export async function handleChat(
 
   // Guardrail pre-call pipeline — prompt injection, PII masking, and future custom rules.
   telemetry.startPhase("validate");
+  const disabledGuardrails = resolveDisabledGuardrails({
+    apiKeyInfo: (apiKeyInfo ?? null) as any,
+    body,
+    headers: request.headers,
+  });
   const preCallGuardrails = await guardrailRegistry.runPreCallHooks(body, {
     apiKeyInfo: apiKeyInfo as any,
-    disabledGuardrails: resolveDisabledGuardrails({
-      apiKeyInfo: (apiKeyInfo ?? null) as any,
-      body,
-      headers: request.headers,
-    }),
+    disabledGuardrails,
     endpoint: new URL(request.url).pathname,
     headers: request.headers,
     log,
@@ -579,11 +594,74 @@ export async function handleChat(
     return errorResponse(hookResponse.status, hookResponse.body as any);
   }
 
-  // T05 — Task-Aware Smart Routing
-  // Detect the semantic task type and optionally route to the optimal model
+  // BRUXO Master Router — the single client-facing entry model resolves to a
+  // persisted category/complexity-specific combo before generic task routing.
   let resolvedModelStr = modelStr;
+  let bruxoRouteResolved = false;
+  const bruxoSettings = (await getCachedSettings().catch(() => ({}))) as Record<string, unknown>;
+  const bruxoConfig = normalizeBruxoRoutingConfig(bruxoSettings.bruxoRouting);
+  const bruxoHeaders = request.headers ? Object.fromEntries(request.headers.entries()) : {};
+  const bruxoRoute = resolveBruxoRoute(
+    modelStr,
+    body as Record<string, unknown>,
+    bruxoConfig,
+    bruxoHeaders
+  );
+  if (bruxoRoute.matched && bruxoRoute.resolvedCombo) {
+    resolvedModelStr = bruxoRoute.resolvedCombo;
+    body = { ...body, model: bruxoRoute.resolvedCombo };
+    bruxoRouteResolved = true;
+    void saveRoutingObservation({
+      requestId: reqId,
+      requestedModel: modelStr,
+      resolvedModel: bruxoRoute.resolvedCombo,
+      resolvedCombo: bruxoRoute.resolvedCombo,
+      mode: bruxoRoute.mode ?? null,
+      taskType: bruxoRoute.taskType ?? null,
+      category: bruxoRoute.category ?? null,
+      lane: inferBruxoLane(bruxoRoute),
+      difficulty: bruxoRoute.level ?? null,
+      toolUse: bruxoRoute.toolUse ?? null,
+      toolsRequired:
+        bruxoRoute.toolUse === "required" || (Array.isArray(body?.tools) && body.tools.length > 0),
+      visionRequired: bruxoRoute.taskType === "vision" || bruxoRoute.category === "vision",
+      complexity: bruxoRoute.complexity ?? null,
+      score: bruxoRoute.score ?? null,
+      signals: bruxoRoute.signals ?? [],
+      inputTokensEstimated: bruxoRoute.inputTokens ?? null,
+      status: "routed",
+    }).catch(() => {});
+    log.info(
+      "BRUXO",
+      `mode=${bruxoRoute.mode ?? "unknown"} taskType=${bruxoRoute.taskType ?? "unknown"} category=${bruxoRoute.category} toolUse=${bruxoRoute.toolUse ?? "unknown"} complexity=${bruxoRoute.complexity} score=${bruxoRoute.score ?? "n/a"} signals=${(bruxoRoute.signals ?? []).join(",") || "none"} inputTokens=${bruxoRoute.inputTokens ?? "n/a"} level=${bruxoRoute.level} combo=${bruxoRoute.resolvedCombo} fallback=${bruxoRoute.fallbackApplied === true}`
+    );
+  } else if (bruxoRoute.matched) {
+    void saveRoutingObservation({
+      requestId: reqId,
+      requestedModel: modelStr,
+      mode: bruxoRoute.mode ?? null,
+      taskType: bruxoRoute.taskType ?? null,
+      category: bruxoRoute.category ?? null,
+      lane: inferBruxoLane(bruxoRoute),
+      difficulty: bruxoRoute.level ?? null,
+      toolUse: bruxoRoute.toolUse ?? null,
+      toolsRequired:
+        bruxoRoute.toolUse === "required" || (Array.isArray(body?.tools) && body.tools.length > 0),
+      visionRequired: bruxoRoute.taskType === "vision" || bruxoRoute.category === "vision",
+      complexity: bruxoRoute.complexity ?? null,
+      score: bruxoRoute.score ?? null,
+      signals: bruxoRoute.signals ?? [],
+      inputTokensEstimated: bruxoRoute.inputTokens ?? null,
+      status: "unresolved",
+      errorMessage: bruxoRoute.reason ?? "No specialized combo resolved",
+    }).catch(() => {});
+    log.warn("BRUXO", `No specialized combo resolved: ${bruxoRoute.reason ?? "unknown reason"}`);
+  }
+
+  // T05 — generic task routing must not replace a resolved BRUXO decision.
   let taskRouteInfo: { taskType: string; wasRouted: boolean } | null = null;
-  if (getTaskRoutingConfig().enabled) {
+  const isVisionBridgeInternalCall = disabledGuardrails.includes("vision-bridge");
+  if (!bruxoRouteResolved && !isVisionBridgeInternalCall && getTaskRoutingConfig().enabled) {
     telemetry.startPhase("task-route");
     const tr = applyTaskAwareRouting(modelStr, body);
     if (tr.wasRouted) {

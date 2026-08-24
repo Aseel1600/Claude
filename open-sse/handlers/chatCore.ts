@@ -551,6 +551,8 @@ export async function handleChatCore({
         effectiveServiceTier,
         isCombo,
         comboStrategy,
+        comboName,
+        requestId: correlationId,
         statusCode,
         errorCode,
         latencyMs: Date.now() - startTime,
@@ -3375,10 +3377,10 @@ export async function handleChatCore({
       : isLocalQueueWedge
         ? LOCAL_QUEUE_WEDGE_ERROR_TYPE
         : upstreamErrorCode === ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE || isOwnDeadlineTimeout
-        ? "upstream_timeout"
-        : failureStatus === 401
-          ? "authentication_error"
-          : undefined;
+          ? "upstream_timeout"
+          : failureStatus === 401
+            ? "authentication_error"
+            : undefined;
     appendRequestLog({
       model,
       provider,
@@ -4304,6 +4306,8 @@ export async function handleChatCore({
       effectiveServiceTier,
       isCombo,
       comboStrategy,
+      comboName,
+      requestId: correlationId,
       endpoint: endpointPath,
     });
 
@@ -4835,6 +4839,8 @@ export async function handleChatCore({
       effectiveServiceTier,
       isCombo,
       comboStrategy,
+      comboName,
+      requestId: correlationId,
       endpoint: endpointPath,
     });
 

@@ -23,7 +23,7 @@
 export type TaskType =
   "coding" | "creative" | "analysis" | "vision" | "summarization" | "background" | "chat";
 
-interface TaskPattern {
+export interface TaskPattern {
   patterns: string[];
   userPatterns?: string[]; // in user message content
 }
@@ -36,6 +36,13 @@ export interface TaskRoutingConfig {
    */
   taskModelMap: Record<TaskType, string>;
   detectionEnabled: boolean;
+  /**
+   * Operator-supplied detection patterns that are MERGED with the built-in
+   * defaults.  Each key is a TaskType; provided arrays are concatenated to the
+   * built-in lists so both the original English and the operator's additions
+   * (e.g. Portuguese) are matched.
+   */
+  customPatterns?: Partial<Record<TaskType, TaskPattern>>;
   stats: { detected: number; routed: number };
 }
 
@@ -224,6 +231,7 @@ export function getTaskRoutingConfig(): TaskRoutingConfig {
   return {
     ...current,
     taskModelMap: { ...current.taskModelMap },
+    customPatterns: current.customPatterns ? { ...current.customPatterns } : undefined,
     stats: { ...current.stats },
   };
 }
@@ -279,6 +287,21 @@ export function getDefaultTaskModelMap(): Record<TaskType, string> {
 interface RequestMessage {
   role?: string;
   content?: unknown;
+}
+
+/**
+ * Return the effective pattern set for a task type by merging the built-in
+ * defaults with any operator-supplied `customPatterns`.  Custom entries are
+ * concatenated so both English and (e.g.) Portuguese patterns are matched.
+ */
+function getEffectivePatterns(taskType: TaskType): TaskPattern {
+  const config = getConfig();
+  const custom = config.customPatterns?.[taskType];
+  if (!custom) return TASK_PATTERNS[taskType];
+  return {
+    patterns: [...TASK_PATTERNS[taskType].patterns, ...(custom.patterns || [])],
+    userPatterns: [...(TASK_PATTERNS[taskType].userPatterns || []), ...(custom.userPatterns || [])],
+  };
 }
 
 function extractText(content: unknown): string {
@@ -339,7 +362,7 @@ export function detectTaskType(body: any): TaskType {
   ];
 
   for (const taskType of priorityOrder) {
-    const { patterns, userPatterns } = TASK_PATTERNS[taskType];
+    const { patterns, userPatterns } = getEffectivePatterns(taskType);
 
     // Check system prompt
     if (patterns.some((p) => systemText.includes(p.toLowerCase()))) {

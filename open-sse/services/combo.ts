@@ -245,6 +245,10 @@ export {
   validateComboDAG,
 } from "./combo/comboStructure.ts";
 
+function normalizeBillingMode(value: unknown): ProviderCandidate["billingMode"] {
+  return value === "FREE" || value === "PLAN" || value === "METERED" ? value : null;
+}
+
 /**
  * #6692: release a session-stickiness pin the moment its bound connection is
  * the one that just failed. applySessionStickiness() only re-checks health on
@@ -524,6 +528,7 @@ export async function buildAutoCandidates(
         statusPenaltyReason,
         connectionPoolSize: connectionPoolCounts.get(provider) ?? 1,
         connectionId: target.connectionId ?? undefined,
+        billingMode: normalizeBillingMode(connection?.billingMode),
       };
     })
   );

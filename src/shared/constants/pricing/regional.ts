@@ -4,12 +4,30 @@
  */
 import {
   GLM_PRICING,
+  KIMI_K26_PRICING,
+  KIMI_K27_CODE_PRICING,
+  KIMI_K3_PRICING,
 } from "./shared-tiers";
+
+const KIMI_PLATFORM_PRICING = {
+  "kimi-k3": KIMI_K3_PRICING,
+  k3: KIMI_K3_PRICING,
+  "kimi-k3-256k": KIMI_K3_PRICING,
+  "k3-256k": KIMI_K3_PRICING,
+  "kimi-k2.7-code": KIMI_K27_CODE_PRICING,
+  "kimi-k2.7-code-thinking": KIMI_K27_CODE_PRICING,
+  "kimi-k2.7-code-highspeed": KIMI_K27_CODE_PRICING,
+  "kimi-for-coding": KIMI_K27_CODE_PRICING,
+  "kimi-for-coding-highspeed": KIMI_K27_CODE_PRICING,
+  "kimi-k2.6": KIMI_K26_PRICING,
+  "kimi-k2.6-thinking": KIMI_K26_PRICING,
+};
 
 export const DEFAULT_PRICING_REGIONAL = {
   glm: GLM_PRICING,
   glmt: GLM_PRICING,
   kimi: {
+    ...KIMI_PLATFORM_PRICING,
     "kimi-latest": {
       input: 1.0,
       output: 4.0,
@@ -33,13 +51,6 @@ export const DEFAULT_PRICING_REGIONAL = {
       reasoning: 4.5,
       cache_creation: 0.6,
     },
-    "kimi-for-coding": {
-      input: 0.6,
-      output: 3.0,
-      cached: 0.3,
-      reasoning: 4.5,
-      cache_creation: 0.6,
-    },
     "moonshot-kimi-k2.5": {
       input: 0.6,
       output: 3.0,
@@ -49,6 +60,7 @@ export const DEFAULT_PRICING_REGIONAL = {
     },
   },
   kmc: {
+    ...KIMI_PLATFORM_PRICING,
     "kimi-k2.5": { input: 0.6, output: 3.0, cached: 0.3, reasoning: 4.5, cache_creation: 0.6 },
     "kimi-k2.5-thinking": {
       input: 0.6,
@@ -60,6 +72,7 @@ export const DEFAULT_PRICING_REGIONAL = {
     "kimi-latest": { input: 1.0, output: 4.0, cached: 0.5, reasoning: 6.0, cache_creation: 1.0 },
   },
   kmca: {
+    ...KIMI_PLATFORM_PRICING,
     "kimi-k2.5": { input: 0.6, output: 3.0, cached: 0.3, reasoning: 4.5, cache_creation: 0.6 },
     "kimi-k2.5-thinking": {
       input: 0.6,
@@ -69,6 +82,12 @@ export const DEFAULT_PRICING_REGIONAL = {
       cache_creation: 0.6,
     },
     "kimi-latest": { input: 1.0, output: 4.0, cached: 0.5, reasoning: 6.0, cache_creation: 1.0 },
+  },
+  "kimi-coding": {
+    ...KIMI_PLATFORM_PRICING,
+  },
+  "kimi-coding-apikey": {
+    ...KIMI_PLATFORM_PRICING,
   },
   minimax: {
     // MiniMax M3 — new default model (upstream upgrade from M2.7).

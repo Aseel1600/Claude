@@ -107,6 +107,23 @@ test("resolveNextBuildEnv forces stable build worker mode unless already provide
   assert.equal(preservedEnv.NODE_ENV, "production");
 });
 
+test("resolveNextBuildEnv caps Next build workers and preserves operator overrides", () => {
+  const defaultEnv = resolveNextBuildEnv({ NODE_ENV: "production" });
+  assert.equal(defaultEnv.CIRCLE_NODE_TOTAL, "8");
+
+  const explicitCiEnv = resolveNextBuildEnv({
+    NODE_ENV: "production",
+    CIRCLE_NODE_TOTAL: "4",
+  });
+  assert.equal(explicitCiEnv.CIRCLE_NODE_TOTAL, "4");
+
+  const operatorEnv = resolveNextBuildEnv({
+    NODE_ENV: "production",
+    OMNIROUTE_BUILD_WORKERS: "12",
+  });
+  assert.equal(operatorEnv.CIRCLE_NODE_TOTAL, "12");
+});
+
 // Escalated bug (WhatsApp BR, cmqiuhd7600): a local `npm run build` stalls/OOMs
 // during the webpack production pass ("Compiling instrumentation" bundles the whole
 // server graph). #4076/#4104 raised the heap only in the Docker builder stage; the

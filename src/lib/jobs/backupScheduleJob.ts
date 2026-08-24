@@ -1,16 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createFullBackup } from "@/lib/fullBackupService";
+import { resolveDataDir } from "@/lib/dataPaths";
 import { matchesCron } from "@/lib/jobs/cronMatch";
-// Reuses the CLI's own backup implementation rather than duplicating it — the
-// `omniroute backup auto enable` schedule this job executes is written by
-// exactly that CLI, with the exact same cloud/encrypt/retention semantics.
-// `runBackupCommand`/`resolveDataDir` are plain functions with no Commander
-// or process.exit() coupling (verified), and `resolveDataDir()` here is
-// algorithmically identical to `src/lib/dataPaths.ts`'s server-side resolver
-// (same DATA_DIR/XDG/legacy-dir precedence) — both agree on where
-// `backup-schedule.json` lives.
-import { runBackupCommand } from "../../../bin/cli/commands/backup.mjs";
-import { resolveDataDir } from "../../../bin/cli/data-dir.mjs";
 
 const DEFAULT_INTERVAL_MS = 30 * 1000;
 
@@ -71,14 +63,8 @@ export async function runBackupScheduleTick(now: Date = new Date()): Promise<boo
   if (!schedule || !schedule.enabled || !schedule.cron) return false;
   if (!matchesCron(schedule.cron, now)) return false;
 
-  // `runBackupCommand({ encrypt: true })` without a key file prompts for a
-  // passphrase on stdin (`promptPassphrase()`) — fine for an interactive CLI
-  // run, but this tick has no TTY to read from and would hang forever. And
-  // `backup auto enable` doesn't even expose `--key-file` today, so there is
-  // currently no way to configure a non-interactive passphrase for a
-  // scheduled encrypted backup. Refuse rather than hang; --encrypt on the
-  // schedule needs a follow-up (`--key-file` on `auto enable`) before this
-  // can run unattended.
+  // `backup auto enable` does not expose `--key-file` today, so there is no
+  // non-interactive passphrase source for scheduled encrypted backups.
   if (schedule.encrypt) {
     console.error(
       "[BackupSchedule] Schedule has encrypt:true but no non-interactive passphrase source exists yet " +
@@ -99,7 +85,7 @@ export async function runBackupScheduleTick(now: Date = new Date()): Promise<boo
 
   writeLastRunAt(schedule, now);
   try {
-    await runBackupCommand({
+    await createFullBackup({
       cloud: !!schedule.cloud,
       encrypt: !!schedule.encrypt,
       retention: schedule.retention || undefined,

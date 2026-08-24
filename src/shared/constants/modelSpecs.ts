@@ -179,6 +179,7 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
   "gemini-3.6-flash-high": { ...GEMINI_35_FLASH_MODEL_SPEC },
   "gemini-3.6-flash-medium": { ...GEMINI_35_FLASH_MODEL_SPEC },
   "gemini-3.6-flash-low": { ...GEMINI_35_FLASH_MODEL_SPEC },
+  "gemini-3.7-flash": { ...GEMINI_35_FLASH_MODEL_SPEC },
 
   // ── Gemini 3 Flash series ───────────────────────────────────────
   "gemini-3-flash": {
@@ -400,6 +401,17 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsTools: true,
     supportsVision: true,
     aliases: ["k3"],
+  },
+
+  // Kimi K3 256K uses the same model family as K3 with a smaller context/quota profile.
+  "kimi-k3-256k": {
+    maxOutputTokens: 262144,
+    contextWindow: 262144,
+    thinkingBudgetCap: 32768,
+    supportsThinking: true,
+    supportsTools: true,
+    supportsVision: true,
+    aliases: ["k3-256k"],
   },
 
   // ── Kimi K2.6 (Moonshot API — 262K native) ──────────────────────

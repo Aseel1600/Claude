@@ -98,6 +98,7 @@ const PROVIDER_CONNECTIONS_COLUMNS = new Set([
   "per_key_proxy_enabled",
   "quota_window_thresholds_json",
   "rate_limit_overrides_json",
+  "billing_mode",
   "created_at",
   "updated_at",
 ]);
@@ -119,7 +120,7 @@ export async function getProviderConnections(
   filter: JsonRecord = {},
   limit?: number,
   offset?: number,
-  columns?: string[],
+  columns?: string[]
 ) {
   const useCache = !columns?.length && limit === undefined && offset === undefined;
   const raw = useCache
@@ -145,7 +146,7 @@ export async function getRawProviderConnections(
   filter: JsonRecord = {},
   limit?: number,
   offset?: number,
-  columns?: string[],
+  columns?: string[]
 ) {
   const db = getDbInstance() as unknown as DbLike;
   let selectCols = "*";
@@ -176,8 +177,6 @@ export async function getRawProviderConnections(
     conditions.push("auth_type = @authType");
     params.authType = filter.authType;
   }
-
-
 
   if (conditions.length > 0) {
     sql += " WHERE " + conditions.join(" AND ");
@@ -515,6 +514,7 @@ export async function createProviderConnection(data: JsonRecord) {
     "quotaWindowThresholds",
     "rateLimitOverrides",
     "healthCheckInterval",
+    "billingMode",
   ];
   for (const field of optionalFields) {
     if (data[field] !== undefined && data[field] !== null) {
@@ -571,6 +571,7 @@ function _insertConnectionRow(db: DbLike, conn: JsonRecord) {
       expires_in, display_name, global_priority, default_model,
       token_type, consecutive_use_count, rate_limit_protection, last_used_at, "group", max_concurrent,
       proxy_enabled, per_key_proxy_enabled, quota_visible, quota_window_thresholds_json, rate_limit_overrides_json,
+      billing_mode,
       created_at, updated_at
     ) VALUES (
       @id, @provider, @authType, @name, @email, @priority, @isActive,
@@ -582,6 +583,7 @@ function _insertConnectionRow(db: DbLike, conn: JsonRecord) {
       @expiresIn, @displayName, @globalPriority, @defaultModel,
       @tokenType, @consecutiveUseCount, @rateLimitProtection, @lastUsedAt, @group, @maxConcurrent,
       @proxyEnabled, @perKeyProxyEnabled, @quotaVisible, @quotaWindowThresholdsJson, @rateLimitOverridesJson,
+      @billingMode,
       @createdAt, @updatedAt
     )
   `
@@ -631,6 +633,7 @@ function _insertConnectionRow(db: DbLike, conn: JsonRecord) {
     quotaVisible: normalizeBooleanColumn(conn.quotaVisible, true) ? 1 : 0,
     quotaWindowThresholdsJson: serializeJsonField(conn.quotaWindowThresholds),
     rateLimitOverridesJson: serializeJsonField(conn.rateLimitOverrides),
+    billingMode: conn.billingMode || null,
     createdAt: conn.createdAt,
     updatedAt: conn.updatedAt,
   });
@@ -686,6 +689,7 @@ function _buildUpdateConnectionRowParams(id: string, data: JsonRecord, now: unkn
     perKeyProxyEnabled: normalizeBooleanColumn(data.perKeyProxyEnabled, false) ? 1 : 0,
     quotaVisible: normalizeBooleanColumn(data.quotaVisible, true) ? 1 : 0,
     rateLimitOverridesJson: serializeJsonField(data.rateLimitOverrides),
+    billingMode: data.billingMode || null,
     lastPingAt: data.lastPingAt || null,
     lastPingedResetKey: data.lastPingedResetKey || null,
     updatedAt: now,
@@ -718,6 +722,7 @@ function _updateConnectionRow(db: DbLike, id: string, data: JsonRecord) {
       per_key_proxy_enabled = @perKeyProxyEnabled,
       quota_visible = @quotaVisible,
       rate_limit_overrides_json = @rateLimitOverridesJson,
+      billing_mode = @billingMode,
       last_ping_at = @lastPingAt,
       last_pinged_reset_key = @lastPingedResetKey,
       updated_at = @updatedAt
@@ -1005,10 +1010,7 @@ export async function getDistinctGroups(): Promise<string[]> {
   return rows.map((r) => String(r.group ?? "")).filter(Boolean);
 }
 
-export {
-  autoMigrateLegacyEncryptedConnections,
-  getGheCopilotHosts,
-} from "./providers/migrations";
+export { autoMigrateLegacyEncryptedConnections, getGheCopilotHosts } from "./providers/migrations";
 
 // ──────────────── Re-exports from leaf modules ────────────────
 

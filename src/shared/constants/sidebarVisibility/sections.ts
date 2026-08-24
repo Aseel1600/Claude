@@ -64,6 +64,15 @@ const OMNI_PROXY_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "account_tree",
   },
   {
+    id: "obruxo",
+    href: "/dashboard/obruxo",
+    i18nKey: "obruxo",
+    labelFallback: "Obruxo",
+    subtitleKey: "obruxoSubtitle",
+    subtitleFallback: "Author routing control",
+    icon: "auto_awesome",
+  },
+  {
     id: "quota",
     href: "/dashboard/quota",
     i18nKey: "providerQuota",

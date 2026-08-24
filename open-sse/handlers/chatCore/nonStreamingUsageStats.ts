@@ -27,6 +27,8 @@ export type RecordNonStreamingUsageStatsContext = {
   effectiveServiceTier: EffectiveServiceTier;
   isCombo: boolean;
   comboStrategy: string | null | undefined;
+  comboName?: string | null | undefined;
+  requestId?: string | null | undefined;
   endpoint?: string | null | undefined;
 };
 
@@ -56,6 +58,8 @@ function persistUsageRow(usage: object, ctx: RecordNonStreamingUsageStatsContext
     apiKeyName: apiKeyInfo?.name || undefined,
     serviceTier: effectiveServiceTier,
     comboStrategy: ctx.isCombo ? ctx.comboStrategy || undefined : undefined,
+    comboName: ctx.comboName || undefined,
+    requestId: ctx.requestId || undefined,
     endpoint: ctx.endpoint || undefined,
   }).catch((err) => {
     console.error("Failed to save usage stats:", err.message);

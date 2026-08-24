@@ -875,3 +875,37 @@ export function withSelectedConnectionHeader(
     return cloned;
   }
 }
+
+export function withNerdTelemetryHeaders(
+  response: Response,
+  telemetry: {
+    provider?: string | null;
+    model?: string | null;
+    taskType?: string | null;
+    latencyMs?: number | null;
+  }
+): Response {
+  if (!response || !telemetry) return response;
+  const setHeader = (res: Response, name: string, value: string) => {
+    try {
+      res.headers.set(name, value);
+      return res;
+    } catch {
+      const cloned = new Response(res.body, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: res.headers,
+      });
+      cloned.headers.set(name, value);
+      return cloned;
+    }
+  };
+
+  let res = response;
+  if (telemetry.provider) res = setHeader(res, "X-OmniRoute-Provider", telemetry.provider);
+  if (telemetry.model) res = setHeader(res, "X-OmniRoute-Model", telemetry.model);
+  if (telemetry.taskType) res = setHeader(res, "X-OmniRoute-Task", telemetry.taskType);
+  if (telemetry.latencyMs != null)
+    res = setHeader(res, "X-OmniRoute-Latency-Ms", String(telemetry.latencyMs));
+  return res;
+}

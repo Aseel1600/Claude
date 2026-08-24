@@ -56,18 +56,39 @@ export const taskRoutingModelMapSchema = z
   })
   .strict();
 
+const taskPatternSchema = z
+  .object({
+    patterns: z.array(z.string().max(200)).max(50).optional(),
+    userPatterns: z.array(z.string().max(200)).max(50).optional(),
+  })
+  .strict();
+
+const customPatternsSchema = z
+  .object({
+    coding: taskPatternSchema.optional(),
+    creative: taskPatternSchema.optional(),
+    analysis: taskPatternSchema.optional(),
+    vision: taskPatternSchema.optional(),
+    summarization: taskPatternSchema.optional(),
+    background: taskPatternSchema.optional(),
+    chat: taskPatternSchema.optional(),
+  })
+  .strict();
+
 export const updateTaskRoutingSchema = z
   .object({
     enabled: z.boolean().optional(),
     taskModelMap: taskRoutingModelMapSchema.optional(),
     detectionEnabled: z.boolean().optional(),
+    customPatterns: customPatternsSchema.optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
     if (
       value.enabled === undefined &&
       value.taskModelMap === undefined &&
-      value.detectionEnabled === undefined
+      value.detectionEnabled === undefined &&
+      value.customPatterns === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

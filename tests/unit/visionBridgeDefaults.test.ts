@@ -14,7 +14,7 @@ import {
 
 test("VISION_BRIDGE_DEFAULTS exports correct values", () => {
   assert.strictEqual(VISION_BRIDGE_DEFAULTS.enabled, true);
-  assert.strictEqual(VISION_BRIDGE_DEFAULTS.model, "openai/gpt-4o-mini");
+  assert.strictEqual(VISION_BRIDGE_DEFAULTS.model, "antigravity/gemini-3.6-flash-high");
   assert.strictEqual(
     VISION_BRIDGE_DEFAULTS.prompt,
     "Describe this image concisely in 2-3 sentences. Focus on the most relevant visual details."
@@ -51,7 +51,7 @@ test("getVisionBridgeConfig returns defaults when no settings provided", () => {
   const config = getVisionBridgeConfig({});
 
   assert.strictEqual(config.enabled, true);
-  assert.strictEqual(config.model, "openai/gpt-4o-mini");
+  assert.strictEqual(config.model, "antigravity/gemini-3.6-flash-high");
   assert.strictEqual(config.prompt, VISION_BRIDGE_DEFAULTS.prompt);
   assert.strictEqual(config.timeoutMs, 30000);
   assert.strictEqual(config.maxImages, 10);
@@ -95,12 +95,12 @@ test("getVisionBridgeConfig handles undefined settings", () => {
   const config = getVisionBridgeConfig(undefined);
 
   assert.strictEqual(config.enabled, true);
-  assert.strictEqual(config.model, "openai/gpt-4o-mini");
+  assert.strictEqual(config.model, "antigravity/gemini-3.6-flash-high");
 });
 
 test("getVisionBridgeConfig handles null settings", () => {
   const config = getVisionBridgeConfig(null as unknown as VisionBridgeSettings);
 
   assert.strictEqual(config.enabled, true);
-  assert.strictEqual(config.model, "openai/gpt-4o-mini");
+  assert.strictEqual(config.model, "antigravity/gemini-3.6-flash-high");
 });

@@ -93,7 +93,8 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
 # build from 17min to 9min on the same 32-core box. Webpack stays available as the
 # escape hatch: `--build-arg`/-e OMNIROUTE_USE_TURBOPACK=0.
 # See docs/ops/QUALITY_GATE_PLAYBOOK.md Parte 6.
-ENV OMNIROUTE_USE_TURBOPACK=1
+ARG OMNIROUTE_USE_TURBOPACK=1
+ENV OMNIROUTE_USE_TURBOPACK="${OMNIROUTE_USE_TURBOPACK}"
 
 # Next.js basePath is fixed at build time; pass OMNIROUTE_BASE_PATH here when the
 # image should serve under a reverse-proxy subpath without a runtime patch.
@@ -114,8 +115,14 @@ ENV OMNIROUTE_MITM_STUB=1
 # child (build-next-isolated.mjs → resolveNextBuildEnv spreads process.env).
 # Build-only; the runtime heap is set separately on the runner stage
 # (OMNIROUTE_MEMORY_MB). Override: `--build-arg OMNIROUTE_BUILD_MEMORY_MB=6144`.
-ARG OMNIROUTE_BUILD_MEMORY_MB=4096
+ARG OMNIROUTE_BUILD_MEMORY_MB=6144
 ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
+
+# Next 16 otherwise derives page-data workers from host CPU count (31 on a
+# 32-core builder), multiplying the compiler's memory footprint. Keep the
+# release default bounded; operators can override this ARG for larger builders.
+ARG CIRCLE_NODE_TOTAL=8
+ENV CIRCLE_NODE_TOTAL=${CIRCLE_NODE_TOTAL}
 
 COPY . ./
 RUN --mount=type=cache,id=next-cache,target=/app/.build/next/cache \

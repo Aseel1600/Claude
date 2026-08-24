@@ -81,6 +81,7 @@ const FACTOR_KEYS: ComboScoringInspectorFactorKey[] = [
   "specificityMatch",
   "contextAffinity",
   "resetWindowAffinity",
+  "billingScore",
 ];
 
 function roundNumber(value: number, digits = 4): number {
@@ -281,6 +282,9 @@ function buildCandidate(
   notes.resetWindowAffinity = forecastTarget
     ? "Reset-window affinity proxied from forecast quota risk."
     : "No forecast risk for this target; neutral reset affinity used.";
+  sources.billingScore = "default";
+  notes.billingScore =
+    "Billing mode from provider_connections.billing_mode; neutral (0.5) when unset.";
 
   return {
     candidate: {

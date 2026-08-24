@@ -16,6 +16,8 @@ export function buildFailureUsageRecord(opts: {
   effectiveServiceTier: string;
   isCombo: boolean;
   comboStrategy: string | null | undefined;
+  comboName?: string | null | undefined;
+  requestId?: string | null | undefined;
   statusCode: number;
   errorCode: string | null | undefined;
   latencyMs: number;
@@ -36,6 +38,8 @@ export function buildFailureUsageRecord(opts: {
     apiKeyName: opts.apiKeyInfo?.name || undefined,
     serviceTier: opts.effectiveServiceTier,
     comboStrategy: opts.isCombo ? opts.comboStrategy || undefined : undefined,
+    comboName: opts.comboName || undefined,
+    requestId: opts.requestId || undefined,
     endpoint: opts.endpoint || undefined,
   };
 }

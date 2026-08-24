@@ -269,7 +269,8 @@ export type ComboScoringInspectorFactorKey =
   | "tierAffinity"
   | "specificityMatch"
   | "contextAffinity"
-  | "resetWindowAffinity";
+  | "resetWindowAffinity"
+  | "billingScore";
 
 export type ComboScoringInspectorSource =
   "combo_health" | "combo_forecast" | "combo_autopilot" | "runtime" | "default";

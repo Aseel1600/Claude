@@ -190,6 +190,14 @@ export function resolveNextBuildEnv(baseEnv = process.env, platform = process.pl
     env.NODE_OPTIONS = `${env.NODE_OPTIONS || ""} --max-old-space-size=${heapMb}`.trim();
   }
 
+  // Next 16 derives page-data worker count from the machine's CPU count. On a
+  // 32-core host that can spawn 31 workers, multiplying the multi-GB compiler
+  // footprint until the builder is OOM-killed. Keep builds predictable while
+  // respecting CI/operator overrides; CIRCLE_NODE_TOTAL=8 yields seven workers.
+  if (!env.CIRCLE_NODE_TOTAL) {
+    env.CIRCLE_NODE_TOTAL = baseEnv.OMNIROUTE_BUILD_WORKERS || "8";
+  }
+
   return env;
 }
 

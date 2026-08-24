@@ -472,6 +472,40 @@ test("VB-S03: preserves the original image when the vision API fails (#4012)", a
   assert.strictEqual(unavailPart, undefined);
 });
 
+test("VB-S03b: forwards request Bearer key for OmniRoute-internal vision model", async () => {
+  mockSettings.visionBridgeModel = "antigravity/gemini-3.6-flash-high";
+  let capturedApiKey: string | undefined;
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      callVisionModel: async (_imageDataUri, _config, apiKey) => {
+        capturedApiKey = apiKey;
+        return "A network icon";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "minimax/minimax-01",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is this?" },
+          { type: "image_url", image_url: { url: "https://example.com/image.png" } },
+        ],
+      },
+    ],
+  });
+
+  await guardrail.preCall(
+    payload,
+    createContext({ headers: new Headers({ authorization: "Bearer sk-live-omniroute" }) })
+  );
+
+  assert.strictEqual(capturedApiKey, "sk-live-omniroute");
+});
+
 test("VB-S03: logs warning when vision API fails (via combo mapping)", async () => {
   shouldVisionFail = true;
   let warningLogged = false;
@@ -771,21 +805,11 @@ test("VB-CRED-02: does NOT reroute to a vision model known to lack credentials",
 });
 
 test("isProviderConnectionUsable rejects noauth without api key", async () => {
-  const { isProviderConnectionUsable } = await import(
-    "../../../src/lib/guardrails/visionBridge.ts"
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "noauth", apiKey: null }),
-    false
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "apikey", apiKey: "sk-real" }),
-    true
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "oauth", refreshToken: "rt" }),
-    true
-  );
+  const { isProviderConnectionUsable } =
+    await import("../../../src/lib/guardrails/visionBridge.ts");
+  assert.strictEqual(isProviderConnectionUsable({ authType: "noauth", apiKey: null }), false);
+  assert.strictEqual(isProviderConnectionUsable({ authType: "apikey", apiKey: "sk-real" }), true);
+  assert.strictEqual(isProviderConnectionUsable({ authType: "oauth", refreshToken: "rt" }), true);
   assert.strictEqual(
     isProviderConnectionUsable({ authType: "apikey", apiKey: "x", testStatus: "banned" }),
     false
