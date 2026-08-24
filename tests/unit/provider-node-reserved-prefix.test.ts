@@ -106,8 +106,11 @@ test("shared set excludes manual aliases that never intercept nodes at runtime",
   assert.equal(RESERVED_PROVIDER_PREFIXES.has("aq"), false);
 });
 
-test("shared set size matches full REGISTRY scan (329 unique prefixes)", () => {
-  assert.equal(RESERVED_PREFIX_COUNT, 329);
+test("shared set size matches full REGISTRY scan (391 unique prefixes)", () => {
+  // Count measured against upstream/main 65e81158a (was 329 at c68cda7df — new
+  // providers shift the number; the assertion pins that the set is a full
+  // REGISTRY walk, not a hand-maintained list).
+  assert.equal(RESERVED_PREFIX_COUNT, 391);
 });
 
 test("isReservedProviderPrefix rejects non-string input", () => {
