@@ -499,6 +499,25 @@ export async function maybeClearRecoveredQuotaState(
       // the previous synthetic-cooldown guard.
       return connection;
     }
+  } else if (
+    connection.rateLimitedUntil &&
+    new Date(connection.rateLimitedUntil).getTime() > Date.now()
+  ) {
+    // Universal fallback guard for every lastErrorType other than
+    // "quota_exhausted" (which gets the more precise per-window check above,
+    // and may legitimately release early once the REAL window has reset even
+    // while a synthetic rateLimitedUntil is still in the future). A future
+    // rateLimitedUntil is a hard statement made by the 429/error handler that
+    // persisted it (src/sse/services/auth.ts, src/app/api/providers/[id]/test/
+    // route.ts) — no quota poll finding *some* usable window elsewhere should
+    // be able to overrule it. Before this fix, ANY lastErrorType other than
+    // "quota_exhausted" skipped straight to hasTransientState/
+    // clearRecoveredProviderState() below with no rateLimitedUntil check at
+    // all, so a multi-day cooldown (observed: 146h, Z.AI weekly quota) got
+    // cleared on the very next quota sync a few minutes later — a
+    // self-restart/burn loop that kept burning real upstream calls against a
+    // known-exhausted connection (#11277).
+    return connection;
   }
 
   const hasTransientState =
