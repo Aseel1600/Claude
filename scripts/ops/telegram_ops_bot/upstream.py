@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Pattern, Tuple
 
-from scripts.ops.telegram_ops_bot.github import GitHubClient, GitHubError
+from .github import GitHubClient, GitHubError
 
 _SEMVER_REGEX: Pattern[str] = re.compile(
     r"^(?:(?:release/)?v)?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:-(?P<prerelease>[0-9A-Za-z.-]+))?$"

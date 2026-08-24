@@ -13,7 +13,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Set, Union
 
-from scripts.ops.telegram_ops_bot.github import (
+from .github import (
     GitHubClient,
     GitHubError,
     redact_sensitive,
