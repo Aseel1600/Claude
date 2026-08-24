@@ -39,7 +39,7 @@ function makeMcpStreamFetch(
   },
   callStatus = 200,
 ) {
-  return ((_url: string, opts: unknown) => {
+  return ((url: string, opts: unknown) => {
     const u = String(url);
     if (!u.includes("/api/mcp/stream")) {
       return Promise.resolve(makeResp({ error: "not found" }, 404));
@@ -77,7 +77,7 @@ function makeMcpStreamFetch(
 test("mcp call sends JSON-RPC initialize then tools/call", async () => {
   const calls: Array<{ url: string; body: unknown }> = [];
   const origFetch = globalThis.fetch;
-  globalThis.fetch = ((_url: string, opts: unknown) => {
+  globalThis.fetch = ((url: string, opts: unknown) => {
     const u = String(url);
     const body = opts?.body ? JSON.parse(opts.body) : null;
     calls.push({ url: u, body });
