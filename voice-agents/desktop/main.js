@@ -3,11 +3,27 @@
 const { app, BrowserWindow, Tray, Menu, shell, nativeImage } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 
 const UI_PORT = 20129;
 const UI_URL = `http://localhost:${UI_PORT}`;
-const PROJECT_ROOT = path.resolve(__dirname, "..");
+
+// Projekt-Root robust finden: installierte App kennt den Pfad nicht relativ
+// (app.asar), also erst env-Override, dann bekannter Pfad, dann relativer Fallback.
+function findProjectRoot() {
+  const candidates = [
+    process.env.OMNIROUTE_UI_ROOT,
+    "C:\\OmniRoute\\voice-agents",
+    path.resolve(__dirname, ".."),
+  ].filter(Boolean);
+  for (const root of candidates) {
+    if (fs.existsSync(path.join(root, ".venv", "Scripts", "python.exe"))) return root;
+  }
+  return candidates[candidates.length - 1];
+}
+
+const PROJECT_ROOT = findProjectRoot();
 const PYTHON = path.join(PROJECT_ROOT, ".venv", "Scripts", "python.exe");
 const APP_ICON = path.join(__dirname, "assets", "icon.png");
 
