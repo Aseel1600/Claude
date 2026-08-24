@@ -45,3 +45,10 @@ export function isProviderRoutable(providerId: string, alias?: string | null): b
 export function isProviderFreeCandidate(providerId: string, alias?: string | null): boolean {
   return resolveProviderIntelligence(providerId, alias)?.freeCandidate === true;
 }
+
+export {
+  getProviderCapacity,
+  hasDocumentedProviderCapacity,
+  normalizeProviderCapacity,
+  type NormalizedProviderCapacity,
+} from "./providerCapacity.ts";
