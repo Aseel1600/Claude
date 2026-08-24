@@ -7550,6 +7550,8 @@
     "resilienceRequestsPerMinute": "Số yêu cầu mỗi phút",
     "resilienceMinTimeBetweenRequests": "Thời gian tối thiểu giữa các yêu cầu",
     "resilienceConcurrentRequests": "Số yêu cầu đồng thời",
+    "resilienceConnectionScopeConcurrentRequests": "Số yêu cầu đồng thời trên mỗi kết nối/phạm vi hạn ngạch",
+    "resilienceGlobalConcurrentRequests": "Số yêu cầu thượng nguồn đồng thời toàn cục (0 = tắt)",
     "resilienceMaxQueueWaitTime": "Thời gian chờ hàng đợi tối đa",
     "resilienceBaseCooldown": "Thời gian giãn cách cơ bản",
     "resilienceUseUpstreamRetryHints": "Sử dụng gợi ý thử lại từ máy chủ thượng nguồn",
