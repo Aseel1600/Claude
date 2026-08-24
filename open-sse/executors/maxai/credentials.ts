@@ -19,6 +19,8 @@ export interface MaxaiCredential {
   accessToken: string;
   deviceId: string;
   userId: string;
+  /** ~1-year refresh token used for browserless access-token refresh (optional). */
+  refreshToken?: string;
 }
 
 type ProviderSpecificData = Record<string, unknown> | null | undefined;
@@ -87,5 +89,8 @@ export function resolveMaxaiCredential(
     firstString(psd?.maxaiUserId, psd?.userId) ?? userIdFromJwt(accessToken);
   if (!userId) return null;
 
-  return { accessToken, deviceId, userId };
+  const refreshToken =
+    firstString(psd?.maxaiRefreshToken, psd?.refreshToken) ?? undefined;
+
+  return { accessToken, deviceId, userId, refreshToken };
 }

@@ -25,6 +25,11 @@ import {
   estimateMaxaiTokens,
 } from "../../open-sse/executors/maxai/stream.ts";
 import { userIdFromJwt } from "../../open-sse/executors/maxai/credentials.ts";
+import {
+  maxaiAccessTokenNeedsRefresh,
+  maxaiRefreshAccessToken,
+  MAXAI_REFRESH_PATH,
+} from "../../open-sse/executors/maxai/refresh.ts";
 
 const USER_ID = "217f0819-965c-4926-8397-6059aacd2dcd";
 
@@ -211,4 +216,78 @@ test("userIdFromJwt decodes subject.user_id (no signature verification)", () => 
   );
   const jwt = `${header}.${payload}.sig`;
   assert.equal(userIdFromJwt(jwt), USER_ID);
+});
+
+// ── Browserless access-token refresh ─────────────────────────────────────────
+
+/** Build a fake (unsigned) JWT carrying an `exp` and optional subject.user_id. */
+function fakeJwt(expEpochSeconds: number, userId?: string): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const claims: Record<string, unknown> = { exp: expEpochSeconds };
+  if (userId) claims.subject = { user_id: userId };
+  const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  return `${header}.${payload}.sig`;
+}
+
+test("maxaiAccessTokenNeedsRefresh: absent / unparseable / near-expiry / fresh", () => {
+  const now = () => 1_000_000_000_000; // fixed ms clock
+  const nowSec = 1_000_000_000;
+  assert.equal(maxaiAccessTokenNeedsRefresh("", 3600, now), true); // absent
+  assert.equal(maxaiAccessTokenNeedsRefresh("not-a-jwt", 3600, now), true); // unparseable
+  // exp 30 min out with a 1h margin → needs refresh.
+  assert.equal(maxaiAccessTokenNeedsRefresh(fakeJwt(nowSec + 1800), 3600, now), true);
+  // exp 5h out with a 1h margin → still fresh.
+  assert.equal(maxaiAccessTokenNeedsRefresh(fakeJwt(nowSec + 5 * 3600), 3600, now), false);
+});
+
+test("maxaiRefreshAccessToken sends the exact web-app request + parses data.access_token", async () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const refreshToken = fakeJwt(nowSec + 365 * 24 * 3600, USER_ID); // 1y refresh token
+  const newAccess = fakeJwt(nowSec + 24 * 3600, USER_ID);
+  let seen: { url: string; init: RequestInit } | null = null;
+
+  const fakeFetch = (async (url: string, init: RequestInit) => {
+    seen = { url: String(url), init };
+    return new Response(JSON.stringify({ data: { access_token: newAccess } }), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  const result = await maxaiRefreshAccessToken({
+    refreshToken,
+    deviceId: "118a857e-c96f-4dfd-86ce-55ee910f748a",
+    fetchImpl: fakeFetch,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.accessToken, newAccess);
+  assert.ok(result.expiresAt && result.expiresAt > nowSec);
+
+  // Request shape: bare refresh path, refresh token as Bearer, noAuthLogout, app body.
+  assert.ok(seen);
+  const { url, init } = seen!;
+  assert.ok(url.endsWith(MAXAI_REFRESH_PATH));
+  assert.equal(init.method, "POST");
+  const headers = init.headers as Record<string, string>;
+  assert.equal(headers["Authorization"], `Bearer ${refreshToken}`);
+  assert.equal(headers["noAuthLogout"], "true");
+  assert.ok(headers["X-Authorization"] && headers["X-Authorization"].length > 0);
+  assert.equal(init.body, JSON.stringify({ app: "maxai_webapp" }));
+});
+
+test("maxaiRefreshAccessToken returns a structured error on non-200 (no throw)", async () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const fakeFetch = (async () =>
+    new Response("nope", { status: 418 })) as unknown as typeof fetch;
+  const result = await maxaiRefreshAccessToken({
+    refreshToken: fakeJwt(nowSec + 1000, USER_ID),
+    deviceId: "dev",
+    fetchImpl: fakeFetch,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 418);
+});
+
+test("maxaiRefreshAccessToken refuses when required inputs are missing", async () => {
+  const result = await maxaiRefreshAccessToken({ refreshToken: "", deviceId: "" });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 0);
 });

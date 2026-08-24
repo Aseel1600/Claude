@@ -24,8 +24,12 @@
 import { BaseExecutor, type ExecuteInput, type ExecutorExecuteResult } from "./base.ts";
 import { PROVIDERS } from "../config/constants.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
-import { resolveMaxaiCredential } from "./maxai/credentials.ts";
+import { resolveMaxaiCredential, type MaxaiCredential } from "./maxai/credentials.ts";
 import { buildMaxaiSignedHeaders } from "./maxai/signing.ts";
+import {
+  maxaiAccessTokenNeedsRefresh,
+  maxaiRefreshAccessToken,
+} from "./maxai/refresh.ts";
 import {
   assembleMaxaiContext,
   buildMaxaiChatBody,
@@ -98,6 +102,11 @@ export class MaxAiExecutor extends BaseExecutor {
       );
     }
 
+    // Proactively refresh a near-expiry access token (browserless; see ./maxai/refresh.ts).
+    // Failures here are non-fatal: we fall through with the existing token, and a
+    // genuinely-dead token surfaces as a 401/418 below (prompting a re-mint).
+    const accessToken = await this.ensureFreshAccess(cred, input);
+
     const body = (input.body ?? {}) as OpenAiChatBody;
     let text: string;
     try {
@@ -121,7 +130,7 @@ export class MaxAiExecutor extends BaseExecutor {
     const headers: Record<string, string> = {
       ...maxaiStaticHeaders(),
       ...signedHeaders,
-      Authorization: `Bearer ${cred.accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       ...(input.upstreamExtraHeaders ?? {}),
     };
 
@@ -189,6 +198,50 @@ export class MaxAiExecutor extends BaseExecutor {
       },
     };
     return { response: new Response(JSON.stringify(response), { status: 200, headers: JSON_HEADERS }), url };
+  }
+
+  /**
+   * Return a non-expired access token, refreshing browserlessly when the stored
+   * one is missing or within the expiry margin and a refresh token is available.
+   * Persists a freshly-minted token via `onCredentialsRefreshed`. Never throws —
+   * on any refresh failure it returns the original token so the request still
+   * proceeds (a truly-dead token then surfaces as an upstream 401/418).
+   */
+  private async ensureFreshAccess(
+    cred: MaxaiCredential,
+    input: ExecuteInput
+  ): Promise<string> {
+    if (!cred.refreshToken) return cred.accessToken;
+    if (!maxaiAccessTokenNeedsRefresh(cred.accessToken)) return cred.accessToken;
+
+    const result = await maxaiRefreshAccessToken({
+      refreshToken: cred.refreshToken,
+      deviceId: cred.deviceId,
+      userId: cred.userId,
+      signal: input.signal ?? undefined,
+    });
+    if (!result.ok || !result.accessToken) {
+      input.log?.warn?.("maxai", `access-token refresh failed (${result.status}); using existing token`);
+      return cred.accessToken;
+    }
+
+    // Persist the new access token (merged into providerSpecificData) so the next
+    // request starts fresh. The refresh token and device id are unchanged.
+    try {
+      await input.onCredentialsRefreshed?.({
+        accessToken: result.accessToken,
+        providerSpecificData: {
+          ...(input.credentials?.providerSpecificData ?? {}),
+          maxaiAccessToken: result.accessToken,
+        },
+      });
+    } catch (err) {
+      input.log?.warn?.(
+        "maxai",
+        `refreshed token persist failed: ${sanitizeErrorMessage(err instanceof Error ? err.message : err)}`
+      );
+    }
+    return result.accessToken;
   }
 
   /** Bridge the MaxAI SSE body into an OpenAI chat.completion.chunk stream. */
