@@ -29,10 +29,14 @@ export async function getCurrentVersion() {
 // Without it `npm view` can return a stale cached version (e.g. report 3.8.30 as
 // "latest" after 3.8.31 was published), so the updater told users on an old build
 // they were already on the latest version (#4376). `execFn` is injectable for tests.
-export async function getLatestVersion(execFn = execFileAsync) {
+export async function getLatestVersion(execFn = execFileAsync, platform = process.platform) {
   try {
     const { stdout } = await execFn("npm", ["view", "omniroute", "version", "--prefer-online"], {
       timeout: 15000,
+      // On Windows npm is npm.cmd; Node ≥24 refuses to execFile a .cmd without
+      // a shell (nodejs/node#52554 — spawn EINVAL / ENOENT, see #5379), so enable
+      // the shell on win32 only. Mirror the CLI fix from #7913/#6263/#6304.
+      shell: platform === "win32",
     });
     return stdout.trim();
   } catch {
@@ -116,6 +120,8 @@ export async function runUpdateCommand(opts = {}) {
     try {
       const { stdout } = await execFileAsync("npm", ["view", "omniroute", "changelog"], {
         timeout: 10000,
+        // Same win32 shell requirement as getLatestVersion (nodejs/node#52554).
+        shell: process.platform === "win32",
       });
       if (stdout.trim()) {
         console.log(stdout.trim());
