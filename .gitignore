@@ -269,3 +269,4 @@ docker-compose.yml.bak
 # _tasks e um repo git SEPARADO (ver AGENTS.md). _tasks/ (com barra) NAO ignora um
 # SYMLINK _tasks; /_tasks (ancorado) cobre symlink/dir na raiz (incidente 2026-08-08).
 /_tasks
+client_secrets*
