@@ -15,6 +15,18 @@
 
 name: omniroute
 
+# Environment shared by both slots. Anchored rather than repeated per service so
+# the shutdown budget cannot drift between blue and green.
+x-app-env: &app-env
+  # How long the app keeps draining in-flight requests after SIGTERM before it
+  # force-exits (src/lib/gracefulShutdown.ts). It resolves the moment the last
+  # tracked request finishes, so a large value costs nothing on an idle slot —
+  # it only matters when a long SSE completion is still streaming.
+  #
+  # MUST stay BELOW stop_grace_period below. If Docker SIGKILLs first, cleanup()
+  # never runs and storage.sqlite is left with an un-checkpointed WAL.
+  SHUTDOWN_TIMEOUT_MS: "120000"
+
 x-app: &app
   restart: unless-stopped
   init: true
@@ -49,7 +61,13 @@ x-app: &app
     start_period: 60s
 
   stop_signal: SIGTERM
-  stop_grace_period: 45s
+
+  # Docker's hard ceiling: SIGTERM, then SIGKILL after this. It is deliberately
+  # 30s ABOVE SHUTDOWN_TIMEOUT_MS so the app always wins the race and exits on
+  # its own terms, leaving the 30s as headroom for cleanup() (WAL checkpoint +
+  # DB close). Raising this alone does nothing — SHUTDOWN_TIMEOUT_MS is what
+  # actually bounds the drain.
+  stop_grace_period: 150s
 
   # NOTE: `read_only: true` from the generic plan is deliberately NOT set.
   # OmniRoute writes outside the data volume at runtime: the SQLite driver
@@ -77,6 +95,7 @@ services:
     <<: *app
     image: ${BLUE_IMAGE}
     environment:
+      <<: *app-env
       APP_SLOT: blue
 
   # ── GREEN ───────────────────────────────────────────────────────────────────
@@ -84,6 +103,7 @@ services:
     <<: *app
     image: ${GREEN_IMAGE}
     environment:
+      <<: *app-env
       APP_SLOT: green
 
   # ── REDIS ───────────────────────────────────────────────────────────────────

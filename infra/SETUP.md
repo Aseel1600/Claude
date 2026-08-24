@@ -449,14 +449,60 @@ Restore: xem [README.md §7](./README.md).
 
 Về dung lượng: backup là ảnh chụp `storage.sqlite` đã gzip. Với DB 2 MB thì mỗi
 bản khoảng 0.3–0.5 MB, giữ 14 bản là ~5 MB. Nó **không** phải thứ chiếm đĩa —
-xem 8.5 trước khi định tắt nó đi.
+xem 8.6 trước khi định tắt nó đi.
 
 Và đây là thứ duy nhất cứu được dữ liệu. `storage.sqlite` chứa toàn bộ provider
 connection kèm API key đã mã hoá, cấu hình combo/routing, settings dashboard,
 log usage/cost, memory, MCP audit. `--rollback` chỉ đổi image, không đụng dữ
 liệu — mất file này là ngồi nhập lại từng API key bằng tay.
 
-### 8.5 Đĩa
+### 8.5 Deploy có làm gián đoạn người đang dùng không?
+
+Không, trừ một trường hợp — và trường hợp đó đã được nới.
+
+Green phải `healthy` (qua `/healthz` **và** `/api/monitoring/health`) *trước* khi
+Caddy đổi hướng, nên không có khoảnh khắc nào không ai lắng nghe. Dòng thời gian
+tính từ lúc `caddy reload`:
+
+```
+t=0s     request MỚI đi vào green
+t=0–30   stabilization  (blue vẫn chạy; nếu green hỏng thì traffic quay lại blue)
+t=30–45  drain          (DRAIN_SECONDS=15)
+t=45     SIGTERM tới blue
+t=45+    blue drain request đang bay, thoát NGAY khi request cuối kết thúc
+t=165    trần app tự thoát   (SHUTDOWN_TIMEOUT_MS=120s)
+t=195    trần Docker SIGKILL (stop_grace_period=150s) — thực tế không bao giờ chạm tới
+```
+
+| Bạn đang làm gì lúc switch | Ảnh hưởng |
+|---|---|
+| Bấm dashboard, gọi API thường | không thấy gì |
+| Stream câu trả lời LLM < 2 phút | chạy hết trên blue |
+| Stream dài hơn 2 phút | bị cắt ở t=165 |
+| WebSocket live-monitoring | rớt, client tự reconnect vào green |
+
+**Ba con số phải giữ đúng thứ tự này:**
+
+```
+SHUTDOWN_TIMEOUT_MS  <  stop_grace_period  ≤  stream_close_delay
+    120s (compose)        150s (compose)       5m (deploy.sh sinh ra)
+```
+
+- App phải tự quyết định thoát **trước** khi Docker `SIGKILL`. Nếu ngược lại,
+  `cleanup()` trong `src/lib/gracefulShutdown.ts` không kịp chạy và
+  `storage.sqlite` bị bỏ lại với WAL chưa checkpoint.
+- Caddy phải kiên nhẫn ít nhất bằng app, nếu không nó cắt stream mà slot cũ vẫn
+  đang sẵn sàng phục vụ tới cùng.
+
+**Tăng `SHUTDOWN_TIMEOUT_MS` không làm deploy chậm đi.** `waitForDrain()` thoát
+ngay khi `activeRequests <= 0`, nên slot rảnh vẫn tắt trong khoảng 0.25 giây.
+Con số 120s chỉ có tác dụng khi thật sự còn stream đang chạy.
+
+Hệ quả duy nhất cần biết: cửa sổ hai container cùng mở `storage.sqlite` kéo dài
+đúng bằng thời gian stream cuối cùng còn sống. SQLite WAL có khoá liên tiến trình
+nên không hỏng dữ liệu, nhưng đó là lý do các con số này không nên nới vô tội vạ.
+
+### 8.6 Đĩa
 
 Thứ thật sự ăn đĩa là image, không phải backup:
 
