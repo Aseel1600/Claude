@@ -7,7 +7,7 @@ import logging
 import signal
 import sys
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from .alerts import AlertManager, StateManagerAlertPersistenceAdapter
 from .commands import CommandDispatcher

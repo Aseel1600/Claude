@@ -1,6 +1,7 @@
 """Unit tests for Telegram Ops Bot configuration parsing and validation."""
 
 import os
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -40,6 +41,10 @@ class TestConfig(unittest.TestCase):
         self.assertIsNone(cfg.github_repo)
         self.assertEqual(cfg.log_level, "INFO")
         self.assertEqual(cfg.validate(), [])
+
+    def test_main_module_imports_on_python_39(self) -> None:
+        sys.modules.pop("scripts.ops.telegram_ops_bot.main", None)
+        __import__("scripts.ops.telegram_ops_bot.main")
 
     def test_alert_threshold_factories_match_runtime_api(self) -> None:
         cfg = BotConfig(
