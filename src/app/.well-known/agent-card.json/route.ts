@@ -11,19 +11,24 @@
  */
 
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { getFleetSkills } from "@/lib/conductor/fleetSkills";
 
 const PACKAGE_VERSION = process.env.npm_package_version || "1.8.1";
-const BASE_URL = process.env.OMNIROUTE_BASE_URL || "http://localhost:20128";
+
+function getBaseUrl(request: NextRequest): string {
+  return process.env.OMNIROUTE_BASE_URL || request.nextUrl.origin;
+}
 
 /**
  * GET /.well-known/agent-card.json
  *
  * Returns the OmniRoute Agent Card (A2A v1.0).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const fleetSkills = await getFleetSkills();
+  const BASE_URL = getBaseUrl(request);
 
   const agentCard = {
     name: "OmniRoute AI Gateway",

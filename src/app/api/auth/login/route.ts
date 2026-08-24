@@ -28,6 +28,8 @@ export const authRouteInternals = {
   getCookieStore: cookies,
 };
 
+const TRUSTED_PEER_IP_HEADER = "x-omniroute-trusted-peer-ip";
+
 export async function POST(request) {
   const auditContext = getAuditRequestContext(request);
 
@@ -75,7 +77,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid password payload" }, { status: 400 });
     }
     const settings = await getCachedSettings();
-    const clientIp = auditContext.ipAddress || null;
+    const clientIp = request.headers?.get?.(TRUSTED_PEER_IP_HEADER) || auditContext.ipAddress || null;
     const oidcDisabledPassword =
       settings.oidcEnabled === true &&
       (settings.oidcDisablePasswordLogin === true ||
@@ -118,9 +120,7 @@ export async function POST(request) {
         { error: "Too many failed attempts. Try again later." },
         {
           status: 429,
-          headers: guardCheck.retryAfterSeconds
-            ? { "Retry-After": String(guardCheck.retryAfterSeconds) }
-            : {},
+          headers: { "Retry-After": String(guardCheck.retryAfterSeconds || 60) },
         }
       );
     }
@@ -220,9 +220,7 @@ export async function POST(request) {
         { error: "Too many failed attempts. Try again later." },
         {
           status: 429,
-          headers: failureDecision.retryAfterSeconds
-            ? { "Retry-After": String(failureDecision.retryAfterSeconds) }
-            : {},
+          headers: { "Retry-After": String(failureDecision.retryAfterSeconds || 60) },
         }
       );
     }
