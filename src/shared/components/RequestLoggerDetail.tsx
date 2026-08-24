@@ -12,6 +12,8 @@ import {
 import { formatDuration, formatApiKeyLabel, maskAccount } from "@/shared/utils/formatting";
 import { formatErrorForDisplay } from "@/shared/utils/formatting";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { JsonTreeExpandControls } from "@/shared/components/JsonTreeExpandControls";
+import useJsonTreeExpandStore from "@/store/jsonTreeExpandStore";
 import {
   PayloadSection,
   ConversationContextSection,
@@ -75,10 +77,6 @@ export function buildCopyAllText({
 // joined. Strip those markers first so a `data:` line isn't interrupted.
 const STREAM_TIMESTAMP_PREFIX = /\[\d{2}:\d{2}:\d{2}\.\d{3}\] /g;
 
-function shouldExpandStreamEventNode(level) {
-  return level < 1;
-}
-
 type StreamSegment =
   { type: "text"; value: string } | { type: "json"; value: unknown; raw: string };
 
@@ -124,6 +122,7 @@ function StreamSection({ title, json, onCopy }) {
   });
   const ref = useRef(null);
   const { isDark } = useTheme();
+  const expandLevel = useJsonTreeExpandStore((s) => s.level);
   const segments = useMemo(() => parseStreamIntoSegments(json), [json]);
 
   const handleCopy = async () => {
@@ -190,6 +189,7 @@ function StreamSection({ title, json, onCopy }) {
             </span>
             {copied ? t("copied") : t("copy")}
           </button>
+          {segments.some((s) => s.type === "json") && <JsonTreeExpandControls />}
         </div>
       </div>
       {open && (
@@ -203,7 +203,7 @@ function StreamSection({ title, json, onCopy }) {
                 <JsonView
                   data={segment.value}
                   style={isDark ? darkStyles : defaultStyles}
-                  shouldExpandNode={shouldExpandStreamEventNode}
+                  shouldExpandNode={(level) => level < expandLevel}
                 />
               </div>
             ) : (
