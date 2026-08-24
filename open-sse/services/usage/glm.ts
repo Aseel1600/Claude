@@ -155,7 +155,12 @@ export async function getGlmUsage(apiKey: string, providerSpecificData?: Record<
     const resetMs = toNumber(src.nextResetTime, 0);
     const resetAt = resetMs > 0 ? new Date(resetMs).toISOString() : null;
 
-    if (type === "TOKENS_LIMIT") {
+    // Z.ai coding-plan keys (CREDIT-based, e.g. GLM Coding Max/Lite) report
+    // CREDIT_LIMIT rows with the same unit/number semantics as TOKENS_LIMIT
+    // (unit=3/number=5 → 5-hour window, unit=6/number=1 → weekly). Without
+    // this branch every CREDIT_LIMIT row is dropped and the quota card
+    // renders empty for subscription keys.
+    if (type === "TOKENS_LIMIT" || type === "CREDIT_LIMIT") {
       const quotaName = getGlmTokenQuotaName(src, quotas);
       const usedPercent = toPercentage(src.percentage);
       const remaining = Math.max(0, 100 - usedPercent);

@@ -317,3 +317,62 @@ describe("getGlmUsage team quota parsing", () => {
     }
   });
 });
+
+describe("getGlmUsage CREDIT_LIMIT (coding-plan subscription keys)", () => {
+  // Real-world response from https://api.z.ai/api/monitor/usage/quota/limit
+  // for a GLM Coding Max subscription key (2026-08): limits use CREDIT_LIMIT
+  // instead of TOKENS_LIMIT with identical unit/number semantics.
+  const CREDIT_LIMIT_RESPONSE = {
+    code: 200,
+    msg: "Operation successful",
+    data: {
+      limits: [
+        {
+          type: "CREDIT_LIMIT",
+          unit: 3,
+          number: 5,
+          usage: 28000,
+          currentValue: 3341,
+          remaining: 24658,
+          percentage: 11,
+          nextResetTime: 1787563232239,
+        },
+        {
+          type: "CREDIT_LIMIT",
+          unit: 6,
+          number: 1,
+          usage: 140000,
+          currentValue: 25224,
+          remaining: 114775,
+          percentage: 18,
+          nextResetTime: 1788077327998,
+        },
+      ],
+      level: "max",
+    },
+    success: true,
+  };
+
+  it("maps CREDIT_LIMIT rows to session/weekly quotas instead of dropping them", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify(CREDIT_LIMIT_RESPONSE), { status: 200 });
+
+    try {
+      const usage = await getGlmUsage("zai-subscription-key");
+
+      assert.equal(usage.plan, "Max");
+      assert.ok(usage.quotas.session, "5-hour window quota should render");
+      assert.ok(usage.quotas.weekly, "weekly quota should render");
+      assert.equal(usage.quotas.session.used, 11);
+      assert.equal(usage.quotas.session.remaining, 89);
+      assert.equal(usage.quotas.weekly.used, 18);
+      assert.equal(usage.quotas.weekly.remaining, 82);
+      assert.equal(usage.quotas.session.displayName, "5 Hours Quota");
+      assert.equal(usage.quotas.weekly.displayName, "Weekly Quota");
+      assert.equal(usage.quotas.session.resetAt, new Date(1787563232239).toISOString());
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
