@@ -197,6 +197,20 @@ export class MaxAiExecutor extends BaseExecutor {
     if (upstream.status !== 200 || !upstream.body) {
       const detail = await upstream.text().catch(() => "");
       // 401/418 = auth expired/masked-reject; surface so the caller can prompt a re-mint.
+      // A body-too-large rejection (MaxAI answers 422 "...message you submitted being
+      // too long...") is INPUT-bound: classify it as context_length_exceeded so
+      // OmniRoute's compression/overflow pipeline can shrink and retry instead of
+      // treating it as an opaque provider error.
+      const tooLong = /too\s+long|exceeds?\b.*\bcontext|context.*(?:exceeded|too long|limit)/i.test(
+        detail
+      );
+      if (tooLong) {
+        return errorResponse(
+          400,
+          `MaxAI request exceeds the context limit: ${sanitizeErrorMessage(detail.slice(0, 200))}`,
+          "context_length_exceeded"
+        );
+      }
       const status = upstream.status === 418 ? 401 : upstream.status || 502;
       return errorResponse(
         status,

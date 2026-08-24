@@ -771,3 +771,37 @@ test("discoverMaxaiModels refuses when the connection is unconfigured", async ()
     /not configured/
   );
 });
+
+// ── Body-too-large classification (context_length_exceeded) ──────────────────
+
+test("executor classifies a MaxAI 'too long' rejection as context_length_exceeded", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        code: -2,
+        detail:
+          "Something went wrong. It's probably due to the message you submitted being too long. Please reload the conversation and submit something shorter.",
+      }),
+      { status: 422 }
+    )) as unknown as typeof fetch;
+  try {
+    const executor = new MaxAiExecutor();
+    const result = await executor.execute({
+      model: "maxai/gpt-5.6",
+      stream: false,
+      credentials: TOOL_CRED,
+      body: {
+        model: "maxai/gpt-5.6",
+        messages: [{ role: "user", content: "a very long transcript..." }],
+        stream: false,
+      },
+    } as unknown as Parameters<MaxAiExecutor["execute"]>[0]);
+    const response = "response" in result ? result.response : (result as Response);
+    assert.equal(response.status, 400);
+    const json = await response.json();
+    assert.equal(json.error.code, "context_length_exceeded");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
