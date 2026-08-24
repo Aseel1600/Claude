@@ -625,6 +625,10 @@ export async function createProviderConnection(data: JsonRecord) {
     "accessToken",
     "refreshToken",
     "expiresAt",
+    // #5326's payload sets this and _insertConnectionRow binds it, but it was
+    // missing from this allowlist — so every created row stored NULL however good
+    // the payload was. The update path already carries it (`data.tokenExpiresAt`).
+    "tokenExpiresAt",
     "tokenType",
     "scope",
     "idToken",
