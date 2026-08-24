@@ -32,10 +32,6 @@ async function captureStdout(fn: () => Promise<void>): Promise<string> {
   return chunks.join("");
 }
 
-function makeCmd(output = "json") {
-  return { optsWithGlobals: () => ({ output, quiet: output !== "table" }) };
-}
-
 // Simulate a /api/mcp/stream endpoint that speaks JSON-RPC 2.0
 function makeMcpStreamFetch(
   toolResult: { content: { type: string; text: string }[] } = {
@@ -132,7 +128,7 @@ test("mcp call sends JSON-RPC initialize then tools/call", async () => {
 test("mcp call passes session-id header on tools/call", async () => {
   let callHeaders: Record<string, string> = {};
   const origFetch = globalThis.fetch;
-  globalThis.fetch = ((url: string, opts: unknown) => {
+  globalThis.fetch = ((_url: string, opts: unknown) => {
     const body = opts?.body ? JSON.parse(opts.body) : null;
     if (body && body.method === "initialize") {
       return Promise.resolve(
@@ -197,7 +193,7 @@ test("mcp call prints result content to stdout", async () => {
 
 test("mcp call prints error on non-ok response", async () => {
   const origFetch = globalThis.fetch;
-  globalThis.fetch = ((url: string, opts: unknown) => {
+  globalThis.fetch = ((_url: string, opts: unknown) => {
     const body = opts?.body ? JSON.parse(opts.body) : null;
     if (body && body.method === "initialize") {
       return Promise.resolve(
@@ -232,7 +228,7 @@ test("mcp call prints error on non-ok response", async () => {
 
 test("mcp call with stream reads SSE data", async () => {
   const origFetch = globalThis.fetch;
-  globalThis.fetch = ((url: string, opts: unknown) => {
+  globalThis.fetch = ((_url: string, opts: unknown) => {
     const body = opts?.body ? JSON.parse(opts.body) : null;
     if (body && body.method === "initialize") {
       return Promise.resolve(
@@ -283,7 +279,7 @@ test("mcp call with stream reads SSE data", async () => {
 
 test("mcp status reads online field", async () => {
   const origFetch = globalThis.fetch;
-  globalThis.fetch = (async (_url: string | URL, init?: unknown) => {
+  globalThis.fetch = (async (_url: string | URL, _init?: unknown) => {
     const u = String(_url);
     if (u.includes("/api/health")) {
       return makeResp({ status: "ok" }) as any;

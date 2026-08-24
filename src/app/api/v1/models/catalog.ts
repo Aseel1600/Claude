@@ -28,7 +28,11 @@ import { getAllAudioModels } from "@omniroute/open-sse/config/audioRegistry";
 import { getAllModerationModels } from "@omniroute/open-sse/config/moderationRegistry";
 import { getAllVideoModels } from "@omniroute/open-sse/config/videoRegistry";
 import { getAllMusicModels } from "@omniroute/open-sse/config/musicRegistry";
-import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
+import {
+  getRegistryModelThinkingEfforts,
+  getRegistryThinkingEfforts,
+  REGISTRY,
+} from "@omniroute/open-sse/config/providerRegistry";
 import { CODEX_NATIVE_UNPREFIXED_MODELS } from "@omniroute/open-sse/services/model";
 import { isModelSelectable } from "@omniroute/open-sse/services/modelLifecycle";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo";
@@ -585,7 +589,9 @@ async function buildUnifiedModelsResponseCore(
               modelId,
               target,
               eligibleConnectionIds,
-              connectionCatalog || {}
+              connectionCatalog || {},
+              getRegistryModelThinkingEfforts(providerId, modelId),
+              getRegistryThinkingEfforts(providerId, modelId)
             );
       if (
         connectionEfforts === undefined &&
@@ -669,7 +675,7 @@ async function buildUnifiedModelsResponseCore(
               providerId,
               modelId,
               canonical.capabilities.supportsThinking,
-              registryModel?.supportedThinkingEfforts,
+              getRegistryThinkingEfforts(providerId, modelId),
               true
             )
           : getThinkingCapabilityFields(
