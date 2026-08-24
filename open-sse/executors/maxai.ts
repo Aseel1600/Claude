@@ -39,7 +39,7 @@ import {
   newConversationId,
 } from "./maxai/protocol.ts";
 import { estimateMaxaiTokens, isMaxaiTextFrame, ThinkSplitter } from "./maxai/stream.ts";
-import { prepareToolMessages } from "../translator/webTools.ts";
+import { prepareToolMessages, parseToolCallsFromText } from "../translator/webTools.ts";
 import { buildToolModeResponse } from "./chatgptWebTools.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -64,6 +64,36 @@ function errorResponse(status: number, message: string, code: string): Response 
       },
     }),
     { status, headers: JSON_HEADERS }
+  );
+}
+
+/**
+ * Detect a tool "narration miss": the model produced no parseable <tool> block
+ * but its text shows it was ABOUT to call a tool (talks about the <tool> block
+ * or names a requested tool). This is the occasional reasoning-model failure
+ * mode (e.g. deepseek-r1) where it reasons about the call instead of emitting
+ * it. A true refusal or a normal answer returns false, so we never retry those.
+ */
+function isToolNarrationMiss(text: string, requestedTools: unknown): boolean {
+  if (!text) return false;
+  if (/<tool\b/.test(text)) return true; // mentioned the tag but it didn't parse
+  const names = Array.isArray(requestedTools)
+    ? (requestedTools as Array<{ function?: { name?: unknown } }>)
+        .map((t) => (typeof t?.function?.name === "string" ? t.function.name : ""))
+        .filter(Boolean)
+    : [];
+  // Names it a tool AND signals intent to use it (not merely mentioning it).
+  const intent = /\b(I('| wi)ll|let me|I can|going to|need to)\b/i.test(text);
+  return intent && names.some((n) => text.includes(n));
+}
+
+/** A short, soft nudge appended to the transcript for the single retry turn. */
+function toolNudge(originalText: string): string {
+  return (
+    originalText +
+    "\n\n[A quick note: if a client tool would help answer this, please go ahead " +
+    "and emit the <tool> block directly rather than describing it — just the block " +
+    "on its own line. If no tool is needed, a normal answer is perfectly fine.]"
   );
 }
 
@@ -186,7 +216,21 @@ export class MaxAiExecutor extends BaseExecutor {
     // streaming callers). This mirrors every web-cookie provider's tool path.
     if (hasTools) {
       const raw = await upstream.text();
-      const { reasoning, answer } = collectNonStream(raw);
+      let { reasoning, answer } = collectNonStream(raw);
+
+      // Reliability: if the model narrated about the tool but emitted no
+      // parseable <tool> block (occasional reasoning-model miss), do ONE gentle
+      // nudged retry and keep it only if it actually produces a tool call.
+      const firstHasToolCall = !!parseToolCallsFromText(answer, "probe", requestedTools).toolCalls;
+      if (!firstHasToolCall && isToolNarrationMiss(reasoning + "\n" + answer, requestedTools)) {
+        const retry = await this.retryToolTurn(cred, accessToken, input, toolNudge(text));
+        if (retry && parseToolCallsFromText(retry.answer, "probe", requestedTools).toolCalls) {
+          reasoning = retry.reasoning;
+          answer = retry.answer;
+          input.log?.debug?.("maxai", "tool narration-miss recovered via one nudged retry");
+        }
+      }
+
       const completionTokens = estimateMaxaiTokens(reasoning + answer);
       const buffered = new Response(
         JSON.stringify({
@@ -298,6 +342,47 @@ export class MaxAiExecutor extends BaseExecutor {
       );
     }
     return result.accessToken;
+  }
+
+  /**
+   * Run a single follow-up MaxAI turn with a gentle nudge appended, used to
+   * recover a reasoning-model "narration miss" (the model talked ABOUT the
+   * <tool> block instead of emitting it). Bounded to one extra call; returns the
+   * split { reasoning, answer } or null on any failure (caller keeps the original).
+   */
+  private async retryToolTurn(
+    cred: MaxaiCredential,
+    accessToken: string,
+    input: ExecuteInput,
+    nudgedText: string
+  ): Promise<{ reasoning: string; answer: string } | null> {
+    try {
+      const retryBody = buildMaxaiChatBody({
+        conversationId: newConversationId(),
+        text: nudgedText,
+        modelName: input.model,
+      });
+      const headers: Record<string, string> = {
+        ...maxaiStaticHeaders(),
+        ...buildMaxaiSignedHeaders({
+          path: MAXAI_CHAT_PATH,
+          userId: cred.userId,
+          deviceId: cred.deviceId,
+        }),
+        Authorization: `Bearer ${accessToken}`,
+        ...(input.upstreamExtraHeaders ?? {}),
+      };
+      const res = await fetch(MAXAI_BASE_URL + MAXAI_CHAT_PATH, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(retryBody),
+        signal: input.signal ?? undefined,
+      });
+      if (res.status !== 200 || !res.body) return null;
+      return collectNonStream(await res.text());
+    } catch {
+      return null;
+    }
   }
 
   /** Bridge the MaxAI SSE body into an OpenAI chat.completion.chunk stream. */

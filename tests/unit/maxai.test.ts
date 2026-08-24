@@ -563,3 +563,81 @@ test("executor without tools streams normally (no tool_calls, plain content)", a
   assert.equal(json.choices[0].message.content, "Paris is sunny today.");
   assert.equal(json.choices[0].message.tool_calls, undefined);
 });
+
+/** Like runToolExecute but returns a DIFFERENT sse body per upstream call, so we
+ *  can simulate a narration-miss on turn 1 and a clean tool call on turn 2. */
+async function runToolExecuteSeq(bodies: string[]): Promise<Response> {
+  const realFetch = globalThis.fetch;
+  let call = 0;
+  globalThis.fetch = (async () => {
+    const body = bodies[Math.min(call, bodies.length - 1)];
+    call += 1;
+    return new Response(body, { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const executor = new MaxAiExecutor();
+    const result = await executor.execute({
+      model: "maxai/deepseek-r1",
+      stream: false,
+      credentials: TOOL_CRED,
+      body: {
+        model: "maxai/deepseek-r1",
+        messages: [{ role: "user", content: "what's the weather in Ghent?" }],
+        tools: [WEATHER_TOOL],
+        stream: false,
+      },
+    } as unknown as Parameters<MaxAiExecutor["execute"]>[0]);
+    return "response" in result ? result.response : (result as Response);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+test("executor recovers a tool narration-miss via one nudged retry", async () => {
+  // Turn 1: the model NARRATES about the <tool> block but emits none parseable.
+  const narration =
+    "I can use the get_current_weather tool here via a special <tool> block. Let me think about the arguments...";
+  // Turn 2 (after nudge): a clean, parseable tool call. Omit _nonce (tolerated
+  // for models that don't echo it) so the test isn't coupled to the internal
+  // per-tools-reference nonce the executor injected.
+  const clean = `<tool>{"name": "get_current_weather", "arguments": {"city": "Ghent"}}</tool>`;
+
+  const response = await runToolExecuteSeq([maxaiSseBody(narration), maxaiSseBody(clean)]);
+  assert.equal(response.status, 200);
+  const json = await response.json();
+  assert.equal(json.choices[0].finish_reason, "tool_calls");
+  assert.equal(json.choices[0].message.tool_calls[0].function.name, "get_current_weather");
+  assert.deepEqual(JSON.parse(json.choices[0].message.tool_calls[0].function.arguments), {
+    city: "Ghent",
+  });
+});
+
+test("executor does NOT retry a genuine no-tool answer (no narration signal)", async () => {
+  // A plain answer with no tool intent must pass through unchanged (single call).
+  let calls = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response(maxaiSseBody("The weather in Ghent is mild and cloudy."), { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const executor = new MaxAiExecutor();
+    const result = await executor.execute({
+      model: "maxai/gpt-5.6",
+      stream: false,
+      credentials: TOOL_CRED,
+      body: {
+        model: "maxai/gpt-5.6",
+        messages: [{ role: "user", content: "how's Ghent?" }],
+        tools: [WEATHER_TOOL],
+        stream: false,
+      },
+    } as unknown as Parameters<MaxAiExecutor["execute"]>[0]);
+    const response = "response" in result ? result.response : (result as Response);
+    const json = await response.json();
+    assert.equal(json.choices[0].finish_reason, "stop");
+    assert.equal(calls, 1); // no retry
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
