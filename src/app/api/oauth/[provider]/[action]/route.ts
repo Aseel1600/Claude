@@ -25,6 +25,10 @@ import {
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { isValidGheUrl } from "@/shared/validation/providerSpecificData";
 import { AWS_REGION_PATTERN } from "@/lib/oauth/constants/oauth";
+import {
+  antigravityMissingProjectRejection,
+  type AntigravityProjectDiscoveryRejection,
+} from "@/lib/oauth/antigravityProjectGate";
 import { syncToCloud } from "@/lib/cloudSync";
 import { startLocalServer } from "@/lib/oauth/utils/server";
 import { runWithProxyContextOrDirect } from "@omniroute/open-sse/utils/proxyFetch.ts";
@@ -77,37 +81,6 @@ const RETIRED_PKCE_PROVIDERS = new Set(["devin-desktop", "devin-cli"]);
 
 /** Providers that allow direct import of a raw API token (no OAuth exchange). */
 const IMPORT_TOKEN_PROVIDERS = new Set(["devin-desktop", "devin-cli", "grok-cli"]);
-
-/**
- * #11284: reject Antigravity/AGY connects whose Cloud Code projectId discovery
- * failed, instead of persisting a dead `testStatus:"active"` row that shows
- * "Connected" while every model call 404s/422s. Google BYOP accounts (#8491)
- * report `requires_manual_project`; transient discovery failures report
- * `discovery_failed`. Returns the error response to send, or null to proceed.
- */
-function antigravityMissingProjectRejection(
-  provider: string,
-  tokenData: Record<string, unknown> | null | undefined
-): NextResponse | null {
-  if (provider !== "antigravity" && provider !== "agy") return null;
-  const outcome = tokenData?.projectDiscoveryOutcome;
-  if (!outcome) return null;
-  const message =
-    outcome === "requires_manual_project"
-      ? "Google did not assign a Cloud Code project to this account (BYOP). Create a GCP Project at console.cloud.google.com, complete Gemini Code Assist onboarding, then reconnect. This account cannot serve requests without a projectId."
-      : "Could not discover the Google Cloud Code projectId during login (loadCodeAssist/onboardUser failed). The account was NOT saved. Check network/proxy reachability to Google and retry.";
-  console.warn(
-    `[oauth] ${provider}: rejecting connect — no Cloud Code projectId (${outcome}) (#11284)`
-  );
-  return NextResponse.json(
-    {
-      success: false,
-      error: "missing_cloud_code_project",
-      errorDescription: message,
-    },
-    { status: 422 }
-  );
-}
 
 /**
  * Constant-time string comparison to prevent timing-oracle attacks (CWE-208).
@@ -554,8 +527,12 @@ export async function POST(
       // #11284: never persist an Antigravity/AGY account whose Cloud Code
       // projectId discovery failed at connect time — Google BYOP accounts
       // (#8491) can never serve requests and would show a false "Connected".
-      const missingProjectError = antigravityMissingProjectRejection(provider, tokenData);
-      if (missingProjectError) return missingProjectError;
+      const missingProject = antigravityMissingProjectRejection(provider, tokenData);
+      if (missingProject) {
+        return NextResponse.json(missingProject satisfies AntigravityProjectDiscoveryRejection, {
+          status: 422,
+        });
+      }
 
       // Normalize: if name is missing, use email or displayName as fallback so accounts
       // always show a real label (e.g. user@gmail.com) instead of "Account #abc123"
@@ -778,8 +755,12 @@ export async function POST(
 
         // #11284: never persist an Antigravity/AGY account whose Cloud Code
         // projectId discovery failed at connect time.
-        const missingProjectError = antigravityMissingProjectRejection(provider, tokenData);
-        if (missingProjectError) return missingProjectError;
+        const missingProject = antigravityMissingProjectRejection(provider, tokenData);
+        if (missingProject) {
+          return NextResponse.json(missingProject satisfies AntigravityProjectDiscoveryRejection, {
+            status: 422,
+          });
+        }
 
         // Normalize: if name is missing, use email as fallback display label
         if (!tokenData.name && (tokenData.email || tokenData.displayName)) {

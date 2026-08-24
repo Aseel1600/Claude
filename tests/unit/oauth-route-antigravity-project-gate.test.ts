@@ -24,17 +24,33 @@ const routeSource = fs.readFileSync(
 );
 
 test("route gate exists and is wired into both exchange branches", () => {
-  assert.match(routeSource, /function antigravityMissingProjectRejection\(/);
+  assert.match(routeSource, /antigravityMissingProjectRejection\(provider, tokenData\)/);
   // exchange branch + poll-callback branch both gate before persisting.
   const callSites = routeSource.match(/antigravityMissingProjectRejection\(provider, tokenData\)/g) || [];
   assert.equal(callSites.length, 2, "gate must run in exchange AND poll-callback");
+  // The gate lives in its own module (extracted for the file-size cap).
+  const gateSource = fs.readFileSync(
+    path.join(here, "../../src/lib/oauth/antigravityProjectGate.ts"),
+    "utf8"
+  );
+  assert.match(gateSource, /export function antigravityMissingProjectRejection\(/);
 });
 
 test("gate rejects BYOP outcome with 422 missing_cloud_code_project", () => {
-  assert.match(routeSource, /requires_manual_project[\s\S]*?missing_cloud_code_project|missing_cloud_code_project[\s\S]*?requires_manual_project/);
+  const gateSource = fs.readFileSync(
+    path.join(here, "../../src/lib/oauth/antigravityProjectGate.ts"),
+    "utf8"
+  );
+  assert.match(gateSource, /requires_manual_project/);
+  assert.match(gateSource, /missing_cloud_code_project/);
   assert.match(routeSource, /status: 422/);
 });
 
 test("gate only applies to antigravity and agy", () => {
-  assert.match(routeSource, /provider !== "antigravity" && provider !== "agy"/);
+  const gateSource = fs.readFileSync(
+    path.join(here, "../../src/lib/oauth/antigravityProjectGate.ts"),
+    "utf8"
+  );
+  assert.match(gateSource, /"antigravity"/);
+  assert.match(gateSource, /"agy"/);
 });
