@@ -450,7 +450,10 @@ export class OpencodeExecutor extends BaseExecutor {
       // 200s ("Provider returned empty content"). Raise tiny budgets to the
       // floor before dispatch (see MUSE_SPARK_MIN_OUTPUT_TOKENS).
       if (input.body && typeof input.body === "object" && !Array.isArray(input.body)) {
-        applyMuseSparkMinOutputTokens(String(input.model ?? ""), input.body as Record<string, unknown>);
+        applyMuseSparkMinOutputTokens(
+          String(input.model ?? ""),
+          input.body as Record<string, unknown>
+        );
       }
 
       this.syncAccountsFromCredentials(input.credentials);
@@ -630,10 +633,7 @@ export class OpencodeExecutor extends BaseExecutor {
       }
 
       // All accounts returned 429 (or errored) — surface the last response.
-      return this.normalizeMuseSparkResponse(
-        input,
-        lastResult ?? (await super.execute(input))
-      );
+      return this.normalizeMuseSparkResponse(input, lastResult ?? (await super.execute(input)));
     } finally {
       this._requestFormat = null;
     }
@@ -842,10 +842,21 @@ export class OpencodeExecutor extends BaseExecutor {
       const mb = modifiedBody as Record<string, unknown>;
       const parsed = parseEffortLevel(model);
       if (parsed) {
-        mb.model = parsed.baseModel;
-        if (mb.reasoning_effort === undefined) {
-          mb.reasoning_effort = parsed.effort;
+        const deepseekFamily =
+          parsed.baseModel === "deepseek-v4-pro" || parsed.baseModel === "deepseek-v4-flash";
+        if (deepseekFamily) {
+          // DeepSeek via opencode-go proxies the native DeepSeek contract, which
+          // accepts a flat reasoning_effort field (#4647).
+          mb.model = parsed.baseModel;
+          if (mb.reasoning_effort === undefined) {
+            mb.reasoning_effort = parsed.effort;
+          }
         }
+        // #10788: every other family's ONLY native effort mechanism is the
+        // -<tier> suffix in the model id itself (the ids `opencode models
+        // opencode-go --verbose` lists). The opencode-go ChatCompletionRequest
+        // carries no flat reasoning_effort field, so rewriting to the base id
+        // silently dropped the tier — forward the aliased id verbatim instead.
       }
     }
     // #1543 / upstream PR #1099: thinking-mode upstreams routed through OpenCode
