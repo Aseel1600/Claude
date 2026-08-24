@@ -339,6 +339,15 @@ export function calculateSamplingDecision(
   }
 
   const frameCount = uniform.length;
+  if (frameCount === 1) {
+    return {
+      candidateCount: candidates.length,
+      ...(focusWindow ? { focusWindow } : {}),
+      policyEffective: "uniform",
+      policyRequested: "scene_aware",
+      timestamps: uniform,
+    };
+  }
   const selected =
     candidates.length <= frameCount
       ? [...candidates]

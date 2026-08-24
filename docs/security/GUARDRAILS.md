@@ -328,7 +328,10 @@ fixed FFmpeg pass over the already validated local stream, select bounded
 uniform midpoints on detector failure, timeout, malformed output, or an empty
 candidate set. Segment-aware mode allocates midpoint samples proportionally to
 the validated scene intervals. The hard 16-frame cap is
-applied after selection in every policy. A caller may optionally provide a
+applied after selection in every policy. When a scene-aware request has only a
+one-frame budget, it uses the uniform midpoint of the active full-video or focus
+window and reports `policyEffective: uniform`: a single selected scene frame
+cannot preserve both temporal ends. A caller may optionally provide a
 finite focus window (`start`/`end` seconds); bounds are clamped to the media
 duration, reversed or non-finite windows are rejected, and all sampling
 policies are performed only inside the normalized interval. The resulting
