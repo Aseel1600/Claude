@@ -7550,6 +7550,8 @@
     "resilienceRequestsPerMinute": "Requests per minute",
     "resilienceMinTimeBetweenRequests": "Minimum time between requests",
     "resilienceConcurrentRequests": "Concurrent requests",
+    "resilienceConnectionScopeConcurrentRequests": "Concurrent requests per connection/quota scope",
+    "resilienceGlobalConcurrentRequests": "Global concurrent upstream requests (0 = disabled)",
     "resilienceMaxQueueWaitTime": "Maximum queue wait time",
     "resilienceBaseCooldown": "Base cooldown",
     "resilienceUseUpstreamRetryHints": "Use upstream retry hints",
