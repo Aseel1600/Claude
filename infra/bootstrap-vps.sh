@@ -128,8 +128,9 @@ Remaining manual steps:
        http://caddy:8080
      NOT http://localhost:8080 — cloudflared runs in its own container.
 
-  4. Log the deploy user in to GHCR so it can pull the private image:
-       echo <GITHUB_PAT_read:packages> | docker login ghcr.io -u <github-user> --password-stdin
+  4. Nothing to do for GHCR: the deploy workflow lends this box a short-lived
+     GITHUB_TOKEN for the pull and logs out afterwards, so no long-lived
+     registry credential is ever stored here.
 
   5. Add the SSH public key used by GitHub Actions to
        ~$SUDO_USER/.ssh/authorized_keys

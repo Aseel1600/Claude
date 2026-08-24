@@ -153,6 +153,13 @@ jobs:
     if: ${{ !inputs.skip_deploy }}
     runs-on: ubuntu-latest
 
+    # `packages: read` is what lets step 2.3b mint a short-lived GHCR pull
+    # credential for the VPS. Without it the VPS would need a long-lived PAT
+    # stored in ~/.docker/config.json forever.
+    permissions:
+      contents: read
+      packages: read
+
     # Requires an environment named `production` holding the VPS_* secrets.
     # Add required reviewers there if you want deploys to be gated by approval.
     environment:
@@ -209,6 +216,27 @@ jobs:
             rm -rf .staging
             echo "infra files synced"'
 
+      # The image is private, so the VPS must authenticate to pull it. Rather
+      # than parking a long-lived PAT on the box, hand it this job's own
+      # GITHUB_TOKEN: it carries `packages: read`, it is minted per run, and it
+      # is revoked the moment the job ends. Step 2.6 logs out regardless of
+      # outcome so nothing is left in ~/.docker/config.json between deploys.
+      #
+      # The token goes over stdin, never as an argv element — arguments are
+      # visible in the VPS process table to any local user while the command runs.
+      - name: 2.3b Log the VPS in to GHCR (ephemeral)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" \
+              -o BatchMode=yes -o ConnectTimeout=20 \
+              "$VPS_USER@$VPS_HOST" \
+              "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
+
       - name: 2.4 Run deploy.sh (blue/green switch)
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -236,3 +264,14 @@ jobs:
               -o BatchMode=yes -o ConnectTimeout=20 \
               "$VPS_USER@$VPS_HOST" \
               "/opt/omniroute/deploy.sh --status" || true
+
+      - name: 2.6 Log the VPS out of GHCR
+        if: always()
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" \
+              -o BatchMode=yes -o ConnectTimeout=20 \
+              "$VPS_USER@$VPS_HOST" 'docker logout ghcr.io' || true

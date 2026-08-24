@@ -201,20 +201,19 @@ Các giá trị đã set sẵn hợp lý, đừng sửa nếu không có lý do:
 > blue/green có lúc 2 container cùng sống; nếu bật, cả hai sẽ cùng chạy
 > auto-backup trên một file SQLite. Backup do `backup.sh` + cron lo.
 
-### 3.5 Cho VPS quyền pull image
+### 3.5 Quyền pull image — không cần làm gì
 
-Image trên GHCR mặc định private. Tạo một PAT chỉ có scope `read:packages`
-(GitHub → Settings → Developer settings → Personal access tokens):
+Image trên GHCR là private. VPS vẫn pull được mà **không** giữ credential nào:
+job deploy tự cho VPS mượn `GITHUB_TOKEN` của chính lần chạy đó (step 2.3b),
+pull xong thì logout (step 2.6).
 
-```bash
-echo '<PAT_read_packages>' | docker login ghcr.io -u TheDemonTuan --password-stdin
-```
+Token ấy sống đúng bằng thời gian job chạy và chỉ có `packages: read`. Nghĩa là
+`~/.docker/config.json` trên VPS trống giữa hai lần deploy — không có PAT dài
+hạn nào để rò rỉ, không có gì phải xoay vòng.
 
-*Cách khác: vào trang package trên GitHub → Package settings → đổi visibility
-sang Public. Khi đó VPS không cần login. Image public nghĩa là ai cũng pull
-được — nó không chứa secret, nhưng chứa toàn bộ code build của bạn.*
-
----
+> Nếu bạn cần pull tay trên VPS để debug, lúc đó mới tạo một PAT scope
+> `read:packages` và `docker login ghcr.io -u TheDemonTuan --password-stdin`.
+> Nhớ `docker logout ghcr.io` sau khi xong.
 
 ## 4. Khoá SSH cho CI ⬜
 
@@ -450,7 +449,6 @@ VPS
 [ ] chạy infra/bootstrap-vps.sh
 [ ] điền /opt/omniroute/.app.env  (JWT_SECRET, API_KEY_SECRET, INITIAL_PASSWORD, NEXT_PUBLIC_BASE_URL)
 [ ] chmod 600 .app.env
-[ ] docker login ghcr.io   (hoặc đổi package sang public)
 [ ] xác nhận UFW chỉ mở 22
 
 SSH CHO CI
