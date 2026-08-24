@@ -31,12 +31,20 @@ import * as xSearch from "./search/xSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
+import {
+  parseAndValidateNonMetadataUrl,
+  parseAndValidatePublicUrl,
+} from "@/shared/network/outboundUrlGuard";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { isValidContext7LibraryId } from "../executors/context7-fetch.ts";
-import { resolveSearchProxy, executeProviderFetch } from "./search/searchProxy.ts";
+import {
+  executeProviderFetch,
+  fetchClientControlledSearchUrl,
+  resolveSearchProxy,
+} from "./search/searchProxy.ts";
 import { formatSearchProviderFailure } from "./search/providerFailure.ts";
 
 export interface SearchResult {
@@ -296,26 +304,41 @@ function parseDomainFilter(domainFilter?: string[]): {
   return { includes, excludes };
 }
 
+function getSettingString(record: Record<string, unknown> | undefined, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
 function getProviderSettingString(
   params: Pick<SearchRequestParams, "providerOptions" | "providerSpecificData">,
   key: string
-): string | undefined {
-  const fromOptions = params.providerOptions?.[key];
-  if (typeof fromOptions === "string" && fromOptions.trim().length > 0) {
-    return fromOptions.trim();
-  }
-
-  const fromProviderData = params.providerSpecificData?.[key];
-  if (typeof fromProviderData === "string" && fromProviderData.trim().length > 0) {
-    return fromProviderData.trim();
-  }
-
-  return undefined;
+) {
+  return (
+    getSettingString(params.providerOptions, key) ??
+    getSettingString(params.providerSpecificData, key)
+  );
 }
 
-function resolveSearchBaseUrl(config: SearchProviderConfig, params: SearchRequestParams): string {
-  const override = getProviderSettingString(params, "baseUrl");
-  return (override || config.baseUrl).replace(/\/+$/, "");
+export function resolveSearchBaseUrl(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): string {
+  const clientOverride = getSettingString(params.providerOptions, "baseUrl");
+  if (clientOverride) {
+    // Request-scoped provider_options is untrusted. Its hostname must be public
+    // before the request-time DNS pin in searchProxy.ts closes the rebinding gap.
+    parseAndValidatePublicUrl(clientOverride);
+    return clientOverride.replace(/\/+$/, "");
+  }
+
+  const storedBaseUrl = getSettingString(params.providerSpecificData, "baseUrl");
+  if (storedBaseUrl) {
+    // Persisted operator configuration is where self-hosted SearXNG/Ollama lives,
+    // so loopback/LAN stays supported. Metadata is never a valid search backend.
+    parseAndValidateNonMetadataUrl(storedBaseUrl);
+    return storedBaseUrl.replace(/\/+$/, "");
+  }
+  return config.baseUrl.replace(/\/+$/, "");
 }
 
 function toSearchPageNumber(offset: number | undefined, maxResults: number): number | undefined {
@@ -1081,8 +1104,16 @@ async function zaiSearchExecute(params: {
   signal?: AbortSignal;
 }): Promise<{ results: SearchResult[]; totalResults: number | null }> {
   const baseUrl = resolveSearchBaseUrl(params.config, params.params);
+  const clientControlledBaseUrl = Boolean(
+    getSettingString(params.params.providerOptions, "baseUrl")
+  );
+  const guardedMcpFetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const targetUrl =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    return fetchClientControlledSearchUrl(targetUrl, init ?? {}, init?.signal ?? undefined);
+  }) as typeof fetch;
   const transport = new StreamableHTTPClientTransport(new URL(baseUrl), {
-    fetch: safeOutboundFetch,
+    fetch: clientControlledBaseUrl ? guardedMcpFetch : safeOutboundFetch,
     requestInit: {
       headers: {
         Authorization: `Bearer ${params.token}`,
@@ -1406,13 +1437,22 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
 
   // 4. Try primary provider (skip catalog-default SearXNG localhost:8888,
   // unless a request/connection override resolves it to a real URL).
-  const primaryEffectiveBaseUrl = resolveSearchBaseUrl(primaryConfig, {
-    ...requestParams,
-    providerSpecificData:
-      credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
-        ? credentials.providerSpecificData
-        : undefined,
-  });
+  let primaryEffectiveBaseUrl: string;
+  try {
+    primaryEffectiveBaseUrl = resolveSearchBaseUrl(primaryConfig, {
+      ...requestParams,
+      providerSpecificData:
+        credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
+          ? credentials.providerSpecificData
+          : undefined,
+    });
+  } catch (error) {
+    return {
+      success: false,
+      status: 400,
+      error: sanitizeErrorMessage(error) || "Invalid search provider base URL",
+    };
+  }
   if (
     isUnconfiguredLoopbackSearchProvider({ ...primaryConfig, baseUrl: primaryEffectiveBaseUrl })
   ) {
@@ -1683,6 +1723,7 @@ async function tryProvider(
     connectionId,
     proxy,
     proxyLevel,
+    clientControlledBaseUrl: Boolean(getSettingString(params.providerOptions, "baseUrl")),
     log,
     normalize: normalizeResponse,
   });

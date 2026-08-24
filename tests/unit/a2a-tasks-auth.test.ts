@@ -1,91 +1,91 @@
-import test from "node:test";
+import { after, afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omni-a2a-tasks-auth-"));
+process.env.DATA_DIR = TEST_DATA_DIR;
+process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "a2a-tasks-auth-test-secret";
+process.env.OMNIROUTE_DISABLE_REDIS_AUTH_CACHE = "1";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const A2A_AUTH_HELPER = path.resolve(__dirname, "../../src/lib/a2a/authenticate.ts");
 
-const TASKS_ROUTE = path.resolve(__dirname, "../../src/app/api/a2a/tasks/route.ts");
-const A2A_ROUTE = path.resolve(__dirname, "../../src/app/a2a/route.ts");
+const core = await import("../../src/lib/db/core.ts");
+const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
+const settingsDb = await import("../../src/lib/db/settings.ts");
+const tasksRoute = await import("../../src/app/api/a2a/tasks/route.ts");
+const { authenticateA2ARequest } = await import("../../src/lib/a2a/authenticate.ts");
 
-const source = fs.readFileSync(TASKS_ROUTE, "utf-8");
+const ORIGINAL_REQUIRE = process.env.REQUIRE_API_KEY;
+const ORIGINAL_OMNIROUTE_KEY = process.env.OMNIROUTE_API_KEY;
 
-const { tokensMatch, authenticateA2A } = await import("../../src/app/api/a2a/tasks/route.ts");
+afterEach(() => {
+  if (ORIGINAL_REQUIRE === undefined) delete process.env.REQUIRE_API_KEY;
+  else process.env.REQUIRE_API_KEY = ORIGINAL_REQUIRE;
+  if (ORIGINAL_OMNIROUTE_KEY === undefined) delete process.env.OMNIROUTE_API_KEY;
+  else process.env.OMNIROUTE_API_KEY = ORIGINAL_OMNIROUTE_KEY;
+});
 
-function hasImport(src: string, name: string, from: string): boolean {
-  const pattern = new RegExp(
-    `import\\s+\\{[^}]*\\b${name}\\b[^}]*\\}\\s+from\\s+["']${from}["']`
-  );
-  return pattern.test(src);
+after(() => {
+  core.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+});
+
+function request(token?: string): Request {
+  return new Request("http://localhost/api/a2a/tasks", {
+    method: "POST",
+    headers: token ? { authorization: `Bearer ${token}` } : undefined,
+  });
 }
 
-test("tasks route uses the same constant-time contract as src/app/a2a/route.ts", () => {
-  const a2aSource = fs.readFileSync(A2A_ROUTE, "utf-8");
-  assert.ok(
-    hasImport(a2aSource, "timingSafeEqual", "node:crypto"),
-    "reference route imports timingSafeEqual"
-  );
+test("shared A2A helper keeps the explicit legacy key comparison constant-time", () => {
+  const source = fs.readFileSync(A2A_AUTH_HELPER, "utf-8");
+  assert.match(source, /import\s+\{[^}]*\btimingSafeEqual\b[^}]*\}\s+from\s+["']crypto["']/);
+  assert.match(source, /timingSafeEqual\(a, b\)/);
+  assert.doesNotMatch(source, /return\s+provided\s*===\s*expected/);
+});
 
-  assert.ok(
-    hasImport(source, "timingSafeEqual", "node:crypto"),
-    "tasks route imports timingSafeEqual"
-  );
-  assert.ok(
-    /\btokensMatch\s*\(\s*token\s*,\s*configuredKey\s*\)/.test(source),
-    "tasks route authenticates with tokensMatch(token, configuredKey)"
-  );
-  assert.ok(
-    !/return\s+token\s*===\s*configuredKey\s*;/.test(source),
-    "tasks route no longer uses a plain === bearer compare"
+test("POST /api/a2a/tasks enforces REQUIRE_API_KEY even without OMNIROUTE_API_KEY", async () => {
+  process.env.REQUIRE_API_KEY = "true";
+  delete process.env.OMNIROUTE_API_KEY;
+
+  const response = await tasksRoute.POST(request());
+  assert.equal(response.status, 401);
+});
+
+test("POST /api/a2a/tasks accepts a valid database API key under REQUIRE_API_KEY", async () => {
+  process.env.REQUIRE_API_KEY = "true";
+  delete process.env.OMNIROUTE_API_KEY;
+  await settingsDb.updateSettings({ a2aEnabled: false });
+  const key = await apiKeysDb.createApiKey("a2a-post", "machine-post", []);
+
+  const response = await tasksRoute.POST(request(key.key));
+  assert.equal(response.status, 503, "auth passed; the disabled endpoint gate answered next");
+});
+
+test("POST /api/a2a/tasks preserves the keyless local-first posture", async () => {
+  process.env.REQUIRE_API_KEY = "false";
+  delete process.env.OMNIROUTE_API_KEY;
+  await settingsDb.updateSettings({ a2aEnabled: false });
+
+  assert.equal(await authenticateA2ARequest(request()), true);
+  const response = await tasksRoute.POST(request());
+  assert.equal(
+    response.status,
+    503,
+    "keyless auth passed; the disabled endpoint gate answered next"
   );
 });
 
-test("tokensMatch behaves like the helper in src/app/a2a/route.ts", () => {
-  assert.equal(tokensMatch("omniroute-a2a-test-key", "omniroute-a2a-test-key"), true);
-  assert.equal(
-    tokensMatch("x".repeat("omniroute-a2a-test-key".length), "omniroute-a2a-test-key"),
-    false,
-    "same-length different token is rejected"
-  );
-  assert.equal(tokensMatch("", "omniroute-a2a-test-key"), false, "empty token is rejected");
-  assert.equal(
-    tokensMatch("short", "omniroute-a2a-test-key"),
-    false,
-    "different-length token is rejected without throwing"
-  );
-});
+test("shared A2A helper honors an explicit OMNIROUTE_API_KEY", async () => {
+  process.env.REQUIRE_API_KEY = "false";
+  process.env.OMNIROUTE_API_KEY = "omniroute-a2a-test-key";
 
-test("authenticateA2A preserves the documented semantics", () => {
-  const API_KEY = "omniroute-a2a-test-key";
-
-  function makeRequest(token?: string): Request {
-    return {
-      headers: {
-        get(name: string) {
-          if (name.toLowerCase() !== "authorization") return null;
-          return token === undefined ? null : `Bearer ${token}`;
-        },
-      },
-    } as unknown as Request;
-  }
-
-  delete process.env.OMNIROUTE_API_KEY;
-  assert.equal(
-    authenticateA2A(makeRequest()),
-    true,
-    "when OMNIROUTE_API_KEY is not set the route is open"
-  );
-
-  process.env.OMNIROUTE_API_KEY = API_KEY;
-  assert.equal(authenticateA2A(makeRequest(API_KEY)), true, "a valid bearer token passes auth");
-  assert.equal(
-    authenticateA2A(makeRequest("x".repeat(API_KEY.length))),
-    false,
-    "a same-length but different token is rejected"
-  );
-  assert.equal(authenticateA2A(makeRequest("")), false, "an empty bearer token is rejected");
-
-  delete process.env.OMNIROUTE_API_KEY;
+  assert.equal(await authenticateA2ARequest(request("omniroute-a2a-test-key")), true);
+  assert.equal(await authenticateA2ARequest(request("same-length-wrong-key")), false);
+  assert.equal(await authenticateA2ARequest(request()), false);
 });

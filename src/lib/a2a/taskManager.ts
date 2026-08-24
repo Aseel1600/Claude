@@ -47,6 +47,26 @@ export interface A2ATask {
   expiresAt: string;
 }
 
+/**
+ * Authorization scope for task reads and mutations (GHSA-jcm5-6wpp-wjj8).
+ *
+ * - operator: authenticated management callers can see every task.
+ * - owner: API-key callers can see their tasks plus public ownerless tasks.
+ * - ownerless: the keyless local-first posture can see only ownerless tasks.
+ *
+ * The owner hash is intentionally absent from A2ATask so JSON responses cannot
+ * expose an offline-verifiable derivative of a caller's API key.
+ */
+export type A2ATaskScope =
+  { kind: "operator" } | { kind: "owner"; owner: string } | { kind: "ownerless" };
+
+export const A2A_OPERATOR_SCOPE: A2ATaskScope = Object.freeze({ kind: "operator" });
+export const A2A_OWNERLESS_SCOPE: A2ATaskScope = Object.freeze({ kind: "ownerless" });
+
+export function a2aOwnerScope(owner: string): A2ATaskScope {
+  return { kind: "owner", owner };
+}
+
 export interface TaskListFilter {
   state?: TaskState;
   skill?: string;
@@ -75,6 +95,7 @@ const VALID_TRANSITIONS: Record<TaskState, TaskState[]> = {
 
 export class A2ATaskManager {
   private tasks = new Map<string, A2ATask>();
+  private taskOwners = new Map<string, string>();
   private readonly ttlMs: number;
   private cleanupInterval: ReturnType<typeof setInterval>;
   private activeStreams = 0;
@@ -91,7 +112,7 @@ export class A2ATaskManager {
     }
   }
 
-  createTask(input: TaskInput): A2ATask {
+  createTask(input: TaskInput, owner?: string): A2ATask {
     const now = new Date();
     const task: A2ATask = {
       id: randomUUID(),
@@ -106,17 +127,31 @@ export class A2ATaskManager {
       expiresAt: new Date(now.getTime() + this.ttlMs).toISOString(),
     };
     this.tasks.set(task.id, task);
+    if (owner !== undefined) this.taskOwners.set(task.id, owner);
     return task;
   }
 
-  getTask(taskId: string): A2ATask | undefined {
+  /**
+   * Ownerless tasks stay visible to every scope. Owned tasks require either
+   * the matching owner or an explicit operator scope.
+   */
+  private isVisibleTo(taskId: string, scope: A2ATaskScope): boolean {
+    const taskOwner = this.taskOwners.get(taskId);
+    if (taskOwner === undefined) return true;
+    if (scope.kind === "operator") return true;
+    return scope.kind === "owner" && taskOwner === scope.owner;
+  }
+
+  getTask(taskId: string, scope: A2ATaskScope = A2A_OPERATOR_SCOPE): A2ATask | undefined {
     const task = this.tasks.get(taskId);
     if (task && new Date(task.expiresAt) < new Date()) {
       if (task.state === "submitted" || task.state === "working") {
         this.updateTask(taskId, "failed", undefined, "Task expired");
       }
     }
-    return this.tasks.get(taskId);
+    const current = this.tasks.get(taskId);
+    if (!current || !this.isVisibleTo(taskId, scope)) return undefined;
+    return current;
   }
 
   updateTask(
@@ -142,21 +177,37 @@ export class A2ATaskManager {
     return task;
   }
 
-  cancelTask(taskId: string): A2ATask {
+  cancelTask(taskId: string, scope: A2ATaskScope = A2A_OPERATOR_SCOPE): A2ATask {
+    // Owner check BEFORE the mutation (GHSA-jcm5-6wpp-wjj8): a caller must not
+    // cancel another principal's task by id. Uses the same not-found error as
+    // a missing task so an IDOR probe cannot distinguish "exists but not
+    // yours" from "does not exist".
+    const task = this.tasks.get(taskId);
+    if (!task || !this.isVisibleTo(taskId, scope)) {
+      throw new Error(`Task ${taskId} not found`);
+    }
     return this.updateTask(taskId, "cancelled", undefined, "Cancelled by client");
   }
 
-  countTasks(filter?: Pick<TaskListFilter, "state" | "skill">): number {
-    let tasks = [...this.tasks.values()];
+  private filterTasks(
+    filter: Pick<TaskListFilter, "state" | "skill"> | undefined,
+    scope: A2ATaskScope
+  ): A2ATask[] {
+    let tasks = [...this.tasks.values()].filter((task) => this.isVisibleTo(task.id, scope));
     if (filter?.state) tasks = tasks.filter((t) => t.state === filter.state);
     if (filter?.skill) tasks = tasks.filter((t) => t.skill === filter.skill);
-    return tasks.length;
+    return tasks;
   }
 
-  listTasks(filter?: TaskListFilter): A2ATask[] {
-    let tasks = [...this.tasks.values()];
-    if (filter?.state) tasks = tasks.filter((t) => t.state === filter.state);
-    if (filter?.skill) tasks = tasks.filter((t) => t.skill === filter.skill);
+  countTasks(
+    filter?: Pick<TaskListFilter, "state" | "skill">,
+    scope: A2ATaskScope = A2A_OPERATOR_SCOPE
+  ): number {
+    return this.filterTasks(filter, scope).length;
+  }
+
+  listTasks(filter?: TaskListFilter, scope: A2ATaskScope = A2A_OPERATOR_SCOPE): A2ATask[] {
+    const tasks = this.filterTasks(filter, scope);
     tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const offset = Math.max(0, filter?.offset || 0);
     const limit =
@@ -220,6 +271,7 @@ export class A2ATaskManager {
         now.getTime() - new Date(task.updatedAt).getTime() > this.ttlMs * 2
       ) {
         this.tasks.delete(id);
+        this.taskOwners.delete(id);
       }
     }
   }

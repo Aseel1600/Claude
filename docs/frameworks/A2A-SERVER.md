@@ -29,13 +29,28 @@ The Agent Card's `version` field is sourced from `process.env.npm_package_versio
 
 ## Authentication
 
-All `/a2a` requests require an API key via the `Authorization` header:
+A2A follows OmniRoute's configured authentication posture. With `REQUIRE_API_KEY=true`, callers
+must provide a valid OmniRoute API key. When an explicit `OMNIROUTE_API_KEY` is configured, the
+bearer must match it. When neither posture requires a key, the local-first keyless mode remains
+available.
+
+Authenticated callers send the key through the `Authorization` header:
 
 ```
 Authorization: Bearer YOUR_OMNIROUTE_API_KEY
 ```
 
-If no API key is configured on the server, authentication is bypassed.
+Task authorization is independent from endpoint admission:
+
+| Scope       | Caller                                                         | Visible tasks                                       |
+| :---------- | :------------------------------------------------------------- | :-------------------------------------------------- |
+| `operator`  | Authenticated management/dashboard session on REST task routes | All owned and ownerless tasks                       |
+| `owner`     | Accepted API-key/bearer caller                                 | Tasks owned by the same caller plus ownerless tasks |
+| `ownerless` | Keyless local-first caller                                     | Ownerless tasks only                                |
+
+A task's authorization owner is stored privately and is never included in REST or JSON-RPC task
+objects. Requests for another owner's task return the same not-found response as an unknown task
+ID.
 
 ## Enablement
 
@@ -141,13 +156,13 @@ curl -X POST http://localhost:20128/a2a \
 
 OmniRoute exposes 6 A2A skills wired in `src/lib/a2a/taskExecution.ts::A2A_SKILL_HANDLERS`. Each skill module lives in `src/lib/a2a/skills/`.
 
-| Skill              | ID                   | Description                                                                                                     | Tags                       | Examples                               |
-| :----------------- | :------------------- | :-------------------------------------------------------------------------------------------------------------- | :------------------------- | :------------------------------------- |
-| Smart Routing      | `smart-routing`      | Routes a prompt through the optimal provider/combo using OmniRoute's combo engine + scoring                     | routing, providers         | "Route this prompt via the best model" |
-| Quota Management   | `quota-management`   | Reports per-provider quota state, helps callers decide when to throttle/switch                                  | quota, providers           | "Check quota for anthropic"            |
-| Provider Discovery | `provider-discovery` | Lists installed providers with capabilities, free-tier flags, OAuth status                                      | providers, discovery       | "What providers are available?"        |
-| Cost Analysis      | `cost-analysis`      | Estimates cost of a request/conversation given the catalog + recent usage                                       | cost, usage                | "Estimate cost for this conversation"  |
-| Health Report      | `health-report`      | Aggregates circuit breaker, cooldown, lockout state per provider                                                | health, resilience         | "Show health status of all providers"  |
+| Skill              | ID                   | Description                                                                                                                                  | Tags                       | Examples                               |
+| :----------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------- | :------------------------------------- |
+| Smart Routing      | `smart-routing`      | Routes a prompt through the optimal provider/combo using OmniRoute's combo engine + scoring                                                  | routing, providers         | "Route this prompt via the best model" |
+| Quota Management   | `quota-management`   | Reports per-provider quota state, helps callers decide when to throttle/switch                                                               | quota, providers           | "Check quota for anthropic"            |
+| Provider Discovery | `provider-discovery` | Lists installed providers with capabilities, free-tier flags, OAuth status                                                                   | providers, discovery       | "What providers are available?"        |
+| Cost Analysis      | `cost-analysis`      | Estimates cost of a request/conversation given the catalog + recent usage                                                                    | cost, usage                | "Estimate cost for this conversation"  |
+| Health Report      | `health-report`      | Aggregates circuit breaker, cooldown, lockout state per provider                                                                             | health, resilience         | "Show health status of all providers"  |
 | List Capabilities  | `list-capabilities`  | Returns the full 45-entry Agent Skills catalog (23 API + 21 CLI + 1 config) as a markdown table with raw SKILL.md URLs for context injection | catalog, discovery, skills | "List all OmniRoute capabilities"      |
 
 > The Agent Card should be kept aligned with the live 329-provider catalog; provider counts and free/no-auth metadata are sourced from the runtime registry.
@@ -171,14 +186,14 @@ Each row includes the `rawUrl` column so agents can immediately fetch the full S
 
 The JSON-RPC endpoint `/a2a` is the canonical A2A entry point. The REST endpoints below provide auxiliary access for dashboards and external tooling:
 
-| Endpoint                     | Method | Description                      | Auth                   |
-| :--------------------------- | :----- | :------------------------------- | :--------------------- |
-| `/api/a2a/status`            | GET    | Server status, registered skills | (public)               |
-| `/api/a2a/tasks`             | GET    | List tasks with filters          | management             |
-| `/api/a2a/tasks/[id]`        | GET    | Get task by ID                   | management             |
-| `/api/a2a/tasks/[id]/cancel` | POST   | Cancel running task              | management             |
-| `/.well-known/agent.json`    | GET    | Agent Card (A2A discovery)       | (public, cached 3600s) |
-| `/api/a2a/tasks`             | POST   | Inbound delegation to the OmniConductor fleet (Conductor PRD RF5) | Bearer vs `OMNIROUTE_API_KEY` + `a2aEnabled` |
+| Endpoint                     | Method | Description                                                       | Auth                                                                                     |
+| :--------------------------- | :----- | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| `/api/a2a/status`            | GET    | Server status, registered skills                                  | (public)                                                                                 |
+| `/api/a2a/tasks`             | GET    | List tasks with scoped `total`, filters and pagination            | Management session (`operator`), API key (`owner`), or keyless local-first (`ownerless`) |
+| `/api/a2a/tasks/[id]`        | GET    | Get a task visible to the caller's scope                          | Management session (`operator`), API key (`owner`), or keyless local-first (`ownerless`) |
+| `/api/a2a/tasks/[id]/cancel` | POST   | Cancel a task visible to the caller's scope                       | Management session (`operator`), API key (`owner`), or keyless local-first (`ownerless`) |
+| `/.well-known/agent.json`    | GET    | Agent Card (A2A discovery)                                        | (public, cached 3600s)                                                                   |
+| `/api/a2a/tasks`             | POST   | Inbound delegation to the OmniConductor fleet (Conductor PRD RF5) | Shared A2A bearer posture (`REQUIRE_API_KEY` / `OMNIROUTE_API_KEY`) + `a2aEnabled`       |
 
 **Inbound Conductor delegation (`POST /api/a2a/tasks`):** external A2A agents delegate coding work to the OmniConductor fleet through OmniRoute. Body: `{ skill: "conductor" | "conductor-cli-<profile>", messages: [{role, content}], metadata: { conductor: { repo: { url, base_ref? }, mode?, cli?, model? } } }` — only Conductor fleet skills (the ones announced on the Agent Card) are delegable; `metadata.conductor.repo.url` is required (the fleet works on git repos). The route translates to the hub's `POST /v1/tasks` using the server-side `CONDUCTOR_ORCHESTRATOR_TOKEN` (fallback `CONDUCTOR_HUB_TOKEN`) and returns `201 { conductor_task_id, state: "submitted" }`; task states flow back through the SSE→A2A mirror (RF1) and are visible via `GET /api/a2a/tasks?skill=conductor`.
 
@@ -222,7 +237,11 @@ The JSON-RPC endpoint `/a2a` is the canonical A2A entry point. The REST endpoint
 
 ## Task TTL
 
-Tasks expire after `ttlMinutes` (default 5 min) — configured in the `A2ATaskManager` constructor at `src/lib/a2a/taskManager.ts:82`. To customize, fork the `A2ATaskManager` instantiation and pass a different value (e.g., `new A2ATaskManager(15)` for 15-minute TTL). A background interval sweeps expired tasks every 60 seconds.
+Tasks expire after `ttlMinutes` (default 5 min) — configured in
+`A2ATaskManager::constructor` in `src/lib/a2a/taskManager.ts`. To customize, fork the
+`A2ATaskManager` instantiation and pass a different value (for example,
+`new A2ATaskManager(15)` for a 15-minute TTL). A background interval sweeps expired tasks every
+60 seconds.
 
 ---
 

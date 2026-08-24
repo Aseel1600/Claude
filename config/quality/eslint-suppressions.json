@@ -1207,7 +1207,7 @@
   },
   "src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.tsx": {
     "react-hooks/immutability": {
-      "count": 3
+      "count": 2
     }
   },
   "src/app/(dashboard)/dashboard/endpoint/components/A2ADashboard.tsx": {
@@ -1398,11 +1398,6 @@
     }
   },
   "src/app/(dashboard)/dashboard/providers/[id]/components/modals/EditCompatibleNodeModal.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "src/app/(dashboard)/dashboard/providers/[id]/components/modals/EditConnectionModal.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }
@@ -3186,7 +3181,7 @@
   },
   "src/lib/providers/validation/webProvidersA.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "src/lib/providers/validation/webProvidersB.ts": {
@@ -4663,10 +4658,10 @@
   },
   "tests/unit/cli-combo-suggest-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 16
+      "count": 14
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "tests/unit/cli-completion-dynamic.test.ts": {
@@ -4676,7 +4671,7 @@
   },
   "tests/unit/cli-compression-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 32
+      "count": 24
     }
   },
   "tests/unit/cli-context-eng-commands.test.ts": {
@@ -4765,9 +4760,6 @@
   "tests/unit/cli-oneproxy-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 22
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "tests/unit/cli-open-command.test.ts": {
@@ -4837,9 +4829,6 @@
   "tests/unit/cli-resilience-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 16
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
     }
   },
   "tests/unit/cli-runtime-extended.test.ts": {
@@ -4872,7 +4861,7 @@
   },
   "tests/unit/cli-skills-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 22
+      "count": 16
     }
   },
   "tests/unit/cli-stop-supervisor-respawn-9455.test.ts": {
@@ -6561,7 +6550,7 @@
   },
   "tests/unit/search-route.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 7
+      "count": 6
     },
     "@typescript-eslint/no-unused-vars": {
       "count": 1

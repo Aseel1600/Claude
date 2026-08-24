@@ -1,5 +1,5 @@
 import test from "node:test";
-import { makeMcpResp, makeMcpStreamFetch } from "./helpers/mcpStreamMock.ts";
+import { makeMcpStreamFetch } from "./helpers/mcpStreamMock.ts";
 import assert from "node:assert/strict";
 
 function makeResp(data: unknown, status = 200) {
@@ -14,25 +14,6 @@ function makeResp(data: unknown, status = 200) {
   obj.json = obj.json.bind(obj);
   obj.text = obj.text.bind(obj);
   return obj;
-}
-
-async function captureStdout(fn: () => Promise<void>): Promise<string> {
-  const chunks: string[] = [];
-  const orig = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (c: string | Uint8Array) => {
-    if (typeof c === "string") chunks.push(c);
-    return true;
-  };
-  try {
-    await fn();
-  } finally {
-    process.stdout.write = orig;
-  }
-  return chunks.join("");
-}
-
-function makeCmd(output = "json") {
-  return { optsWithGlobals: () => ({ output, quiet: output !== "table" }) };
 }
 
 test("resilience status busca /api/resilience", async () => {

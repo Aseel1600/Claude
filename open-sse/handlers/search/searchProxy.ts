@@ -8,11 +8,94 @@
  * query, API key, or proxy credentials).
  */
 
+import dns from "node:dns";
+import { isIP } from "node:net";
+
 import { saveCallLog } from "@/lib/usageDb";
+import { isPrivateHost, parseAndValidatePublicUrl } from "@/shared/network/outboundUrlGuard";
+import { createPinnedFetch } from "@/shared/network/remoteImageFetch";
 import { sanitizeErrorMessage } from "../../utils/error.ts";
 import { formatSearchProviderFailure } from "./providerFailure.ts";
 import type { SearchProviderConfig } from "../../config/searchRegistry.ts";
 import type { SearchResult } from "../search.ts";
+
+export type SearchDnsLookup = (
+  hostname: string
+) => Promise<Array<{ address: string; family: number }>>;
+
+export interface ClientControlledSearchFetchDependencies {
+  lookup?: SearchDnsLookup;
+  createPinnedFetch?: (address: string, family: number) => typeof fetch;
+}
+
+const defaultSearchLookup: SearchDnsLookup = (hostname) =>
+  dns.promises.lookup(hostname, { all: true });
+
+async function resolvePublicSearchAddresses(
+  targetUrl: URL,
+  lookup: SearchDnsLookup
+): Promise<Array<{ address: string; family: number }>> {
+  const hostname = targetUrl.hostname;
+  const bare =
+    hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+  const literalFamily = isIP(bare);
+  if (literalFamily) return [{ address: bare, family: literalFamily }];
+
+  let addresses: Array<{ address: string; family: number }>;
+  try {
+    addresses = await lookup(bare);
+  } catch {
+    throw new Error("Search provider hostname could not be resolved (blocked)");
+  }
+  if (addresses.length === 0) {
+    throw new Error("Search provider hostname could not be resolved (blocked)");
+  }
+  if (addresses.some(({ address }) => isPrivateHost(address))) {
+    throw new Error(
+      "Search provider hostname resolves to a private address (DNS rebinding blocked)"
+    );
+  }
+  return addresses;
+}
+
+/**
+ * Fetch a request-scoped search base URL without a validation/connect-time DNS gap.
+ * The URL is public-only, every DNS answer is checked, the connection is pinned to
+ * the checked answer, and redirects fail closed instead of triggering a second,
+ * unvalidated fetch. Persisted provider base URLs do not use this path: those are
+ * operator configuration and intentionally support loopback/LAN backends.
+ */
+export async function fetchClientControlledSearchUrl(
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+  dependencies: ClientControlledSearchFetchDependencies = {}
+): Promise<Response> {
+  const targetUrl = parseAndValidatePublicUrl(url);
+  const lookup = dependencies.lookup ?? defaultSearchLookup;
+  const addresses = await resolvePublicSearchAddresses(targetUrl, lookup);
+  const selected = addresses[0];
+  const pinnedFetchFactory = dependencies.createPinnedFetch ?? createPinnedFetch;
+  const response = await pinnedFetchFactory(selected.address, selected.family)(
+    targetUrl.toString(),
+    {
+      ...init,
+      redirect: "manual",
+      signal: signal ?? init.signal,
+    }
+  );
+
+  if (response.status >= 300 && response.status < 400) {
+    try {
+      await response.body?.cancel();
+    } catch {
+      // The redirect is blocked regardless of whether its body can be cancelled.
+    }
+    throw new Error(`Search provider redirect blocked (${response.status})`);
+  }
+
+  return response;
+}
 
 /** Resolved proxy binding for a single provider attempt. */
 export interface ResolvedSearchProxy {
@@ -119,7 +202,11 @@ export interface ProviderFetchResult {
     results: SearchResult[];
     answer: null;
     usage: { queries_used: number; search_cost_usd: number };
-    metrics: { response_time_ms: number; upstream_latency_ms: number; total_results_available: number | null };
+    metrics: {
+      response_time_ms: number;
+      upstream_latency_ms: number;
+      total_results_available: number | null;
+    };
     errors: [];
   };
 }
@@ -144,6 +231,7 @@ export interface ExecuteProviderFetchParams {
   connectionId?: string;
   proxy: unknown;
   proxyLevel: string;
+  clientControlledBaseUrl?: boolean;
   log?: SearchLog;
   normalize: (
     providerId: string,
@@ -160,9 +248,11 @@ export interface ExecuteProviderFetchParams {
  * This is the single chokepoint tryProvider() delegates to after building
  * the request and resolving the proxy — keeps search.ts to wiring only.
  */
-export async function executeProviderFetch(p: ExecuteProviderFetchParams): Promise<ProviderFetchResult> {
+export async function executeProviderFetch(
+  p: ExecuteProviderFetchParams
+): Promise<ProviderFetchResult> {
   const { config, url, init, controller, timer, query, searchType, maxResults, startTime } = p;
-  const { connectionId, proxy, proxyLevel, log, normalize } = p;
+  const { connectionId, proxy, proxyLevel, clientControlledBaseUrl, log, normalize } = p;
   const emitEvent = (status: string) =>
     emitSearchProxyEvent(config.id, connectionId, proxy, proxyLevel, url, startTime, status);
   const logCall = (fields: Record<string, unknown>) =>
@@ -180,9 +270,12 @@ export async function executeProviderFetch(p: ExecuteProviderFetchParams): Promi
     });
 
   try {
-    const response = await fetchWithSearchProxy(proxy, () =>
-      fetch(url, { ...init, signal: controller.signal })
-    );
+    if (clientControlledBaseUrl && proxy) {
+      throw new Error("Client-controlled search base URLs cannot use a proxy without DNS pinning");
+    }
+    const response = clientControlledBaseUrl
+      ? await fetchClientControlledSearchUrl(url, init, controller.signal)
+      : await fetchWithSearchProxy(proxy, () => fetch(url, { ...init, signal: controller.signal }));
     clearTimeout(timer);
 
     if (!response.ok) {
@@ -190,7 +283,11 @@ export async function executeProviderFetch(p: ExecuteProviderFetchParams): Promi
       if (log) {
         log.error("SEARCH", `${config.id} error ${response.status}: ${errorText.slice(0, 200)}`);
       }
-      logCall({ status: response.status, duration: Date.now() - startTime, error: errorText.slice(0, 500) });
+      logCall({
+        status: response.status,
+        duration: Date.now() - startTime,
+        error: errorText.slice(0, 500),
+      });
       await emitEvent("error");
       return {
         success: false,

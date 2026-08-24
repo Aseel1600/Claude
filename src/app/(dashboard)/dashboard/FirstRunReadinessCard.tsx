@@ -1,10 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 const DISMISS_STORAGE_KEY = "omniroute-first-run-readiness-dismissed";
+
+function subscribeToDismissal(onStoreChange: () => void): () => void {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === DISMISS_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  return () => window.removeEventListener("storage", handleStorage);
+}
+
+function getDismissedSnapshot(): boolean {
+  try {
+    return localStorage.getItem(DISMISS_STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function getServerDismissedSnapshot(): boolean {
+  return true;
+}
 
 type FirstRunReadinessCardProps = {
   setupComplete: boolean;
@@ -16,21 +36,15 @@ type FirstRunReadinessCardProps = {
  */
 export default function FirstRunReadinessCard({ setupComplete }: FirstRunReadinessCardProps) {
   const t = useTranslations("home");
-  const [visible, setVisible] = useState(false);
+  const [dismissedForSession, setDismissedForSession] = useState(false);
+  const dismissedInStorage = useSyncExternalStore(
+    subscribeToDismissal,
+    getDismissedSnapshot,
+    getServerDismissedSnapshot
+  );
+  const visible = !setupComplete && !dismissedForSession && !dismissedInStorage;
 
-  useEffect(() => {
-    if (setupComplete) {
-      setVisible(false);
-      return;
-    }
-    try {
-      setVisible(!localStorage.getItem(DISMISS_STORAGE_KEY));
-    } catch {
-      setVisible(true);
-    }
-  }, [setupComplete]);
-
-  if (!visible || setupComplete) return null;
+  if (!visible) return null;
 
   const dismiss = () => {
     try {
@@ -38,7 +52,7 @@ export default function FirstRunReadinessCard({ setupComplete }: FirstRunReadine
     } catch {
       // ignore storage failures; still hide for this session
     }
-    setVisible(false);
+    setDismissedForSession(true);
   };
 
   const steps = [

@@ -1238,6 +1238,8 @@ _Living section — reconciled 2026-08-23 from all cycle commits (cycle open `ed
 - **fix(ollama):** preserve every capability advertised by self-hosted Ollama models and defer chat selection to read time, so embedding and image routes accept eligible models without leaking endpoint-only models into provider wildcards or Auto-Combo; image retries remain restricted to the connections that advertised the selected model ([#11271](https://github.com/diegosouzapw/OmniRoute/pull/11271), corrected release-line port of [#11088](https://github.com/diegosouzapw/OmniRoute/pull/11088) for [#11087](https://github.com/diegosouzapw/OmniRoute/issues/11087) — thanks @yourspraveen)
 - **fix(providers):** clamp out-of-vocabulary `reasoning_effort` values to the nearest tier declared by the exact provider/model, so `opencode-go/ox-alpha-free` maps the `medium` default to `high` while undeclared models remain pass-through ([#11274](https://github.com/diegosouzapw/OmniRoute/pull/11274) — thanks @linhdmn and @hartmark); builds on the learned accepted-set clamp from [#11232](https://github.com/diegosouzapw/OmniRoute/pull/11232) by @maxmad64bis
 - **fix(security):** replace the GitHub Copilot correlation-ID fallback's `Math.random()` with CSPRNG bytes from `node:crypto` and make the Windows shell-argument test helper undo doubled backslashes and escaped quotes in one left-to-right pass, clearing CodeQL `js/insecure-randomness` and `js/double-escaping` while keeping `crypto.randomUUID()` as the primary path ([#11293](https://github.com/diegosouzapw/OmniRoute/pull/11293) — thanks @hartmark)
+- **fix(security):** protect legacy settings export/import, make MITM and root-CA management routes local-only and spawn-capable, reject cloud-metadata search overrides, authenticate and owner-scope A2A tasks, and warn when the CLI exposes an unauthenticated server on a non-loopback interface; implementation, advisory reports and the shared A2A-auth foundation are credited together ([#11261](https://github.com/diegosouzapw/OmniRoute/pull/11261) — thanks @backryun / @ntdat812 / @koushiksaravanan / @highlightime / @mado90 / @rafaelfiguereod-stack)
+- **fix(release):** drain the final inherited v3.8.50 base-red cluster by preserving explicit combo skip semantics, restoring missing health and CLI translations, documenting the current build environment, and aligning stale catalog, Qdrant, CLI, mutation, dependency and database guards with the shipped contracts ([#11280](https://github.com/diegosouzapw/OmniRoute/pull/11280)) — thanks @backryun
 
 ### 📝 Maintenance
 
@@ -1558,7 +1560,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@AStupidBear](https://github.com/AStupidBear) | #10180 |
 | [@azzaouiomar19-sketch](https://github.com/azzaouiomar19-sketch) | #10394 |
 | [@b1nhm1nh](https://github.com/b1nhm1nh) | direct commit / report |
-| [@backryun](https://github.com/backryun) | #8228, #8451, #8627, #8809, #8818, #9084, #9086, #9090, #9091, #9092, #9093, #9114, #9119, #9120, #9122, #9135, #9136, #9137, #9138, #9139, #9141, #9561, #9562, #9563, #9564, #9565, #9566, #9742, #9747, #9748, #9751, #9753, #9755, #9791, #9792, #9793, #9795, #9796, #9797, #9798, #9920, #9972, #9973, #9974, #9975, #9977, #9978, #9979, #9984, #9986, #9987, #9988, #9989, #9990, #9998, #10087, #10088, #10134, #10175, #10178, #10195, #10201, #10226, #10254, #10255, #10256, #10257, #10258, #10324, #10325, #10327, #10328, #10339, #10359, #10367, #10380, #10382, #10390, #10418, #10423, #10433, #10451, #10453, #10464, #10487, #10512, #10520, #10633, #10634, #10637, #10647, #10648, #10649, #10655, #10689, #10691, #10695, #10698, #10699, #10700, #10826, #10964, #11147, #11196, #11208, #11256, #11259, #11260, #11262, #11263, #11264, #11266, #11267, #11268 |
+| [@backryun](https://github.com/backryun) | #8228, #8451, #8627, #8809, #8818, #9084, #9086, #9090, #9091, #9092, #9093, #9114, #9119, #9120, #9122, #9135, #9136, #9137, #9138, #9139, #9141, #9561, #9562, #9563, #9564, #9565, #9566, #9742, #9747, #9748, #9751, #9753, #9755, #9791, #9792, #9793, #9795, #9796, #9797, #9798, #9920, #9972, #9973, #9974, #9975, #9977, #9978, #9979, #9984, #9986, #9987, #9988, #9989, #9990, #9998, #10087, #10088, #10134, #10175, #10178, #10195, #10201, #10226, #10254, #10255, #10256, #10257, #10258, #10324, #10325, #10327, #10328, #10339, #10359, #10367, #10380, #10382, #10390, #10418, #10423, #10433, #10451, #10453, #10464, #10487, #10512, #10520, #10633, #10634, #10637, #10647, #10648, #10649, #10655, #10689, #10691, #10695, #10698, #10699, #10700, #10826, #10964, #11147, #11196, #11208, #11256, #11259, #11260, #11261, #11262, #11263, #11264, #11266, #11267, #11268, #11280 |
 | [@Benson-mk](https://github.com/Benson-mk) | #8369 |
 | [@benzntech](https://github.com/benzntech) | #9784, #9810, #9812, #9939, #10124, #10126, #10366, #10458 |
 | [@Bl0ck154](https://github.com/Bl0ck154) | #9231 |
@@ -1617,6 +1619,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@herjarsa](https://github.com/herjarsa) | #9714, #9816, #9937, #9946, #10128, #10456, #10463 |
 | [@hgaib](https://github.com/hgaib) | #10722 |
 | [@hichamza](https://github.com/hichamza) | #7764 |
+| [@highlightime](https://github.com/highlightime) | #11261 |
 | [@horacecar](https://github.com/horacecar) | #7679 |
 | [@HouMinXi](https://github.com/HouMinXi) | #8886, #8904, #8905, #8976, #8984, #9079, #9106, #9207, #9242, #9328, #9340, #9342, #9351, #9365, #9380, #9381, #9392, #9449, #9482, #9483, #9509, #9510, #9572, #9631, #9634, #9695, #9929, #10457, #10475, #10525, #10529, #10573, #10663, #10846, #11084, #11139, #11140, #11141 |
 | [@hppsc1215](https://github.com/hppsc1215) | #8970 |
@@ -1648,6 +1651,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@KittisakT](https://github.com/KittisakT) | #9423 |
 | [@Kizuno18](https://github.com/Kizuno18) | #10803 |
 | [@KooshaPari](https://github.com/KooshaPari) | #7329 |
+| [@koushiksaravanan](https://github.com/koushiksaravanan) | #11261 |
 | [@kriptoburak](https://github.com/kriptoburak) | #10854 |
 | [@krishna3554](https://github.com/krishna3554) | #10620, #10855 |
 | [@lamchun1110](https://github.com/lamchun1110) | #10372, #10397 |
@@ -1662,7 +1666,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@luoyide](https://github.com/luoyide) | direct commit / report |
 | [@maci0](https://github.com/maci0) | #11279 |
 | [@mad-gooze](https://github.com/mad-gooze) | #9052 |
-| [@mado90](https://github.com/mado90) | #11236 |
+| [@mado90](https://github.com/mado90) | #11236, #11261 |
 | [@maisdesign](https://github.com/maisdesign) | #8858 |
 | [@marchlhw](https://github.com/marchlhw) | #9050 |
 | [@marcs7](https://github.com/marcs7) | #11180 |
@@ -1691,7 +1695,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@nguyenha935](https://github.com/nguyenha935) | #8450, #9044, #9215 |
 | [@nordz0r](https://github.com/nordz0r) | #10170 |
 | [@nosolosoft](https://github.com/nosolosoft) | #8900 |
-| [@ntdat812](https://github.com/ntdat812) | #10843, #10853, #10857, #10858, #10860, #10862, #10868, #10935, #10941, #11004 |
+| [@ntdat812](https://github.com/ntdat812) | #10843, #10853, #10857, #10858, #10860, #10862, #10868, #10935, #10941, #11004, #11261 |
 | [@ntdatt812](https://github.com/ntdatt812) | #10715, #11076 |
 | [@octo-patch](https://github.com/octo-patch) | #10650 |
 | [@oyi77](https://github.com/oyi77) | #8299, #8752, #9158, #9818, #10910, #10942 |
@@ -1707,6 +1711,7 @@ Thanks to everyone whose work landed in v3.8.50:
 | [@pucedoteth](https://github.com/pucedoteth) | #10607 |
 | [@qianze0628](https://github.com/qianze0628) | #9038 |
 | [@rafacpti23](https://github.com/rafacpti23) | #11207, #11213, #11249 |
+| [@rafaelfiguereod-stack](https://github.com/rafaelfiguereod-stack) | #11261 |
 | [@raflyazf](https://github.com/raflyazf) | direct commit / report |
 | [@Rahulsharma0810](https://github.com/Rahulsharma0810) | #8961, #10872 |
 | [@RaviTharuma](https://github.com/RaviTharuma) | #10296, #10297, #10299, #10306, #10307, #10344, #10488, #10565, #10566, #10568, #10569, #10584, #10756, #10814, #10816, #10817, #10818, #10819, #10820, #10821, #10822, #10823, #10824, #10825, #10827, #10828, #10847, #10971, #10977, #10979, #10981, #10983, #10988, #11014, #11015, #11016, #11017, #11020, #11024 |

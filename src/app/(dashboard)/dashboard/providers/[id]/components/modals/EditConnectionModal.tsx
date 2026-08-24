@@ -290,6 +290,11 @@ export default function EditConnectionModal({
         connection.providerSpecificData?.quotaPerUnit != null
           ? String(connection.providerSpecificData.quotaPerUnit)
           : "";
+      // Modal-open form initialization from the loaded connection (sync with an
+      // external system on `isOpen`); remounting the 30+ field form per
+      // connection id is a behavior-risking restructure out of scope here
+      // (#11251 follow-up, #9985).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
