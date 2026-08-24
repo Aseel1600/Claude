@@ -6931,6 +6931,104 @@ paths:
         "500":
           description: Failed to parse OpenAPI spec
 
+  /api/openapi/try:
+    post:
+      tags: [System]
+      summary: Proxy an API Explorer request to an OmniRoute endpoint
+      description: >-
+        Executes an API Explorer request through a server-side, same-origin proxy. The target
+        must start with `/api/`, `/v1/`, `/v1beta/`, `/a2a`, or
+        `/.well-known/agent.json`; protocol-relative and cross-origin targets are rejected.
+        Hop-by-hop, proxy, host, cookie, and forwarding headers supplied in `headers` are
+        stripped, while any dashboard cookie on the original request is forwarded separately.
+        When `requireLogin` is disabled, the management-auth bypass mirrors the runtime setting;
+        otherwise a management Bearer credential or dashboard session is required. Failures
+        caught after authentication, including request JSON parsing, fetch, and response-body
+        parsing failures, are returned in the normal HTTP 200 result envelope so the Explorer
+        can display them; `status: 0` identifies that caught-failure path.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                method:
+                  type: string
+                  enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+                  default: GET
+                path:
+                  type: string
+                  minLength: 1
+                  pattern: "^/(?:api/|v1/|v1beta/|a2a|\\.well-known/agent\\.json)"
+                  description: Same-origin OmniRoute API path, optionally including a query string.
+                headers:
+                  type: object
+                  default: {}
+                  additionalProperties:
+                    type: string
+                  description: >-
+                    Headers to forward after removing connection, content-length, cookie, host,
+                    keep-alive, proxy-authenticate, proxy-authorization, te, trailer,
+                    transfer-encoding, upgrade, x-forwarded-for, x-forwarded-host, and
+                    x-forwarded-proto headers.
+                body:
+                  description: >-
+                    Optional JSON value. A truthy value is serialized unless it is already a
+                    string, and is not forwarded when `method` is `GET`.
+      responses:
+        "200":
+          description: Upstream response or displayable caught-failure envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, statusText, headers, body, latencyMs, contentType]
+                properties:
+                  status:
+                    type: integer
+                    minimum: 0
+                    description: Upstream HTTP status, or 0 when request processing throws.
+                  statusText:
+                    type: string
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  body:
+                    description: >-
+                      Parsed JSON, response text truncated after 10,000 characters, or a sanitized
+                      caught-error object.
+                  latencyMs:
+                    type: integer
+                    minimum: 0
+                  contentType:
+                    type: string
+        "400":
+          description: Invalid request body or non-same-origin path
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
+                  - type: object
+                    required: [error]
+                    properties:
+                      error:
+                        type: string
+                        example: Path must be same-origin
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "503":
+          $ref: "#/components/responses/InternalError"
+
   # ─── Agent Skills Catalog ────────────────────────────────────────────────────
 
   /api/agent-skills:
