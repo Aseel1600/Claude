@@ -407,6 +407,40 @@ if (existsSync(llmWorkerSrc)) {
   }
 }
 
+// ── Step 8.6b: Bundle synchronous compression worker ──────────────────
+const compressionWorkerSrc = join(
+  ROOT,
+  "open-sse",
+  "services",
+  "compression",
+  "compressionWorker.ts"
+);
+const compressionWorkerDest = join(
+  DIST_DIR,
+  "open-sse",
+  "services",
+  "compression",
+  "compressionWorker.js"
+);
+if (!existsSync(compressionWorkerSrc)) {
+  throw new Error("Required compression worker source is missing");
+}
+console.log("  🔨 Bundling compression worker...");
+mkdirSync(dirname(compressionWorkerDest), { recursive: true });
+runBuildTool(
+  "esbuild",
+  "esbuild",
+  [
+    "open-sse/services/compression/compressionWorker.ts",
+    "--bundle",
+    "--platform=node",
+    "--packages=external",
+    "--format=esm",
+    "--outfile=dist/open-sse/services/compression/compressionWorker.js",
+  ],
+  { cwd: ROOT, stdio: "inherit" }
+);
+
 // ── Step 8.7: Bundle CLI Entrypoint ──────────────────────────
 const cliSrcFile = join(ROOT, "bin", "omniroute.ts");
 const cliDestFile = join(ROOT, "bin", "omniroute.mjs");
