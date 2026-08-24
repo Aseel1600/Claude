@@ -1,0 +1,1 @@
+- **fix(sse):** Keep normal Auto-Combo exploitation within the highest-score equivalence tier while preserving load balancing across equivalent candidates ([#11420](https://github.com/diegosouzapw/OmniRoute/pull/11420)) — thanks @jacobsparts
