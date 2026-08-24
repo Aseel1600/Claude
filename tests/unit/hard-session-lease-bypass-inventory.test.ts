@@ -40,7 +40,11 @@ const EXPECTED: Record<InventoryKind, Record<string, number>> = {
     "src/app/api/v1/session-leases/route.ts": 1,
     "src/app/api/v1/videos/generations/route.ts": 2,
     "src/app/api/v1/web/fetch/route.ts": 1,
-    "src/lib/embeddings/service.ts": 2,
+    // #11088/#11271: third site is the synced local-endpoint route — it resolves
+    // credentials through getProviderCredentials with the connection allowlist
+    // from resolveLocalSyncedEndpointRoute, and handles allRateLimited, so it is
+    // fenced the same way as the two pre-existing sites.
+    "src/lib/embeddings/service.ts": 3,
     "src/lib/memory/embedding/index.ts": 1,
     "src/lib/search/executeWebSearch.ts": 2,
     "src/lib/skills/webFetchExecution.ts": 1,
@@ -86,7 +90,7 @@ const EXPECTED: Record<InventoryKind, Record<string, number>> = {
     "src/app/api/providers/client/route.ts": 1,
     "src/app/api/providers/free-onboarding/route.ts": 2,
     "src/app/api/providers/import/route.ts": 1,
-    "src/app/api/providers/route.ts": 4,
+    "src/app/api/providers/route.ts": 2,
     "src/app/api/providers/test-batch/route.ts": 2,
     "src/app/api/rate-limits/route.ts": 1,
     "src/app/api/services/dario/admin/import-from-omniroute/route.ts": 2,

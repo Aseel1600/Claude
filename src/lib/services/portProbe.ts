@@ -15,6 +15,7 @@
 
 import { createConnection } from "node:net";
 import { spawn } from "node:child_process";
+import os from "node:os";
 
 /** Result of probing the service before spawning. */
 export interface PreSpawnProbe {
@@ -168,11 +169,49 @@ export function parseSsPid(stdout: string): number | null {
 export function parseNetstatPid(stdout: string, port: number): number | null {
   for (const line of stdout.split("\n")) {
     const columns = line.trim().split(/\s+/);
-    // proto recv-q send-q local-address foreign-address state pid/program
+    // Linux: proto recv-q send-q local-address foreign-address state pid/program
     if (columns.length < 7 || columns[5] !== "LISTEN") continue;
-    if (!columns[3].endsWith(`:${port}`)) continue;
-    const parsed = Number.parseInt(columns[6], 10);
-    if (Number.isFinite(parsed)) return parsed;
+    const linuxAddress = columns[3].endsWith(`:${port}`);
+    const macAddress = columns[3].endsWith(`.${port}`);
+    if (!linuxAddress && !macAddress) continue;
+
+    if (linuxAddress) {
+      const linuxPid = Number.parseInt(columns[6], 10);
+      if (Number.isFinite(linuxPid)) return linuxPid;
+    }
+
+    // macOS `netstat -anv -p tcp` appends a `process:pid` column after
+    // the socket counters. Process names may contain spaces, so scan instead
+    // of relying on one fixed column index.
+    for (const column of columns.slice(6)) {
+      const match = /:(\d+)$/.exec(column);
+      if (match) return Number.parseInt(match[1], 10);
+    }
+  }
+  return null;
+}
+
+/**
+ * Windows `netstat -ano` carries the pid in its own last column (#11236):
+ *
+ *   Proto  Local Address          Foreign Address        State           PID
+ *   TCP    0.0.0.0:20128          0.0.0.0:0              LISTENING       12345
+ *   TCP    [::]:20128             [::]:0                 LISTENING       12345
+ *
+ * Only TCP LISTENING rows carry a pid (UDP rows have no state column at all).
+ * The local address is matched on `:<port>` — the `:` anchor keeps a port that
+ * merely shares a suffix (128 vs 20128) or a foreign address ending in the
+ * same digits from being read as the listener.
+ */
+export function parseWindowsNetstatPid(stdout: string, port: number): number | null {
+  for (const line of stdout.split("\n")) {
+    const columns = line.trim().split(/\s+/);
+    // proto local-address foreign-address state pid
+    if (columns.length < 5) continue;
+    if (columns[3].toUpperCase() !== "LISTENING") continue;
+    if (!columns[1].endsWith(`:${port}`)) continue;
+    const pid = Number.parseInt(columns[columns.length - 1], 10);
+    if (Number.isFinite(pid)) return pid;
   }
   return null;
 }
@@ -185,6 +224,12 @@ export function parseNetstatPid(stdout: string, port: number): number | null {
  * once `spawn` has turned ENOENT into a null. `ss` ships with iproute2 and
  * `netstat` with net-tools, so between the three there is normally something
  * to ask on any host the supervisor runs on.
+ *
+ * The Windows `netstat -ano` probe runs last: on Windows the earlier probes
+ * fail fast (lsof/ss do not exist; the net-tools flags are rejected by the
+ * Windows netstat), while on Unix `netstat -ano` either errors out or prints
+ * the Linux/macOS row shapes the Windows parser deliberately never matches
+ * (LISTEN vs LISTENING), so it degrades to a no-op instead of a false pid.
  */
 const PID_PROBES: ReadonlyArray<{
   command: string;
@@ -197,7 +242,19 @@ const PID_PROBES: ReadonlyArray<{
     args: (port) => ["-tlnp", `sport = :${port}`],
     parse: (stdout) => parseSsPid(stdout),
   },
-  { command: "netstat", args: () => ["-tlnp"], parse: parseNetstatPid },
+  {
+    command: "netstat",
+    // #11236: runtime os.platform() read — a process.platform literal is
+    // constant-folded to the Linux build machine in the published artifact,
+    // pruning the darwin branch on macOS (same fold class as b43a212680).
+    args: () => (os.platform() === "darwin" ? ["-anv", "-p", "tcp"] : ["-tlnp"]),
+    parse: parseNetstatPid,
+  },
+  {
+    command: "netstat",
+    args: () => ["-ano"],
+    parse: parseWindowsNetstatPid,
+  },
 ];
 
 /** Run one probe, resolving null on a missing binary, a non-match or a timeout. */
@@ -247,10 +304,11 @@ function runPidProbe(
  * way they trust a freshly-spawned one. Returns null if nothing is found or
  * the lookup fails/times out (best-effort; never blocks adoption on this).
  *
- * Tries `lsof`, then `ss`, then `netstat`, so a host missing any one of them
- * still reports a real pid instead of a silent null (#10431). The probes share
- * one deadline, so the whole lookup still costs at most
- * `PID_RESOLVE_TIMEOUT_MS`.
+ * Tries `lsof`, then `ss`, then `netstat`, then the Windows `netstat -ano`
+ * shape, so a host missing any one of them — including a stock Windows host
+ * with none of the Unix tools — still reports a real pid instead of a silent
+ * null (#10431, #11236). The probes share one deadline, so the whole lookup
+ * still costs at most `PID_RESOLVE_TIMEOUT_MS`.
  */
 export async function resolvePortPid(port: number): Promise<number | null> {
   const deadline = Date.now() + PID_RESOLVE_TIMEOUT_MS;

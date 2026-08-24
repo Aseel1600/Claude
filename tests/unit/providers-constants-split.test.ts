@@ -25,7 +25,8 @@
 // #10729) brings it to 229; Token Kiosk (gateways, #10722) — merged in the same
 // merge-train batch — independently bumped the gateways family too, landing at 231; Freebuff
 // (gateways, #10531) brings it to 232. #8864 moves uncloseai (gateways family) into
-// NOAUTH_PROVIDERS, dropping the APIKEY_PROVIDERS count to 231.
+// NOAUTH_PROVIDERS, dropping the APIKEY_PROVIDERS count to 231. Logfare (gateways, #10987) brings it back to 232.
+// #11176 removes hackclub (gateways family), landing at 231.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
