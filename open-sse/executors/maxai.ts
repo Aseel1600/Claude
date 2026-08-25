@@ -39,6 +39,7 @@ import {
   maxaiStaticHeaders,
   newConversationId,
 } from "./maxai/protocol.ts";
+import { resolveMaxaiDocList } from "./maxai/documents.ts";
 import { estimateMaxaiTokens, isMaxaiTextFrame, ThinkSplitter } from "./maxai/stream.ts";
 import { prepareToolMessages, parseToolCallsFromText } from "../translator/webTools.ts";
 import { buildToolModeResponse } from "./chatgptWebTools.ts";
@@ -162,9 +163,23 @@ export class MaxAiExecutor extends BaseExecutor {
     // Vision input: attach the CURRENT user turn's images (data: / http(s):) to
     // message_content so vision-capable MaxAI models actually see them. Extract
     // from the original messages (pre-tool-munging); text stays flattened.
-    const imageUrls = extractCurrentTurnImages(
-      (body.messages ?? []) as Array<{ role?: string; content?: unknown }>
-    );
+    const originalMessages = (body.messages ?? []) as Array<{ role?: string; content?: unknown }>;
+    const imageUrls = extractCurrentTurnImages(originalMessages);
+
+    // Doc-RAG: upload any inline documents (base64 file/input_file/document
+    // parts) on the current turn to /app/upload_document and attach the
+    // resulting doc_list to the chat body. Best-effort: upload failures are
+    // skipped and the chat proceeds without the doc.
+    let docList: Array<Record<string, unknown>> = [];
+    try {
+      docList = await resolveMaxaiDocList(
+        originalMessages,
+        { accessToken, userId: cred.userId, deviceId: cred.deviceId },
+        { signal: input.signal ?? undefined }
+      );
+    } catch {
+      docList = [];
+    }
 
     const conversationId = newConversationId();
     const chatBody = buildMaxaiChatBody({
@@ -172,6 +187,7 @@ export class MaxAiExecutor extends BaseExecutor {
       text,
       modelName: input.model,
       imageUrls,
+      docList: docList.length ? docList : undefined,
     });
 
     const signedHeaders = buildMaxaiSignedHeaders({
