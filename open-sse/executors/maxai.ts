@@ -27,10 +27,7 @@ import { sanitizeErrorMessage } from "../utils/error.ts";
 import { resolveMaxaiCredential, type MaxaiCredential } from "./maxai/credentials.ts";
 import { buildMaxaiSignedHeaders } from "./maxai/signing.ts";
 import { ensureMaxaiConstants } from "./maxai/constantsStore.ts";
-import {
-  maxaiAccessTokenNeedsRefresh,
-  maxaiRefreshAccessToken,
-} from "./maxai/refresh.ts";
+import { maxaiAccessTokenNeedsRefresh, maxaiRefreshAccessToken } from "./maxai/refresh.ts";
 import {
   assembleMaxaiContext,
   buildMaxaiChatBody,
@@ -40,7 +37,7 @@ import {
   maxaiStaticHeaders,
   newConversationId,
 } from "./maxai/protocol.ts";
-import { resolveMaxaiDocList } from "./maxai/documents.ts";
+import { resolveMaxaiDocList, type MaxaiDocListEntry } from "./maxai/documents.ts";
 import { estimateMaxaiTokens, isMaxaiTextFrame, ThinkSplitter } from "./maxai/stream.ts";
 import { prepareToolMessages, parseToolCallsFromText } from "../translator/webTools.ts";
 import { buildToolModeResponse } from "./chatgptWebTools.ts";
@@ -53,7 +50,12 @@ const SSE_HEADERS = {
 };
 
 interface OpenAiChatBody {
-  messages?: Array<{ role?: string; content?: unknown; tool_calls?: unknown; tool_call_id?: string }>;
+  messages?: Array<{
+    role?: string;
+    content?: unknown;
+    tool_calls?: unknown;
+    tool_call_id?: string;
+  }>;
   model?: string;
 }
 
@@ -68,6 +70,31 @@ function errorResponse(status: number, message: string, code: string): Response 
     }),
     { status, headers: JSON_HEADERS }
   );
+}
+
+/**
+ * Wrap a Response into the executor wrapper contract shape
+ * `{response, url, headers, transformedBody}` that `chatCore.ts` and the
+ * web-cookie/noauth sweep (tests/unit/executor-web-cookie-sweep.test.ts)
+ * require. `headers` and `transformedBody` are the ACTUAL upstream request
+ * headers and body — chatCore surfaces them as the provider-request-capture
+ * ("what we actually sent") in the dashboard and uses the body for service-tier
+ * and prompt-cache metadata (chatCore.ts:3680-3688), mirroring the shape returned
+ * by every web-cookie sibling (venice-web.ts:92-94, poe-web.ts:121-123). Error
+ * paths that fail BEFORE a request is assembled pass no capture — honestly empty,
+ * because nothing was sent upstream.
+ */
+function wrap(
+  response: Response,
+  url: string,
+  capture?: { headers?: Record<string, string>; transformedBody?: unknown }
+): { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown } {
+  return {
+    response,
+    url,
+    headers: capture?.headers ?? {},
+    transformedBody: capture?.transformedBody ?? null,
+  };
 }
 
 /**
@@ -125,15 +152,22 @@ export class MaxAiExecutor extends BaseExecutor {
   }
 
   override async execute(input: ExecuteInput): Promise<ExecutorExecuteResult> {
+    // The MaxAI chat endpoint URL is the wrapper's `url` for every return path
+    // (error and success alike), so define it once up front.
+    const url = MAXAI_BASE_URL + MAXAI_CHAT_PATH;
+
     const cred = resolveMaxaiCredential(
       input.credentials?.providerSpecificData,
       input.credentials?.accessToken
     );
     if (!cred) {
-      return errorResponse(
-        401,
-        "MaxAI connection is not configured (missing access token, device id, or user id). Sign in to mint a token.",
-        "maxai_unconfigured"
+      return wrap(
+        errorResponse(
+          401,
+          "MaxAI connection is not configured (missing access token, device id, or user id). Sign in to mint a token.",
+          "maxai_unconfigured"
+        ),
+        url
       );
     }
 
@@ -158,7 +192,10 @@ export class MaxAiExecutor extends BaseExecutor {
     try {
       text = assembleMaxaiContext(effectiveMessages);
     } catch {
-      return errorResponse(400, "No user message to send to MaxAI.", "maxai_empty_request");
+      return wrap(
+        errorResponse(400, "No user message to send to MaxAI.", "maxai_empty_request"),
+        url
+      );
     }
 
     // Vision input: attach the CURRENT user turn's images (data: / http(s):) to
@@ -171,7 +208,7 @@ export class MaxAiExecutor extends BaseExecutor {
     // parts) on the current turn to /app/upload_document and attach the
     // resulting doc_list to the chat body. Best-effort: upload failures are
     // skipped and the chat proceeds without the doc.
-    let docList: Array<Record<string, unknown>> = [];
+    let docList: MaxaiDocListEntry[] = [];
     try {
       docList = await resolveMaxaiDocList(
         originalMessages,
@@ -184,10 +221,13 @@ export class MaxAiExecutor extends BaseExecutor {
 
     const constants = await ensureMaxaiConstants({ signal: input.signal });
     if (!constants) {
-      return errorResponse(
-        401,
-        "MaxAI signing constants unavailable (extraction failed); cannot sign the request.",
-        "maxai_auth_error"
+      return wrap(
+        errorResponse(
+          401,
+          "MaxAI signing constants unavailable (extraction failed); cannot sign the request.",
+          "maxai_auth_error"
+        ),
+        url
       );
     }
 
@@ -216,7 +256,6 @@ export class MaxAiExecutor extends BaseExecutor {
       ...(input.upstreamExtraHeaders ?? {}),
     };
 
-    const url = MAXAI_BASE_URL + MAXAI_CHAT_PATH;
     let upstream: Response;
     try {
       upstream = await fetch(url, {
@@ -226,10 +265,13 @@ export class MaxAiExecutor extends BaseExecutor {
         signal: input.signal ?? undefined,
       });
     } catch (err) {
-      return errorResponse(
-        502,
-        `MaxAI request failed: ${sanitizeErrorMessage(err instanceof Error ? err.message : err)}`,
-        "maxai_transport_error"
+      return wrap(
+        errorResponse(
+          502,
+          `MaxAI request failed: ${sanitizeErrorMessage(err instanceof Error ? err.message : err)}`,
+          "maxai_transport_error"
+        ),
+        url
       );
     }
 
@@ -244,17 +286,25 @@ export class MaxAiExecutor extends BaseExecutor {
         detail
       );
       if (tooLong) {
-        return errorResponse(
-          400,
-          `MaxAI request exceeds the context limit: ${sanitizeErrorMessage(detail.slice(0, 200))}`,
-          "context_length_exceeded"
+        return wrap(
+          errorResponse(
+            400,
+            `MaxAI request exceeds the context limit: ${sanitizeErrorMessage(detail.slice(0, 200))}`,
+            "context_length_exceeded"
+          ),
+          url
         );
       }
       const status = upstream.status === 418 ? 401 : upstream.status || 502;
-      return errorResponse(
-        status,
-        `MaxAI upstream ${upstream.status}: ${sanitizeErrorMessage(detail.slice(0, 300))}`,
-        upstream.status === 401 || upstream.status === 418 ? "maxai_auth_error" : "maxai_upstream_error"
+      return wrap(
+        errorResponse(
+          status,
+          `MaxAI upstream ${upstream.status}: ${sanitizeErrorMessage(detail.slice(0, 300))}`,
+          upstream.status === 401 || upstream.status === 418
+            ? "maxai_auth_error"
+            : "maxai_upstream_error"
+        ),
+        url
       );
     }
 
@@ -316,12 +366,15 @@ export class MaxAiExecutor extends BaseExecutor {
         model: input.model,
         idSeed: "maxai",
       });
-      return { response, url };
+      return wrap(response, url, { headers, transformedBody: chatBody });
     }
 
     if (input.stream) {
       const stream = this.buildStream(upstream.body, id, created, input.model, promptTokens);
-      return { response: new Response(stream, { status: 200, headers: SSE_HEADERS }), url };
+      return wrap(new Response(stream, { status: 200, headers: SSE_HEADERS }), url, {
+        headers,
+        transformedBody: chatBody,
+      });
     }
 
     // Non-streaming: collect the whole SSE body, split think, build a chat.completion.
@@ -350,7 +403,11 @@ export class MaxAiExecutor extends BaseExecutor {
         total_tokens: promptTokens + completionTokens,
       },
     };
-    return { response: new Response(JSON.stringify(response), { status: 200, headers: JSON_HEADERS }), url };
+    return wrap(
+      new Response(JSON.stringify(response), { status: 200, headers: JSON_HEADERS }),
+      url,
+      { headers, transformedBody: chatBody }
+    );
   }
 
   /**
@@ -360,10 +417,7 @@ export class MaxAiExecutor extends BaseExecutor {
    * on any refresh failure it returns the original token so the request still
    * proceeds (a truly-dead token then surfaces as an upstream 401/418).
    */
-  private async ensureFreshAccess(
-    cred: MaxaiCredential,
-    input: ExecuteInput
-  ): Promise<string> {
+  private async ensureFreshAccess(cred: MaxaiCredential, input: ExecuteInput): Promise<string> {
     if (!cred.refreshToken) return cred.accessToken;
     if (!maxaiAccessTokenNeedsRefresh(cred.accessToken)) return cred.accessToken;
 
@@ -374,7 +428,10 @@ export class MaxAiExecutor extends BaseExecutor {
       signal: input.signal ?? undefined,
     });
     if (!result.ok || !result.accessToken) {
-      input.log?.warn?.("maxai", `access-token refresh failed (${result.status}); using existing token`);
+      input.log?.warn?.(
+        "maxai",
+        `access-token refresh failed (${result.status}); using existing token`
+      );
       return cred.accessToken;
     }
 

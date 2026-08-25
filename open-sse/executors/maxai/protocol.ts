@@ -74,10 +74,12 @@ export function buildMaxaiChatBody(opts: {
   imageUrls?: string[];
   /**
    * Doc-RAG: uploaded-document references (from /app/upload_document). Each entry
-   * is `{ doc_id, doc_type, file_name, current }`. Empty/omitted = no docs (the
-   * default `doc_list: []`).
+   * carries at least `{ doc_id, doc_type, file_name }`. Typed as a loose object
+   * array so callers can pass their concrete `MaxaiDocListEntry[]` without an
+   * index-signature cast; the body only serializes it into `doc_list`.
+   * Empty/omitted = no docs (the default `doc_list: []`).
    */
-  docList?: Array<Record<string, unknown>>;
+  docList?: ReadonlyArray<object>;
 }): Record<string, unknown> {
   // message_content is a typed-parts array: the text part ALWAYS leads (so the
   // flattened transcript stays first and the no-image path is unchanged), then

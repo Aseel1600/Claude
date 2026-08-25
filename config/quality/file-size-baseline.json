@@ -183,6 +183,8 @@
   "testCap": 1000,
   "testFrozen": {
     "tests/unit/adobe-firefly.test.ts": 1477,
+    "tests/unit/maxai.test.ts": 1089,
+    "_rebaseline_2026_08_25_maxai_provider_suite": "feat(maxai) own test growth: tests/unit/maxai.test.ts frozen at 1089 (>testCap 1000). Single self-contained provider suite covering the whole MaxAI surface in one file (chat, prompted tool-calling across the emitters, vision input, browserless refresh/token-expiry, executor wrapper-shape contract, error/overflow classification), same day-one-large precedent as adobe-firefly.test.ts (1477). The image-gen and doc-RAG surfaces already live in their own files (maxai-image.test.ts, maxai-documents.test.ts) so this file is not artificially inflated. Part of the MaxAI provider PR (#11461). Owner directed fixing all CI gates incl this feature-growth rebaseline 2026-08-25.",
     "tests/unit/reasoning-cache.test.ts": 1346,
     "_rebaseline_2026_06_27_5193_antigravity_test": "#5193 own test growth: oauth-providers-config.test.ts 870->873 (+3: antigravity projectId assertion + 50ms tick for the now fire-and-forget onboarding, matching the no-PKCE/no-openid flow).",
     "_rebaseline_2026_07_02_5928_base_red": "web-cookie-providers-new.test.ts 845->850: #5928 (test(security) Kimi Web URL host parse, CodeQL #689) grew the file +5 lines and merged into release/v3.8.44 WITHOUT rebaselining, leaving a fast-gates base-red that blocked every subsequent PR->release. Test growth is legitimate (a security regression test); maintainer absorbs the drift here. Frozen at 850.",
@@ -446,7 +448,8 @@
     "open-sse/executors/kiro.ts": 1390,
     "open-sse/translator/request/openai-to-kiro.ts": 1374,
     "open-sse/utils/sseHeartbeat.ts": 194,
-    "open-sse/utils/proxyFetch.ts": 1244,
+    "open-sse/utils/proxyFetch.ts": 1261,
+    "_rebaseline_2026_08_25_maxai_tls_impersonation_profile": "feat(maxai) own growth: proxyFetch.ts 1244->1261 (+17, per-provider TLS impersonation profile wiring so MaxAI dispatches through the Firefox-150 wreq fingerprint at the existing proxy-dispatcher chokepoint, same shape as the other impersonated web providers). Part of the MaxAI provider PR (#11461). Owner directed fixing all CI gates incl this feature-growth rebaseline 2026-08-25.",
     "_rebaseline_2026_08_23_11177_dns_retry_classification": "PR #11177 (rqzbeh) own growth: proxyFetch.ts 1239->1244 (+5, EAI_AGAIN/ENOTFOUND/ETIMEDOUT join the retryable dispatcher classification alongside ECONNREFUSED — bounded socket retries for transient DNS failures, part of the #10443 Hermes→Antigravity stream-drop fixes). Covered by tests/unit/proxy-fetch-dns-retry-10443.test.ts. Owner pre-authorized baseline bumps 2026-08-22.",
     "_rebaseline_2026_08_11_v3850_merge_storm_provider_registry: DRIFT do merge-storm 2026-08-11 (99 PRs mergeados no release/v3.8.50). AddApiKeyModal.tsx (PR #8949 ChatGPT Web provider) e useProviderConnections.ts/ModelSelectModal.tsx (PRs #9011 combo test-all, #9499 image combos) = UI nova legítima acima do cap; gateways.ts = god-file de catálogo de providers que cresceu com os PRs #9009/#9421/#9468/#9594 (qualquer split arriscaria corromper o merge de novo — o próprio PR #9421 foi o que quebrou o arquivo; sem split até o release, congelado no tamanho atual). Owner autorizou rebaseline com anotação (2026-08-11).": {
       "src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal.tsx": 1062,
@@ -465,7 +468,8 @@
     "src/lib/modelCapabilities.ts": 1072,
     "_rebaseline_2026_08_21_11034_effort_variants": "DRIFT do tip (base-red #9985): modelCapabilities.ts 1016->1072 (+56) acumulado por PRs ja mergeadas no release/v3.8.50 — principalmente #11034 (resolve effort-variant capabilities a partir do modelo base), alem de #10963/#11040/#10987 growth dos catalogos. Tip puro ficou vermelho neste gate; rebaseline no tip por push direto (owner pre-autorizou crescimento legitimo). Nao tocou no arquivo da #11038.",
     "src/app/(dashboard)/dashboard/providers/[id]/providerPageHelpers.ts": 1014,
-    "open-sse/config/imageRegistry.ts": 1034,
+    "open-sse/config/imageRegistry.ts": 1054,
+    "_rebaseline_2026_08_25_maxai_image_generation": "feat(maxai) own growth: imageRegistry.ts 1034->1054 (+20, the maxai IMAGE_PROVIDERS entry + its 6 image-gen models list, additive registry data at the existing image-registry chokepoint, same pattern as the #8006 adobe-firefly entry). Part of the MaxAI provider PR (#11461). Owner directed fixing all CI gates incl this feature-growth rebaseline 2026-08-25.",
     "src/sse/handlers/chatHelpers.ts": 1019,
     "src/shared/middleware/chatBodyAdmission.ts": 1118,
     "_rebaseline_2026_08_22_11020_sigterm_drain": "PR #11020 (RaviTharuma) own growth: chatBodyAdmission.ts 1005->1009 (+4, heavyweight admission leases now increment the SIGTERM drain counter and releaseChatAdmissionWhenDone holds it for the SSE lifetime — closes #11015; +4 are the lease/drain wiring lines at the existing admission chokepoint). Covered by tests/unit/chat-body-admission.test.ts heavyweight-lease cases. Owner pre-authorized baseline bumps 2026-08-22.",

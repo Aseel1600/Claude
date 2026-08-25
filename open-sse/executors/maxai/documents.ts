@@ -169,7 +169,9 @@ export function buildUploadMultipart(
   const parts: Buffer[] = [];
   const dash = `--${boundary}\r\n`;
   const field = (name: string, value: string): void => {
-    parts.push(Buffer.from(`${dash}Content-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+    parts.push(
+      Buffer.from(`${dash}Content-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`)
+    );
   };
   field("doc_id", docId);
   field("doc_type", docType);
@@ -215,19 +217,27 @@ export async function uploadMaxaiDocument(
   const { "Content-Type": _drop, ...staticHeaders } = maxaiStaticHeaders();
   const headers: Record<string, string> = {
     ...staticHeaders,
-    ...buildMaxaiSignedHeaders({ path: MAXAI_UPLOAD_PATH, userId: auth.userId, deviceId: auth.deviceId }, constants),
+    ...buildMaxaiSignedHeaders(
+      { path: MAXAI_UPLOAD_PATH, userId: auth.userId, deviceId: auth.deviceId },
+      constants
+    ),
     Authorization: `Bearer ${auth.accessToken}`,
     "Content-Type": `multipart/form-data; boundary=${boundary}`,
   };
+
+  // Copy the multipart bytes into a fresh Uint8Array backed by a plain
+  // (non-shared) ArrayBuffer. `Buffer.buffer` is typed ArrayBufferLike
+  // (ArrayBuffer | SharedArrayBuffer) which isn't assignable to fetch's
+  // BodyInit; a freshly-allocated Uint8Array is the BodyInit shape the rest of
+  // the codebase uses for binary bodies (kimi-web.ts:397, conol-web.ts:529).
+  const bodyBytes = new Uint8Array(bodyBuf.byteLength);
+  bodyBytes.set(bodyBuf);
 
   try {
     const resp = await fetchImpl(MAXAI_BASE_URL + MAXAI_UPLOAD_PATH, {
       method: "POST",
       headers,
-      // Pass an ArrayBuffer body (the proven multipart pattern in
-      // audioTranscription.ts): a Node Buffer / typed-array view isn't assignable
-      // to this codebase's fetch BodyInit, but a plain ArrayBuffer is.
-      body: bodyBuf.buffer.slice(bodyBuf.byteOffset, bodyBuf.byteOffset + bodyBuf.byteLength),
+      body: bodyBytes,
       signal: opts?.signal,
     });
     if (!resp.ok) return null;

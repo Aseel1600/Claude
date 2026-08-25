@@ -28,6 +28,12 @@ import {
 } from "../executors/maxai/protocol.ts";
 import { maxaiContextWindow, MAXAI_MODELS } from "../executors/maxai/catalog.ts";
 
+// Re-export the registry-shaped catalog through this service so `src/app` routes
+// can consume it WITHOUT importing the executor directly (the no-restricted-imports
+// rule: "executor implementations must stay behind an open-sse handler or service
+// boundary"). This service IS that boundary, and already owns the catalog import.
+export { MAXAI_REGISTRY_MODELS } from "../executors/maxai/catalog.ts";
+
 /** A discovered MaxAI model in the shape persistDiscoveredModels normalizes. */
 export interface MaxaiDiscoveredModel {
   id: string;
