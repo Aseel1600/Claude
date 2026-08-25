@@ -96,6 +96,13 @@ const ARK_CONSOLE_URL =
 /** Cookie names required for a valid console session (mirrors tokenExtractionConfig) */
 const REQUIRED_COOKIES = ["digest", "AccountID", "csrfToken", "userInfo"] as const;
 
+/** Exact-domain match for session cookies — substring checks would also accept
+ * look-alike hosts (e.g. `volcengine.com.evil.test`). Playwright may report the
+ * domain with or without a leading dot. */
+function isVolcengineCookieDomain(domain: string): boolean {
+  return domain === "volcengine.com" || domain.endsWith(".volcengine.com");
+}
+
 const DEFAULT_SESSION_TIMEOUT = 300_000;
 const SUBMIT_COOKIE_TIMEOUT = 90_000;
 const CAPTURE_POLL_INTERVAL = 1_000;
@@ -618,7 +625,7 @@ export class VolcengineConsoleAutoLoginService {
       for (const cookie of cookies as Array<{ name: string; domain: string; value: string }>) {
         if (
           REQUIRED_COOKIES.includes(cookie.name as (typeof REQUIRED_COOKIES)[number]) &&
-          cookie.domain.includes("volcengine.com")
+          isVolcengineCookieDomain(cookie.domain)
         ) {
           credentials[cookie.name] = cookie.value;
         }
@@ -763,7 +770,7 @@ export class VolcengineConsoleAutoLoginService {
           domain: string;
         }>;
         const present = REQUIRED_COOKIES.filter((name) =>
-          cookies.some((c) => c.name === name && c.domain.includes("volcengine.com"))
+          cookies.some((c) => c.name === name && isVolcengineCookieDomain(c.domain))
         );
         parts.push(
           `cookies=[${present.join(",") || "none of digest/AccountID/csrfToken/userInfo"}]`
