@@ -269,12 +269,6 @@ export function restoreClaudeToolName(
 
   if (canonical) return canonical;
 
-  // Preserve the exact casing if the tool name is already canonical PascalCase / TitleCase
-  // (#11487 - never mangle native Claude Code tool names to lowercase on the wire).
-  if (TOOL_RENAME_MAP[lower] === rawName) {
-    return rawName;
-  }
-
   return rawName;
 }
 

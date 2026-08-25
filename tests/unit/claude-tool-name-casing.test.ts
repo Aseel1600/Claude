@@ -43,8 +43,8 @@ describe("Claude tool name casing preservation (#11487)", () => {
     assert.equal(restoreClaudeToolName("Read", map), "read");
   });
 
-  it("leaves PascalCase tools untouched during response remapping", () => {
-    const responseChunk = {
+  it("remaps TitleCase to lowercase in response JSON when forceLowercase is true", () => {
+    const responseChunk = JSON.stringify({
       choices: [
         {
           delta: {
@@ -55,9 +55,10 @@ describe("Claude tool name casing preservation (#11487)", () => {
           },
         },
       ],
-    };
-    const processed = remapToolNamesInResponse(responseChunk, null);
-    assert.equal(processed.choices[0].delta.tool_calls[0].function.name, "Bash");
-    assert.equal(processed.choices[0].delta.tool_calls[1].function.name, "Write");
+    });
+    const processed = remapToolNamesInResponse(responseChunk, true);
+    const parsed = JSON.parse(processed);
+    assert.equal(parsed.choices[0].delta.tool_calls[0].function.name, "bash");
+    assert.equal(parsed.choices[0].delta.tool_calls[1].function.name, "write");
   });
 });
