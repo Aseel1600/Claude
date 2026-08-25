@@ -473,6 +473,10 @@ describe("Page Integration — cost explorer wiring", () => {
     assert.match(costExplorerUtils, /buildCostExplorerRows/);
     assert.match(costExplorerUtils, /serviceTier/);
   });
+
+  it("should request token-price estimates for flat-rate providers", () => {
+    assert.match(costsPage, /includeFlatRateEstimates:\s*"true"/);
+  });
 });
 
 describe("Page Integration — combos page empty state", () => {
