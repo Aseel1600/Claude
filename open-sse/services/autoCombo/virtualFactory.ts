@@ -501,7 +501,9 @@ export function computeAdvertisedLimits(candidates: AdvertisedLimitCandidate[]):
   return { contextLength, maxOutputTokens };
 }
 
-const PREPARED_CAPABILITY_YIELD_INTERVAL = 16;
+// Catalog-scale pools can contain hundreds of models. Keep both candidate construction
+// and capability preparation cooperative instead of monopolising one event-loop turn.
+const VIRTUAL_AUTO_PREPARATION_YIELD_INTERVAL = 4;
 
 type PreparedCapabilityValues = {
   resolvedContextLength: number | null;
@@ -565,7 +567,7 @@ async function attachPreparedCapabilityValues(
       };
       byModel.set(candidate.model, values);
       state.resolvedSinceYield++;
-      if (state.resolvedSinceYield >= PREPARED_CAPABILITY_YIELD_INTERVAL) {
+      if (state.resolvedSinceYield >= VIRTUAL_AUTO_PREPARATION_YIELD_INTERVAL) {
         state.resolvedSinceYield = 0;
         await yieldVirtualAutoPreparationTurn();
       }
@@ -576,7 +578,10 @@ async function attachPreparedCapabilityValues(
 }
 
 export async function prepareVirtualAutoComboInputs(
-  options: { includeResolvedCapabilities?: boolean } = {}
+  options: {
+    includeResolvedCapabilities?: boolean;
+    resolutionSnapshot?: ModelCapabilityResolutionSnapshot;
+  } = {}
 ): Promise<PreparedVirtualAutoComboInputs> {
   const [connections, disabledNoAuthConnections, settings] = await Promise.all([
     getCachedProviderConnections({ isActive: true }) as Promise<VirtualFactoryConn[]>,
@@ -621,6 +626,7 @@ export async function prepareVirtualAutoComboInputs(
   // Build one logical candidate per provider/model and keep account fallback as an
   // allowlist on that candidate. This avoids both the old "first registry model per
   // connection" blind spot and a connections × models Cartesian candidate pool.
+  let candidateModelsSinceYield = 0;
   for (const [providerId, providerConnections] of connectionsByProvider) {
     const providerInfo = registry[providerId];
     const registryModelIds = Array.isArray(providerInfo?.models)
@@ -654,6 +660,11 @@ export async function prepareVirtualAutoComboInputs(
       : Array.from(new Set([...registryModelIds, ...defaultModelIds]));
 
     for (const modelId of modelIds) {
+      candidateModelsSinceYield++;
+      if (candidateModelsSinceYield >= VIRTUAL_AUTO_PREPARATION_YIELD_INTERVAL) {
+        candidateModelsSinceYield = 0;
+        await yieldVirtualAutoPreparationTurn();
+      }
       if (hiddenModels?.has(modelId)) continue;
 
       const allowedConnectionIds = providerConnections
@@ -759,7 +770,7 @@ export async function prepareVirtualAutoComboInputs(
   const capabilityState: PreparedCapabilityState = {
     byTarget: new Map(),
     resolvedSinceYield: 0,
-    resolutionSnapshot: createModelCapabilityResolutionSnapshot(),
+    resolutionSnapshot: options.resolutionSnapshot ?? createModelCapabilityResolutionSnapshot(),
   };
   return {
     regularCandidates: await attachPreparedCapabilityValues(regularCandidates, capabilityState),
