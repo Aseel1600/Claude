@@ -50,6 +50,7 @@
  */
 import {
   FREE_MODEL_BUDGETS,
+  grantsFreeAccess,
   type FreeModelBudget,
 } from "@omniroute/open-sse/config/freeModelCatalog.ts";
 import { SYNTHETIC_NOAUTH_CONNECTION_ID } from "./resilienceCandidateFilter";
@@ -184,7 +185,7 @@ export function evaluateCandidateConnections(
     // entries today, so it will correctly exclude).
     if (isGenuineNoAuthCandidate) return [SYNTHETIC_NOAUTH_CONNECTION_ID];
   }
-  if (budgetEntry.freeType === "discontinued") return [];
+  if (!grantsFreeAccess(budgetEntry.freeType)) return [];
   if (isGenuineNoAuthCandidate) return []; // no-auth path but a non-keyless catalog entry: contradictory metadata, fail closed
 
   // Every remaining freeType (recurring-*, one-time-initial, a keyless entry
