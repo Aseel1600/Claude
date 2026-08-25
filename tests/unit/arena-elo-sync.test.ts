@@ -329,6 +329,28 @@ describe("transformToModelIntelligence()", () => {
     }
   });
 
+  it("does not copy a variant's score onto a different generation (MODEL_ALIAS_MAP removed, #11504)", () => {
+    const data = makeLeaderboardMap({
+      text: [
+        makeModelEntry({
+          model: "anthropic/claude-opus-4-6-thinking",
+          score: 1400,
+          votes: 5000,
+          rank: 1,
+        }),
+      ],
+    });
+
+    const entries = transformToModelIntelligence(data);
+    const models = entries.map((e) => e.model);
+
+    assert.ok(models.includes("claude-opus-4-6-thinking"));
+    // Was asserted the other way round while MODEL_ALIAS_MAP existed: it copied this
+    // score onto `claude-opus-4`, so a claude-opus-4 request read a 4.6-thinking ELO.
+    assert.ok(!models.includes("claude-opus-4"));
+    assert.ok(!models.includes("anthropic/claude-opus-4"));
+  });
+
   it("empty leaderboard → no entries", () => {
     const data = makeLeaderboardMap({ text: [] });
     const entries = transformToModelIntelligence(data);
@@ -797,6 +819,34 @@ describe("syncArenaElo()", () => {
     const status = getArenaEloSyncStatus();
     assert.ok(status.lastSync);
     assert.ok(status.lastSyncModelCount > 0);
+  });
+
+  it("stores no cross-generation alias rows in the DB (MODEL_ALIAS_MAP removed, #11504)", async () => {
+    const textData = makeLeaderboardData(
+      [
+        makeModelEntry({
+          model: "anthropic/claude-opus-4-6-thinking",
+          score: 1400,
+          votes: 5000,
+          rank: 1,
+        }),
+      ],
+      "text"
+    );
+
+    mockFetch(async (url: string) => {
+      if (url.includes("name=text")) return jsonResponse(textData);
+      if (url.includes("name=code")) return jsonResponse(makeLeaderboardData([], "code"));
+      return new Response("Not found", { status: 404 });
+    });
+
+    await syncArenaElo();
+
+    const entries = getAllEntries();
+    const models = entries.map((e) => String(e.model));
+
+    assert.ok(models.includes("claude-opus-4-6-thinking"));
+    assert.ok(!models.includes("claude-opus-4"));
   });
 });
 
