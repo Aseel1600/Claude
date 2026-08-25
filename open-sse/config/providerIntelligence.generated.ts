@@ -93,7 +93,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Remove from active API-provider routing; retain only as a consumer/free-agent product reference",
     overallScore: null,
     confidence: "Verified — current official Adapta One 26 documentation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Critical registry correction: agent.adapta.one is a product UI/service, not a provider API. Adapta explicitly says underlying AI APIs are not directly available.",
     freeCapacity: {
@@ -141,7 +141,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a promising free coding gateway, but do not count a numeric free pool until account-level limits are verified",
     overallScore: null,
     confidence: "Verified — current official AgentRouter docs; quota amount unresolved",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "The existence of free quota is confirmed; exact allowance remains unresolved.",
     freeCapacity: {
       amount: null,
@@ -189,7 +189,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free API candidate; strong evidence because the API endpoint, free access type and actual executable RPM are explicitly documented",
     overallScore: null,
     confidence: "Verified — current official Agnes AI model catalog / token-plan docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Unlike promotional credits, Free access is an actual ongoing access type with explicit rate limits; no hard daily cap is published.",
     freeCapacity: {
@@ -238,7 +238,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not route OmniRoute traffic through Antigravity OAuth despite genuine free weekly quota; use supported Gemini/Vertex/AI Studio APIs instead",
     overallScore: null,
     confidence: "Verified — current official Antigravity plans + FAQ",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "The free capacity is real, but the policy explicitly rules out third-party agent access, making it unsuitable for OmniRoute.",
     freeCapacity: {
@@ -286,7 +286,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count toward sustainable recurring free pool; useful for initial testing",
     overallScore: null,
     confidence: "Verified — current official AI21 pricing/account docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "$10 introductory credit, not renewable; official terms also distinguish evaluation products from production use.",
     freeCapacity: {
@@ -333,7 +333,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Retain as low-priority fallback/specialized free pool, not primary",
     overallScore: null,
     confidence: "Verified — current AI Horde documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free and legitimate, but queue priority/availability makes it unsuitable as a dependable primary provider.",
     freeCapacity: {
@@ -380,7 +380,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; update registry interpretation as stale",
     overallScore: null,
     confidence: "Verified — current official AI/ML API billing help",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important stale-registry correction: current official help explicitly says no free plan.",
     freeCapacity: {
@@ -427,7 +427,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring pool; catalog as new-user trial capacity",
     overallScore: null,
     confidence: "Verified — current official Alibaba Model Studio free quota policy",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "The regional provider entry is not a recurring free tier; it is a new-user, model-specific quota with expiry.",
     freeCapacity: {
@@ -475,7 +475,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free pool; useful new-user/model-specific trial capacity",
     overallScore: null,
     confidence: "Verified — current official Alibaba Model Studio pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "High-value 1M-token grant but expires after 90 days and is not a recurring reset.",
     freeCapacity: {
       amount: 1000000,
@@ -521,7 +521,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free API pool; retain as paid primary-capability provider",
     overallScore: null,
     confidence: "Verified — current official Anthropic API pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Consumer Free access must not be confused with API access.",
     freeCapacity: {
       amount: null,
@@ -568,7 +568,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring free agent resource; weekly limits make it valuable but not a conventional API quota",
     overallScore: null,
     confidence: "Verified — current official Antigravity pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "This exactly matches our required classification: free + weekly reset/rate limits.",
     freeCapacity: {
       amount: null,
@@ -615,7 +615,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free source; lower priority than higher-quality high-reliability providers until reliability is measured",
     overallScore: null,
     confidence: "Verified — current official Api.Airforce pricing/docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Recurring 1,000 requests/day with 1 request/minute; free-tier models only. Daily free token cap also applies.",
     freeCapacity: {
@@ -663,7 +663,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count 30k trial credits as sustainable free pool; keep as a useful one-time coding-agent trial",
     overallScore: null,
     confidence: "Verified — current official Augment Code pricing/trial docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Historic free promotions such as GPT-5.4 being temporarily free have already ended and should not be counted.",
     freeCapacity: {
@@ -712,7 +712,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable free capacity unless a documented recurring $0 quota is established",
     overallScore: null,
     confidence: "Verified — current public B.AI materials; free quota not established",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Keep separate from Baichuan's independently verified promotional programs.",
     freeCapacity: {
       amount: null,
@@ -760,7 +760,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "General API: treat as promotional. Separately retain HaiNaBaichuan as specialized institutional free program.",
     overallScore: null,
     confidence: "Verified — current official Baichuan pricing/home",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Do not mistake the permanent medical program for a general public free API tier.",
     freeCapacity: {
       amount: 10000000,
@@ -806,7 +806,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring free pool; useful large trial allocation",
     overallScore: null,
     confidence: "Verified — current official Qianfan free-quota documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Baidu is a large one-time model-specific free allocation, not a recurring free plan.",
     freeCapacity: {
       amount: 1000000,
@@ -853,7 +853,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring free pool",
     overallScore: null,
     confidence: "Verified — current official Alibaba Model Studio pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Treat preview-model free quota as one-time promotional capacity.",
     freeCapacity: {
       amount: 1000000,
@@ -899,7 +899,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable free inference pool until a recurring allowance is documented",
     overallScore: null,
     confidence: "Verified — current official Baseten pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free starting credits are confirmed, but amount/reset are not public.",
     freeCapacity: {
       amount: null,
@@ -946,7 +946,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free API candidate: explicit daily quota, RPM, named free models, OpenAI-compatible API",
     overallScore: null,
     confidence: "Verified — current official BazaarLink free-tier page",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Very strong evidence because the free quota, request rate and named $0 models are all publicly documented.",
     freeCapacity: {
@@ -994,7 +994,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free inference; valuable one-time cloud trial for Bedrock experiments",
     overallScore: null,
     confidence: "Verified — current AWS Free Tier + Bedrock pricing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Distinguish generic AWS $200 trial credits from a permanent Bedrock free tier.",
     freeCapacity: {
       amount: 200,
@@ -1041,7 +1041,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free candidate for coding/agent workloads, subject to reliability and model-quality testing",
     overallScore: null,
     confidence: "Verified — current official BLACKBOX AI Agent API/pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Potentially one of the strongest free candidates: unlimited free agent requests on a named model, but scope is not the whole model catalog.",
     freeCapacity: {
@@ -1089,7 +1089,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not create a second free-capacity pool from the web entry; refer routing to the main BLACKBOX API provider",
     overallScore: null,
     confidence: "Verified — current BLACKBOX pricing/API docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Avoid double-counting the same platform. Main BLACKBOX API entry already captures the unlimited Minimax-M2.5 free agent tier.",
     freeCapacity: {
@@ -1137,7 +1137,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from sustainable free pool based on current public pricing; retain registry integration for paid use",
     overallScore: null,
     confidence: "Verified — current BluesMinds pricing/about pages",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important stale-registry correction: current public pricing is pay-as-you-go; the older registry free-model comment should not be treated as current.",
     freeCapacity: {
@@ -1187,7 +1187,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as valuable new-user/model-specific trial capacity, but do not count as recurring sustainable free pool",
     overallScore: null,
     confidence: "Verified — current official BytePlus ModelArk documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important distinction: Free Tokens Only can protect against billing, but the displayed free quota is model-specific and not a general recurring daily/monthly pool.",
     freeCapacity: {
@@ -1235,7 +1235,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring free candidate, especially for small open models; lower model-capability tier",
     overallScore: null,
     confidence: "Verified — current official Bytez billing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "This is a real renewable free tier: credits refresh every 4 weeks.",
     freeCapacity: {
       amount: null,
@@ -1280,7 +1280,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count toward sustainable free pool",
     overallScore: null,
     confidence: "Verified — current official pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Current official pricing describes a $5 free trial; not a recurring free allocation.",
     freeCapacity: {
       amount: 5,
@@ -1327,7 +1327,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free coding inference candidate; especially relevant for coding-agent workloads",
     overallScore: null,
     confidence: "Verified — current official Charm Hyper pricing/FAQ/docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong explicit free monthly allocation: 100 Hypercredits = $5 at the current published conversion.",
     freeCapacity: {
@@ -1376,7 +1376,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not use as a default automated API route; retain only for explicitly supported consumer/web workflows",
     overallScore: null,
     confidence: "Verified — current official ChatGPT Free plan + Help Center",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free consumer access is real, but that does not establish permission/reliability for OmniRoute's web/backend automation.",
     freeCapacity: {
@@ -1424,7 +1424,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from free pool pending stronger current evidence; keep as unresolved gateway entry",
     overallScore: null,
     confidence: "Verified — lack of current free-tier evidence; not a positive free classification",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "This is a conservative classification: absence of evidence is not treated as evidence of a free tier.",
     freeCapacity: {
@@ -1472,7 +1472,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from active provider routing and mark as non-provider registry artifact",
     overallScore: null,
     confidence: "Verified — endpoint/domain identity mismatch with AI-provider role",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Important cleanup: this entry is not a model provider and should not be considered in provider scoring.",
     freeCapacity: {
@@ -1519,7 +1519,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain registry integration for paid use",
     overallScore: null,
     confidence: "Verified — current official pricing + 2026 retirement announcement",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "The historical 200/day free Early Access quota was retired March 15, 2026.",
     freeCapacity: {
       amount: null,
@@ -1566,7 +1566,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from sustainable OmniRoute API free pool; retain consumer distinction in evidence",
     overallScore: null,
     confidence: "Verified — current official Anthropic pricing/help",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Critical distinction: Claude Free is a consumer service; Anthropic API is separately billed.",
     freeCapacity: {
@@ -1614,7 +1614,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count consumer Claude Free as free API capacity; keep as consumer/web resource",
     overallScore: null,
     confidence: "Verified — current Anthropic pricing/help",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Free consumer access is real, but API access remains separately billed.",
     freeCapacity: {
       amount: 0,
@@ -1660,7 +1660,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Useful coding-agent/free-model source, but do not count rotating promotions as sustainable baseline",
     overallScore: null,
     confidence: "Verified — current Cline pricing and current/2026 model announcements",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Cline software is free, but inference is not universally free; free hosted models are promotional/rotating.",
     freeCapacity: {
@@ -1707,7 +1707,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool",
     overallScore: null,
     confidence: "Verified — current official ClinePass pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Registry presence should not be interpreted as free; current plan is paid.",
     freeCapacity: {
       amount: 9.99,
@@ -1754,7 +1754,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong candidate; reliability/ToS scoring pending",
     overallScore: null,
     confidence: "Verified — current official pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "10,000 Neurons/day recurring free allocation; many models remain free.",
     freeCapacity: {
       amount: 10000,
@@ -1800,7 +1800,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring free pool; useful 14-day coding-agent trial",
     overallScore: null,
     confidence: "Verified — current official CodeBuddy pricing",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "250 credits are a 14-day new-user grant, not a renewable free monthly allowance.",
     freeCapacity: {
       amount: 250,
@@ -1847,7 +1847,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Retain as a Mistral Free-mode model option, but do not count as a separately renewable Codestral free pool",
     overallScore: null,
     confidence: "Verified — current official Mistral model pricing + subscription docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important distinction: Mistral Free mode shares monthly usage across Studio/API/Vibe; Codestral itself is not a standalone $0 API product.",
     freeCapacity: {
@@ -1860,7 +1860,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       rpm: null,
       rph: null,
       rpd: null,
-      tpm: "Plan-specific",
+      tpm: null,
       concurrency: null,
       timeRestrictions: "Plan-wide monthly usage",
       accountRequired: "Yes",
@@ -1896,7 +1896,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as an account-based coding/agent resource; do not treat as an anonymous API free pool",
     overallScore: null,
     confidence: "Verified — current official OpenAI Codex plan documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Codex is included on Free and Go plans, but usage limits vary and are account/product controlled.",
     freeCapacity: {
@@ -1944,7 +1944,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep for testing/benchmarking only; do not include in production primary pool",
     overallScore: null,
     confidence: "Verified — current official Cohere pricing/rate-limit docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "This is valuable recurring free test capacity but policy restrictions prevent use as a production free route.",
     freeCapacity: {
@@ -1992,7 +1992,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; retain as a free coding-agent harness",
     overallScore: null,
     confidence: "Verified — current official Command Code pricing/docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "The free solo product and paid hosted model/API plans must be tracked separately.",
     freeCapacity: {
       amount: 0,
@@ -2040,7 +2040,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not use as an automated OmniRoute API provider; retain as consumer web-only resource",
     overallScore: null,
     confidence: "Verified — current Microsoft support/pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free consumer Copilot exists, but it is not equivalent to a free API endpoint.",
     freeCapacity: {
       amount: null,
@@ -2086,7 +2086,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; keep as consumer web/app resource",
     overallScore: null,
     confidence: "Verified — current official Microsoft Copilot Free support",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free consumer Copilot is real, but should not be conflated with a supported API free tier.",
     freeCapacity: {
@@ -2133,7 +2133,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count in sustainable free pool; useful for initial testing",
     overallScore: null,
     confidence: "Verified — current official Coze API page",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "100-call grant is explicitly one-time.",
     freeCapacity: {
       amount: 100,
@@ -2178,7 +2178,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as a low-cost paid provider",
     overallScore: null,
     confidence: "Verified — current CrofAI primary pricing + May 2026 pricing change",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Critical stale-registry correction: an old beta page advertises Free/$0, but the current primary site says subscriptions were removed.",
     freeCapacity: {
@@ -2226,7 +2226,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a coding-agent/free-tool resource, but do not treat Cursor Hobby as a free general API endpoint",
     overallScore: null,
     confidence: "Verified — current official Cursor pricing/changelog",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important India distinction: Cursor Start is ₹649/month; the actual free plan is Hobby with limited Agent requests.",
     freeCapacity: {
@@ -2275,7 +2275,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as high-value introductory free candidate; do not treat 100M as recurring until reset terms are published",
     overallScore: null,
     confidence: "Verified — current official Dahl site",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Very large 100M-token free allocation, but currently no evidence of a recurring daily/weekly/monthly reset.",
     freeCapacity: {
@@ -2324,7 +2324,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free AI/data infrastructure resource; not a conventional direct free LLM API provider",
     overallScore: null,
     confidence: "Verified — current official Databricks Free Edition docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important free infrastructure option, especially for experiments, but restrictions and daily fair-use shutdowns matter.",
     freeCapacity: {
@@ -2372,7 +2372,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count in sustainable free pool; useful for initial testing",
     overallScore: null,
     confidence: "Verified — current official pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Current $5 free credits are promotional rather than a renewable free quota.",
     freeCapacity: {
       amount: null,
@@ -2418,7 +2418,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as a high-value low-cost paid provider",
     overallScore: null,
     confidence: "Verified — current official DeepSeek API pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important distinction: DeepSeek consumer/web free access does not establish a free API quota.",
     freeCapacity: {
@@ -2465,7 +2465,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as API free capacity",
     overallScore: null,
     confidence: "Verified — current official DeepSeek product + API docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Avoid double-counting consumer free service and paid API.",
     freeCapacity: {
       amount: null,
@@ -2511,7 +2511,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free coding-agent resource; do not treat as generic free LLM API capacity",
     overallScore: null,
     confidence: "Verified — current official Devin self-serve billing docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "The Free plan is real and recurring, but its usage limit is deliberately not expressed as a public token/request quota.",
     freeCapacity: {
@@ -2560,7 +2560,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free gateway candidate; requires privacy, reliability, and free-model continuity testing",
     overallScore: null,
     confidence: "Verified — current official DGrid AI Gateway page",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong current evidence of immediate free models and $0 gateway markup; exact global free-quota ceiling is not published.",
     freeCapacity: {
@@ -2609,7 +2609,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a recurring free aggregator/workbench; valuable for testing multiple model families, but lower priority than direct providers due to credit conversion",
     overallScore: null,
     confidence: "Verified — current official Dify Cloud pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "A strong meta-provider for free experimentation: 200 credits/month across several providers.",
     freeCapacity: {
@@ -2657,7 +2657,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free AI API capacity",
     overallScore: null,
     confidence: "Verified — current DigitalOcean 2026 account guidance + inference pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Useful for testing infrastructure, but not recurring AI API free capacity.",
     freeCapacity: {
       amount: 5,
@@ -2704,7 +2704,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from sustainable free pool; potentially useful as a low-cost paid aggregator",
     overallScore: null,
     confidence: "Verified — current DIT pricing/terms",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Cheap is not the same as free; current DIT has no public free tier.",
     freeCapacity: {
       amount: null,
@@ -2750,7 +2750,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not create a second independent free pool; merge with Volcengine Ark quota accounting",
     overallScore: null,
     confidence: "Verified — current first-party Ark/Doubao product relationship",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Registry entry should inherit the main Volcengine free-quota record to avoid double counting.",
     freeCapacity: {
@@ -2797,7 +2797,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count consumer Doubao web/app access as free API capacity",
     overallScore: null,
     confidence: "Verified — current official product separation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Consumer Doubao is separate from the Ark API; free access does not imply API entitlement.",
     freeCapacity: {
@@ -2844,7 +2844,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; retain as consumer web-only resource",
     overallScore: null,
     confidence: "Verified — current official DuckDuckGo AI Chat materials",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Useful free consumer service, but no supported third-party API free quota established.",
     freeCapacity: {
       amount: null,
@@ -2890,7 +2890,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool",
     overallScore: null,
     confidence: "Verified — current Factory pricing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "The registry's free-related comment refers to Droid Core inside paid Individual plans; not a standalone free provider.",
     freeCapacity: {
@@ -2937,7 +2937,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; valuable as paid model gateway",
     overallScore: null,
     confidence: "Verified — current official Featherless pricing/plans",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Paid-only under current plans.",
     freeCapacity: {
       amount: null,
@@ -2983,7 +2983,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free research/search resource; do not route as a general free LLM API",
     overallScore: null,
     confidence: "Verified — current official Felo Search FAQ",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Clear recurring 5 professional-search/day free quota; useful for research/search workloads.",
     freeCapacity: {
@@ -3030,7 +3030,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count toward sustainable free pool; useful for initial testing only",
     overallScore: null,
     confidence: "Verified — current official pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "$1 startup credit is promotional and not recurring.",
     freeCapacity: {
       amount: 1,
@@ -3075,7 +3075,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; may be useful for initial testing only",
     overallScore: null,
     confidence: "Verified — current provider page",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "One-time signup credit, not a renewable free allocation.",
     freeCapacity: {
       amount: 2,
@@ -3119,7 +3119,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Investigate further; do not count as recurring until quota/reset is confirmed",
     overallScore: null,
     confidence: "Verified — current official FreeModel site/terms; quota amount still unknown",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free credits are confirmed, but the sustainable free quota is not public on the reviewed page.",
     freeCapacity: {
@@ -3167,7 +3167,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as candidate; do not count in primary pool until quota/reset is clearly documented",
     overallScore: null,
     confidence: "Registry + current public-page verification",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free tier confirmed, but current public quota/reset details are not strong enough for a sustainable score.",
     freeCapacity: {
@@ -3215,7 +3215,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as candidate; do not count as sustainable primary free capacity until quota is documented",
     overallScore: null,
     confidence: "Verified — public materials; exact quota unresolved",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Potentially useful, but quota/reset information remains insufficient for a hard sustainability ranking.",
     freeCapacity: {
@@ -3262,7 +3262,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as primary; direct Gemini API should be preferred",
     overallScore: null,
     confidence: "Registry-confirmed; current proxy status not independently verified",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Keep as experimental only.",
     freeCapacity: {
       amount: null,
@@ -3307,7 +3307,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as primary route; official Groq should be preferred",
     overallScore: null,
     confidence: "Registry evidence + current proxy presence",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Official provider is already in our primary candidate set; unofficial proxy adds policy and reliability risk.",
     freeCapacity: {
@@ -3354,7 +3354,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as primary; official NVIDIA access should be preferred",
     overallScore: null,
     confidence: "Registry evidence + current proxy presence",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Use only as an experimental fallback if policy permits.",
     freeCapacity: {
       amount: null,
@@ -3399,7 +3399,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as primary; prefer direct local/official hosted Ollama access",
     overallScore: null,
     confidence: "Registry evidence + current gateway presence",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Useful only as experimental fallback.",
     freeCapacity: {
       amount: null,
@@ -3444,7 +3444,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as primary; direct Pollinations should be preferred",
     overallScore: null,
     confidence: "Registry-confirmed; current proxy status not independently verified",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Keep as experimental fallback only.",
     freeCapacity: {
       amount: null,
@@ -3490,7 +3490,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     overallScore: null,
     confidence:
       "Verified — current OmniRoute provider reference/sweep; historical Galadriel pages conflict with current operational state",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "This is a critical stale-registry correction: do not treat historical Free/Infinite tiers as active.",
     freeCapacity: {
@@ -3528,7 +3528,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/models",
     registryFreeSignal: "OAuth — verify plan",
     freeType: "Recurring free tier",
-    freeAmount: "Model-specific",
+    freeAmount: null,
     freeUnit: "Free input/output tokens + model-specific rate limits",
     resetPeriod: "Model/account quota window",
     accountRequired: "Yes",
@@ -3538,11 +3538,11 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong candidate; exact free quota and reliability scoring pending",
     overallScore: null,
     confidence: "Verified — current official Gemini pricing/rate-limit docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free tier is recurring but model-specific; Google notes limits are not guaranteed and vary by model/account.",
     freeCapacity: {
-      amount: "Model-specific",
+      amount: null,
       unit: "Free input/output tokens + model-specific rate limits",
       scope: "Google AI Studio / Gemini API Free tier",
       resetPeriod: "Model/account quota window",
@@ -3586,7 +3586,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; use direct Gemini API",
     overallScore: null,
     confidence: "Verified — current official Google Gemini web/pricing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Avoid double-counting consumer web access versus Gemini API.",
     freeCapacity: {
       amount: null,
@@ -3631,7 +3631,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as paid enterprise integration",
     overallScore: null,
     confidence: "Verified — current official GitHub Copilot enterprise billing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Paid Enterprise plan; not a free provider.",
     freeCapacity: {
       amount: 39,
@@ -3677,7 +3677,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority sustainable free candidate; annual rather than daily/monthly reset means routing must budget the allowance carefully",
     overallScore: null,
     confidence: "Verified — current official GigaChat API individual tariffs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "One of the largest verified recurring free allowances in the dataset: 365M tokens/year, renewed annually.",
     freeCapacity: {
@@ -3726,7 +3726,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as coding-specialized recurring free source; not a high-volume general LLM pool",
     overallScore: null,
     confidence: "Verified — current official GitHub Copilot pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Strong recurring coding resource but limited to 50 chat requests/month plus completions.",
     freeCapacity: {
@@ -3774,7 +3774,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from active provider pool and mark registry integration obsolete",
     overallScore: null,
     confidence: "Verified — official GitHub retirement notice",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "This is a critical current-state correction to the registry.",
     freeCapacity: {
       amount: null,
@@ -3819,7 +3819,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; trial-only",
     overallScore: null,
     confidence: "Verified — current GitLab docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Retained as promotional evaluation only.",
     freeCapacity: {
       amount: 24,
@@ -3864,7 +3864,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from recurring free pool; keep as paid gateway route",
     overallScore: null,
     confidence: "Verified — current OmniRoute provider reference / June 2026 update",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Historical free promo should not be treated as currently available capacity.",
     freeCapacity: {
       amount: null,
@@ -3911,7 +3911,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude historical free MiMo access from active free pool; keep as paid gateway/temporary-promotion watcher",
     overallScore: null,
     confidence: "Verified — current Gitlawb OpenGateway + current OmniRoute provider reference",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Do not rely on the older registry's 'Free tier available' classification.",
     freeCapacity: {
       amount: null,
@@ -3957,7 +3957,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable free API capacity; keep only as temporary trial/product access",
     overallScore: null,
     confidence: "Verified — current Z.AI/GLM coding product documentation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "This entry is the China/regional coding endpoint; do not double-count the main GLM/ZCode trial.",
     freeCapacity: {
@@ -4004,7 +4004,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free API capacity; useful one-time coding trial",
     overallScore: null,
     confidence: "Verified — current official Z.AI GLM Coding Plan/ZCode docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "The free 5-day ZCode trial is large but explicitly temporary; ongoing Coding Plan is paid.",
     freeCapacity: {
@@ -4051,7 +4051,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free API capacity; catalog one-time trial separately",
     overallScore: null,
     confidence: "Verified — current official Z.AI coding plan/trial docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Avoid double-counting ZCode's temporary trial against the API pool.",
     freeCapacity: {
       amount: null,
@@ -4097,7 +4097,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as free coding-agent candidate; do not assign sustainable numeric quota until documented",
     overallScore: null,
     confidence: "Verified — current official xAI CLI/pricing pages",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free to try, but the public page does not disclose a numeric recurring CLI quota.",
     freeCapacity: {
       amount: null,
@@ -4145,7 +4145,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count consumer Grok web as an API free pool; retain only as consumer reference",
     overallScore: null,
     confidence: "Verified — current official xAI pricing/FAQ",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free consumer access is real, but supported API access is separate and paid.",
     freeCapacity: {
       amount: null,
@@ -4181,7 +4181,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     baseUrl: "https://api.groq.com/openai/v1/chat/completions",
     registryFreeSignal: "None in registry",
     freeType: "Recurring free plan",
-    freeAmount: "Model-specific",
+    freeAmount: null,
     freeUnit: "RPM/RPD/TPM/TPD",
     resetPeriod: "Minute/day windows",
     accountRequired: "Yes",
@@ -4191,10 +4191,10 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong candidate; reliability scoring pending",
     overallScore: null,
     confidence: "Verified — current official Groq rate limits",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free plan is recurring with explicit RPM/RPD/TPM/TPD limits and 429 behavior.",
     freeCapacity: {
-      amount: "Model-specific",
+      amount: null,
       unit: "RPM/RPD/TPM/TPD",
       scope: "Groq Free Plan; limits vary by model",
       resetPeriod: "Minute/day windows",
@@ -4202,8 +4202,8 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
         "Official free-plan limits include both per-minute and per-day request/token ceilings; e.g. llama-3.1-8b-instant 30 RPM/14.4K RPD/6K TPM/500K TPD and llama-3.3-70b-versatile 30 RPM/1K RPD/12K TPM/100K TPD.",
       rpm: 30,
       rph: null,
-      rpd: "Model-specific",
-      tpm: "Model-specific",
+      rpd: null,
+      tpm: null,
       concurrency: null,
       timeRestrictions: "No time-of-day restriction documented",
       accountRequired: "Yes",
@@ -4240,7 +4240,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not route OmniRoute/autonomous coding-agent traffic to Hack Club AI under current stated use policy; retain as a separate manual/custom-tool resource",
     overallScore: null,
     confidence: "Verified — current official Hack Club AI + Free Resources pages",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Technically one of the strongest free model pools, but the documented use restriction conflicts with our planned off-the-shelf agent routing.",
     freeCapacity: {
@@ -4287,7 +4287,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep specialized, but not in primary text-model free pool",
     overallScore: null,
     confidence: "Verified — current public materials",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Specialized media provider; free access is not yet quantified for automation.",
     freeCapacity: {
       amount: null,
@@ -4336,7 +4336,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     overallScore: null,
     confidence:
       "Verified — current July 2026 public documentation plus current OmniRoute registry/provider reference; direct API homepage fetch timed out",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong recurring free evidence via registration + daily check-in, but exact current quota is operator-controlled and should be re-read from the console at runtime.",
     freeCapacity: {
@@ -4384,7 +4384,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as paid multi-model managed inference",
     overallScore: null,
     confidence: "Verified — current official Heroku Managed Inference docs/pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Current Heroku AI is a useful paid gateway, not a free inference provider.",
     freeCapacity: {
       amount: null,
@@ -4433,7 +4433,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not treat as a free API provider; retain as consumer/web reference to HF free credits",
     overallScore: null,
     confidence: "Verified — current HuggingChat/HF documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "HuggingChat's free value is effectively backed by HF Inference credits; the API route is HF Inference Providers.",
     freeCapacity: {
@@ -4481,7 +4481,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free aggregator, but low monthly value; useful for experimentation/model probing rather than high-volume routing",
     overallScore: null,
     confidence: "Verified — current official Hugging Face pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "The $0.10 monthly free credit is real but small; separate from provider-direct free quotas.",
     freeCapacity: {
@@ -4529,7 +4529,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count in sustainable free pool",
     overallScore: null,
     confidence: "Verified — current public pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Treat as startup credit, not recurring free capacity, until a permanent free tier is documented.",
     freeCapacity: {
@@ -4576,7 +4576,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as specialized image provider; not part of primary text free pool",
     overallScore: null,
     confidence: "Verified — current public materials",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Useful only for image-generation routing; numeric API-free quota remains unresolved.",
     freeCapacity: {
       amount: null,
@@ -4624,7 +4624,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring-access candidate with long validity, but quota should be budgeted as a finite annual promotional package rather than a perpetual daily free pool",
     overallScore: null,
     confidence: "Verified — current iFlytek official API docs + current official free-package page",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong API-level free access evidence. The 2M-token/1-year package is more sustainable than a 3-day trial but is still finite and offer-dependent.",
     freeCapacity: {
@@ -4673,7 +4673,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as free routing/observability infrastructure, not as free inference capacity",
     overallScore: null,
     confidence: "Verified — current official Inference.net pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Very large free gateway allowance, but it does not make downstream model inference free.",
     freeCapacity: {
@@ -4720,7 +4720,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; retain as a consumer free multi-model service",
     overallScore: null,
     confidence: "Verified — current official Inner AI subscription page",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Clear recurring 5-message/day free tier, but not an API provider.",
     freeCapacity: {
       amount: 5,
@@ -4767,7 +4767,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free gateway candidate; exact free-model RPM should be measured per model",
     overallScore: null,
     confidence: "Verified — current official Kenari docs/homepage",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong API-level evidence: the official quickstart gives a working :free model example that does not deduct balance.",
     freeCapacity: {
@@ -4816,7 +4816,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free pool; useful for initial multi-model testing",
     overallScore: null,
     confidence: "Verified — current official KIE AI site/API documentation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "80 free testing credits for new users; credits do not expire, but the grant is not recurring.",
     freeCapacity: {
@@ -4866,7 +4866,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free gateway candidate; requires privacy-aware routing and reliability measurement",
     overallScore: null,
     confidence: "Verified — current official Kilo Gateway docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "This is stronger than the earlier registry-only signal: official docs now explicitly confirm $0 models, anonymous access, 200 req/hour/IP and Auto Free routing.",
     freeCapacity: {
@@ -4914,7 +4914,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong candidate; reliability/ToS scoring pending",
     overallScore: null,
     confidence: "Verified — current official Kilo docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Anonymous free-model access with 200 requests/hour/IP; model pool changes over time.",
     freeCapacity: {
       amount: 200,
@@ -4961,7 +4961,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool",
     overallScore: null,
     confidence: "Verified — current official Kimi Code/Membership docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Weekly refresh exists, but only inside paid membership; not a free tier.",
     freeCapacity: {
       amount: null,
@@ -5006,7 +5006,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; useful paid coding route",
     overallScore: null,
     confidence: "Verified — current official Kimi Code membership docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Kimi Code starts at paid membership; it is not a free API.",
     freeCapacity: {
       amount: 19,
@@ -5051,7 +5051,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free API pool; retain as a high-value paid provider",
     overallScore: null,
     confidence: "Verified — current official Kimi API pricing/help",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Critical distinction: consumer K2.6 free access does not create free Open Platform API quota.",
     freeCapacity: {
@@ -5098,7 +5098,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool unless a documented free Kimi Code plan emerges",
     overallScore: null,
     confidence: "Verified — current official Kimi API + Membership docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Do not confuse free K2.6 in consumer Chat with free Kimi Code/API access.",
     freeCapacity: {
       amount: null,
@@ -5143,7 +5143,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong coding-agent/account-based recurring free resource; not a general API pool",
     overallScore: null,
     confidence: "Verified — current official Kiro pricing/billing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Perpetual Free tier, 50 credits/month; cap renews monthly.",
     freeCapacity: {
       amount: 50,
@@ -5189,7 +5189,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as occasional promotional credit source",
     overallScore: null,
     confidence: "Verified — current Lambda Terms",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Explicitly discretionary credits, not recurring free capacity.",
     freeCapacity: {
       amount: null,
@@ -5234,7 +5234,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as specialized image provider; not part of primary text free pool",
     overallScore: null,
     confidence: "Verified — current public materials",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Specialized image service; API free quota not yet established.",
     freeCapacity: {
       amount: null,
@@ -5280,7 +5280,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority free/local inference resource; especially relevant to OmniRoute's edge/local deployment strategy",
     overallScore: null,
     confidence: "Verified — current official Liquid pricing/FAQ/license",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "This is not a hosted free API; it is stronger for a free local inference strategy because there is no token meter when self-hosted.",
     freeCapacity: {
@@ -5329,7 +5329,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     overallScore: null,
     confidence:
       "Verified — current public LlamaGate materials; no recurring free quota established",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Avoid assuming that an OpenAI-compatible gateway is itself a free inference provider.",
     freeCapacity: {
       amount: null,
@@ -5377,7 +5377,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority recurring free candidate; reliability and policy testing still required",
     overallScore: null,
     confidence: "Verified — current official LLM7 docs/site",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Strong recurring free capacity: 1M tokens/day plus 250 requests/hour and 60 requests/minute for free-token access.",
     freeCapacity: {
@@ -5425,7 +5425,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as an automated OmniRoute API route",
     overallScore: null,
     confidence: "Verified — current official LM Arena public site",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Useful for evaluation/benchmarking, not routing capacity.",
     freeCapacity: {
       amount: null,
@@ -5470,7 +5470,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free pool",
     overallScore: null,
     confidence: "Verified — official LongCat docs/terms",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Current API billing is active; terms describe free credits/vouchers as discretionary.",
     freeCapacity: {
       amount: null,
@@ -5517,7 +5517,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable free pool; retain as a useful one-time evaluation credit",
     overallScore: null,
     confidence: "Verified — current official MariTalk API repository/docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Also retain the separate MariTalk Local option as a self-hosted/free local model resource.",
     freeCapacity: {
@@ -5565,7 +5565,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority free/self-hosted model source; do not count Meta's hosted API as recurring free capacity",
     overallScore: null,
     confidence: "Verified — current official Meta Llama download/developer docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Strong free local inference option: model weights can be obtained and run directly, avoiding hosted API metering.",
     freeCapacity: {
@@ -5613,7 +5613,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a strong coding-specialized free option while the limited-time channel lasts; do not count as permanent free capacity",
     overallScore: null,
     confidence: "Verified — current official Xiaomi MiMo Code docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "The free channel is explicitly limited-time; no numeric recurring quota is published.",
     freeCapacity: {
       amount: null,
@@ -5660,7 +5660,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as specialized audio/music free capacity; do not treat as general LLM free pool",
     overallScore: null,
     confidence: "Verified — current official MiniMax API pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Current API page explicitly lists Music-2.6-free/Music-3.0-free at $0 with RPM 3; general text models are paid.",
     freeCapacity: {
@@ -5707,7 +5707,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free general LLM API capacity",
     overallScore: null,
     confidence: "Verified — current MiniMax beta announcement + Token Plan pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free developer calls are tied to an existing paid Token Plan; not a standalone general free API tier.",
     freeCapacity: {
@@ -5744,7 +5744,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     baseUrl: "https://api.mistral.ai/v1/chat/completions",
     registryFreeSignal: "None in registry",
     freeType: "Recurring free tier",
-    freeAmount: "Included monthly usage — exact amount account-specific",
+    freeAmount: null,
     freeUnit: "Tokens/usage",
     resetPeriod: "Monthly",
     accountRequired: "Yes",
@@ -5754,11 +5754,11 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong candidate; exact quota and reliability scoring pending",
     overallScore: null,
     confidence: "Verified — current official Mistral usage/limits docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free mode provides included monthly usage; exact included amount is shown in the account Limits page.",
     freeCapacity: {
-      amount: "Included monthly usage — exact amount account-specific",
+      amount: null,
       unit: "Tokens/usage",
       scope: "Mistral Free mode",
       resetPeriod: "Monthly",
@@ -5767,7 +5767,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       rpm: null,
       rph: null,
       rpd: null,
-      tpm: "Model-specific",
+      tpm: null,
       concurrency: null,
       timeRestrictions: "No fixed time-of-day restriction documented",
       accountRequired: "Yes",
@@ -5802,7 +5802,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free infrastructure resource, not as a direct free-provider inference route",
     overallScore: null,
     confidence: "Verified — current official Modal pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Strong recurring $30/month free compute, but OmniRoute should treat this as infrastructure capacity rather than external LLM API free tokens.",
     freeCapacity: {
@@ -5850,7 +5850,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring free candidate, subject to reliability testing and suitability for production routing",
     overallScore: null,
     confidence: "Verified — current official ModelScope API Inference limits",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "2,000 calls/day is one of the strongest recurring free API allocations found, but ModelScope explicitly advises against high-concurrency/SLA workloads.",
     freeCapacity: {
@@ -5897,7 +5897,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring pool; useful for initial testing",
     overallScore: null,
     confidence: "Verified — current MonsterAPI public pricing/product material",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Treat current free access as promotional unless a renewable quota is explicitly documented.",
     freeCapacity: {
@@ -5945,7 +5945,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count Kimi consumer access as free API capacity; use Kimi API only as paid route",
     overallScore: null,
     confidence: "Verified — current official Kimi product/API separation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Kimi's current documentation explicitly says API, Kimi Code and Membership are independent products.",
     freeCapacity: {
@@ -5994,7 +5994,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring free API candidate; 200 requests/month is explicitly documented and model catalog is strong",
     overallScore: null,
     confidence: "Verified — current official Morph pricing/models pages",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "This is a direct hosted API, unlike some free web/coding products. Prior registry entry should be upgraded accordingly.",
     freeCapacity: {
@@ -6043,7 +6043,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as separate free API capacity; route through the dedicated Meta Model API entry when supported",
     overallScore: null,
     confidence: "Verified — current Meta AI Research release notes",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Meta now has a public Model API preview, so the old consumer-web registry endpoint should not be treated as an independent free provider.",
     freeCapacity: {
@@ -6090,7 +6090,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; keep as paid multi-model aggregator",
     overallScore: null,
     confidence: "Verified — current official NanoGPT pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Do not interpret occasional promo credit as a recurring free tier.",
     freeCapacity: {
       amount: null,
@@ -6137,7 +6137,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Very high-priority recurring free API candidate; explicit daily token quota + RPM + unified API",
     overallScore: null,
     confidence: "Verified — current official NavyAI pricing/docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "One of the strongest recurring free API offers in the registry: 150K weighted tokens/day and 20 RPM.",
     freeCapacity: {
@@ -6184,7 +6184,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as recurring sustainable free capacity",
     overallScore: null,
     confidence: "Verified — current official Nebius Builder Program",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "$25 promotional Builder credit; explicitly for learning/testing/exploration rather than production.",
     freeCapacity: {
@@ -6231,7 +6231,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep for development/benchmarking only; do not include in production free router",
     overallScore: null,
     confidence: "Verified — current official NLP Cloud pricing/ToS",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important: Free plan is ongoing but explicitly prohibited for production. The separate $15 credit is one-time.",
     freeCapacity: {
@@ -6278,7 +6278,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; retain as limited free workspace AI product",
     overallScore: null,
     confidence: "Verified — current official Notion help/pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Complimentary responses do not renew once exhausted.",
     freeCapacity: {
       amount: null,
@@ -6324,7 +6324,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring free candidate for free-model-only routing; do not treat all Nous-hosted models as free",
     overallScore: null,
     confidence: "Verified — current official Nous Portal pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Clear $0 plan with free models only; exact model-specific limits are dynamic.",
     freeCapacity: {
       amount: 0,
@@ -6371,7 +6371,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count toward sustainable free pool; retain for trial/testing credit",
     overallScore: null,
     confidence: "Verified — current provider materials; current referral status explicitly ended",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Current referral campaign is ended; older official materials document signup credits. No recurring free API allowance established.",
     freeCapacity: {
@@ -6418,7 +6418,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring free pool; useful for initial testing",
     overallScore: null,
     confidence: "Verified — current official Nscale inference pricing/product",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "$5 starter credit is promotional; current service is otherwise paid inference.",
     freeCapacity: {
       amount: 5,
@@ -6464,7 +6464,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from free pool; retain as low-cost paid fallback",
     overallScore: null,
     confidence: "Verified — current official Nube AI pricing/product",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Interesting for a later cost-optimized paid tier, but it is not free inference.",
     freeCapacity: {
       amount: null,
@@ -6512,7 +6512,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as conditional free developer resource; do not count as unrestricted production-free capacity",
     overallScore: null,
     confidence: "Verified — current official NVIDIA NIM docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free Developer Program access is useful but explicitly not for production/end-user use.",
     freeCapacity: {
@@ -6561,7 +6561,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as conditional free cloud source; do not treat as a predictable high-volume API pool until quota is published",
     overallScore: null,
     confidence: "Verified — current official Ollama pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free plan is recurring and includes cloud access, but exact cloud quota is described only as a usage allowance; public page does not give a numeric quota.",
     freeCapacity: {
@@ -6610,7 +6610,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable free inference until a documented $0 quota is established; retain as gateway infrastructure candidate",
     overallScore: null,
     confidence: "Verified — current public OpenAdapter materials; no recurring free quota found",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Important to avoid counting a gateway's routing layer as free model capacity.",
     freeCapacity: {
       amount: null,
@@ -6656,7 +6656,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as paid/high-value provider",
     overallScore: null,
     confidence: "Verified — current official OpenAI API billing/pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Do not treat occasional account credits as recurring free infrastructure.",
     freeCapacity: {
       amount: null,
@@ -6701,7 +6701,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; useful low-cost paid aggregator",
     overallScore: null,
     confidence: "Verified — current official OpenCode Go docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Do not confuse Go with OpenCode's rotating $0 Zen free models; Go itself is paid.",
     freeCapacity: {
       amount: 5,
@@ -6749,7 +6749,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as high-value temporary free model source; do not treat as permanent recurring capacity",
     overallScore: null,
     confidence: "Verified — current official OpenCode docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important distinction from recurring free plans: the free models themselves are time-limited.",
     freeCapacity: {
@@ -6799,7 +6799,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as temporary free-model source; do not treat as permanent recurring free capacity",
     overallScore: null,
     confidence: "Verified — current official OpenCode Zen docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Important: free models are explicitly temporary, not a guaranteed recurring free tier.",
     freeCapacity: {
       amount: null,
@@ -6847,7 +6847,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Secondary candidate; limited but sustainable recurring free access",
     overallScore: null,
     confidence: "Verified — current official OpenRouter pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Useful as a fallback/aggregator, but 50 requests/day makes it unsuitable as a primary high-volume pool.",
     freeCapacity: {
@@ -6896,7 +6896,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a conditional recurring free gateway; do not treat as unconditional free pool because weekly free calls require $VECTA holdings",
     overallScore: null,
     confidence: "Verified — current official OpenVecta models/pricing page",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Important: there is both a 3M-token trial and ongoing free weekly calls, but the recurring weekly calls require holding $VECTA.",
     freeCapacity: {
@@ -6944,7 +6944,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a free routing layer, not as free inference capacity; useful architecture reference and potential fallback gateway",
     overallScore: null,
     confidence: "Verified — current official OrcaRouter pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Critical distinction: routing software is free; inference itself is not.",
     freeCapacity: {
       amount: 0,
@@ -6989,7 +6989,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free pool; useful cloud trial/testing capacity",
     overallScore: null,
     confidence: "Verified — current official OVHcloud AI API page",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "$200 is trial credit, not a renewable free API quota.",
     freeCapacity: {
       amount: 200,
@@ -7035,7 +7035,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from sustainable free pool; retain as paid high-value retrieval/agent provider",
     overallScore: null,
     confidence: "Verified — current official Perplexity API billing/help",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Consumer/Pro subscription credits are separate from API credits.",
     freeCapacity: {
       amount: null,
@@ -7080,7 +7080,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count consumer Free as free API capacity; use official API only when paid",
     overallScore: null,
     confidence: "Verified — current official Perplexity Free/API billing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Avoid double-counting consumer Free plan and paid API.",
     freeCapacity: {
       amount: null,
@@ -7126,7 +7126,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from sustainable free pool; retain as potentially useful paid adaptive router",
     overallScore: null,
     confidence: "Verified — current Pioneer pricing/models",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong paid router/optimizer, but included credits belong to paid subscriptions and are not free capacity.",
     freeCapacity: {
@@ -7174,7 +7174,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep for opportunistic free use; not yet a dependable recurring free API source",
     overallScore: null,
     confidence: "Verified — current official Pollinations docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Current docs require an API key for generation; free use is tied to Quest Pollen/earned balances rather than a simple permanent daily token grant.",
     freeCapacity: {
@@ -7222,7 +7222,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable free pool; useful only for internal evaluation/testing",
     overallScore: null,
     confidence: "Verified — current official Predibase Service Agreement",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important policy restriction: trial is explicitly internal/non-commercial and temporary.",
     freeCapacity: {
@@ -7269,7 +7269,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as recurring free candidate; reliability/model quality still need verification",
     overallScore: null,
     confidence: "Verified — current official Public AI docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "100 RPM is useful recurring capacity, but long-term value depends on service reliability and model quality.",
     freeCapacity: {
@@ -7318,7 +7318,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not treat as an unrestricted provider-owned free pool; retain only for user-authorized/client-side workflows",
     overallScore: null,
     confidence: "Verified — current official Puter pricing/developer docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free for users within their own allowance, but not equivalent to a free server-side API account.",
     freeCapacity: {
@@ -7366,7 +7366,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free retrieval/search-generation provider; useful complementary capacity, not a general unrestricted LLM pool",
     overallScore: null,
     confidence: "Verified — current official Qianfan API docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Useful 100-calls/day free API specifically for web search + generation.",
     freeCapacity: {
       amount: 100,
@@ -7412,7 +7412,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as recurring free pool; valuable new-user trial capacity",
     overallScore: null,
     confidence: "Verified — current official Qiniu AI inference docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "3M tokens is significant, but it is a one-time resource pack rather than a renewable daily/monthly free plan.",
     freeCapacity: {
@@ -7460,7 +7460,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as coding-agent/account-based free resource; separate recurring Free plan from one-time Pro trial",
     overallScore: null,
     confidence: "Verified — current official Qoder pricing + Community Edition",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free plan is recurring but limited; the 300-credit Pro trial is one-time and should not be counted as sustainable free.",
     freeCapacity: {
@@ -7508,7 +7508,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count consumer Qwen Studio as free API capacity; use official Qwen API/free-quota entries already catalogued",
     overallScore: null,
     confidence: "Verified — current official Qwen site/API separation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Qwen Studio is free; Qwen API is a separate product.",
     freeCapacity: {
       amount: null,
@@ -7554,7 +7554,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as recurring free pool; keep as a high-value new-user snapshot/model trial",
     overallScore: null,
     confidence: "Verified — current official Alibaba free-quota + rate-limit docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "The snapshot has explicit 60 RPM / 1M TPM limits; its free quota is one-time/expiring.",
     freeCapacity: {
       amount: 1000000,
@@ -7602,7 +7602,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free pool; valuable new-user/model-specific trial capacity",
     overallScore: null,
     confidence: "Verified — current official Alibaba Cloud Model Studio pricing/free-quota docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important: quota expires after validity window and unused quota is voided; re-registering does not grant another quota.",
     freeCapacity: {
@@ -7650,7 +7650,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep for follow-up; not primary until recurring quota is documented",
     overallScore: null,
     confidence: "Registry + current public docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "A free-tier model is established, but quota/reset sustainability is not yet quantified.",
     freeCapacity: {
@@ -7698,7 +7698,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring aggregator candidate; 200 requests/day is useful but free model set is small",
     overallScore: null,
     confidence: "Verified — current official Requesty pricing/free-model docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Real recurring daily free plan with routing/fallbacks; strong candidate for secondary pool.",
     freeCapacity: {
@@ -7746,7 +7746,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Already verified; exclude from sustainable pool",
     overallScore: null,
     confidence: "Verified",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Retained as promotional only.",
     freeCapacity: {
       amount: 5,
@@ -7791,7 +7791,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as recurring sustainable free pool; useful for initial testing",
     overallScore: null,
     confidence: "Verified — current official Scaleway pricing/FAQ",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "1M-token new-customer free tier; FAQ says usage above the free tier is billed, while service remains free during beta.",
     freeCapacity: {
@@ -7839,7 +7839,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Potentially high-value while trial remains active; do not mark permanent recurring",
     overallScore: null,
     confidence: "Verified — current SenseTime announcement",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "This is exactly a time-window free allowance; duration of the overall trial needs monitoring.",
     freeCapacity: {
@@ -7886,7 +7886,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count toward sustainable free pool; useful for initial testing only",
     overallScore: null,
     confidence: "Verified — current official pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "$1 startup credit only; not a renewable free allowance.",
     freeCapacity: {
       amount: 1,
@@ -7932,7 +7932,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free pool; useful for a one-time AI/data-platform trial",
     overallScore: null,
     confidence: "Verified — current official Snowflake trial/pricing docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Current trial is $400 for 30 days; this supersedes any older Snowflake trial figures.",
     freeCapacity: {
       amount: 400,
@@ -7979,7 +7979,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as candidate for follow-up; do not count toward sustainable free pool until quota is documented",
     overallScore: null,
     confidence: "Verified — current public iFlytek materials; quota unresolved",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Registry has model-specific Spark notes, but current recurring free API allowance is not established.",
     freeCapacity: {
@@ -8027,7 +8027,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable free API capacity; retain as a one-time consumer/agent trial",
     overallScore: null,
     confidence: "Verified — current official StepFun newcomer/member documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Current membership terms explicitly state API use is outside membership benefits and requires separate payment.",
     freeCapacity: {
@@ -8076,7 +8076,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a promising recurring free gateway, but do not assign a numeric quota until account-level limits are verified",
     overallScore: null,
     confidence: "Verified — current public Sumopod API materials; numeric quota unresolved",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "The existence of free model access is supported, but the exact sustainable allowance is not sufficiently documented.",
     freeCapacity: {
@@ -8123,7 +8123,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as recurring free specialized audio/musical provider, not a general LLM route",
     overallScore: null,
     confidence: "Verified — current official Suno pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Real recurring free daily allowance: 50 credits/day, but restricted to non-commercial use and music generation.",
     freeCapacity: {
@@ -8170,7 +8170,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; useful paid coding/agent provider",
     overallScore: null,
     confidence: "Verified — current official Synthetic pricing/rate limits",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Historical free-beta credits should not be counted as current free capacity.",
     freeCapacity: {
       amount: null,
@@ -8218,7 +8218,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as free API capacity; retain as a consumer free multi-model service",
     overallScore: null,
     confidence: "Verified — current T3 Chat terms/FAQ",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "The free tier has multiple buckets and product-managed resets; exact public reset interval is not fixed in the reviewed documentation.",
     freeCapacity: {
@@ -8265,7 +8265,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool unless a documented $0 quota appears",
     overallScore: null,
     confidence: "Verified — current Tencent TokenHub pricing/notices",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Current public pricing is paid; the registry's migration note does not establish free recurring API access.",
     freeCapacity: {
@@ -8312,7 +8312,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not use as a primary route; retain only for fallback/testing after policy review",
     overallScore: null,
     confidence: "Registry + current public page",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free-service behavior is not the same as a supported stable API quota.",
     freeCapacity: {
       amount: null,
@@ -8357,7 +8357,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from free pool; paid-only under current policy",
     overallScore: null,
     confidence: "Verified — current official support article",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Current support article explicitly says no free trial and minimum $5 purchase.",
     freeCapacity: {
       amount: null,
@@ -8403,7 +8403,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as fallback candidate; don't count as sustainable primary capacity yet",
     overallScore: null,
     confidence: "Registry + current public docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free model exists, but numeric quota/reset terms are not established.",
     freeCapacity: {
       amount: null,
@@ -8449,7 +8449,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a free coding-agent resource; do not count as quantified recurring inference capacity until exact Free limits are published",
     overallScore: null,
     confidence: "Verified — current official TRAE pricing + membership announcement",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free plan is real, but the public numeric quota is unresolved; Pro trial is one-time.",
     freeCapacity: {
       amount: null,
@@ -8495,7 +8495,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong recurring free specialized music source; not a general LLM provider",
     overallScore: null,
     confidence: "Verified — current Udio Help Center",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Excellent example of combined daily + monthly free windows.",
     freeCapacity: {
       amount: 10,
@@ -8543,7 +8543,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority free/local inference candidate; use public endpoint cautiously and prefer self-hosted for durable capacity",
     overallScore: null,
     confidence: "Verified — current official UncloseAI site/TTS project",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Strong fit for our free/local strategy: free public OpenAI-compatible endpoints plus self-hostable source with no rate limits on own infrastructure.",
     freeCapacity: {
@@ -8593,7 +8593,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as potentially high-value institutional free access; not a general public recurring free tier",
     overallScore: null,
     confidence: "Verified — current official Upstage AI Initiative",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Distinct from normal paid API pricing: this is a targeted education/nonprofit program.",
     freeCapacity: {
       amount: null,
@@ -8640,7 +8640,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring free coding/product-generation resource; not a general free inference route",
     overallScore: null,
     confidence: "Verified — current official v0 pricing/docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Clear multi-window structure: $5/month plus 7 messages/day.",
     freeCapacity: {
       amount: 5,
@@ -8686,7 +8686,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count Venice Free as free API capacity; consumer free is useful only as a web product unless API docs establish a free allowance",
     overallScore: null,
     confidence: "Verified — current official Venice pricing + FAQ",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Critical distinction: Free web prompts do not equal free API inference.",
     freeCapacity: {
       amount: 10,
@@ -8731,7 +8731,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not include in primary free API pool",
     overallScore: null,
     confidence: "Registry + current public page",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Retain only as experimental browser-backed fallback.",
     freeCapacity: {
       amount: null,
@@ -8777,7 +8777,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as recurring gateway-level free credit source; useful for occasional diversified routing, but not a high-volume pool",
     overallScore: null,
     confidence: "Verified — current official Vercel AI Gateway pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important lifecycle: the $5 recurring credit ends once the account buys AI Gateway credits.",
     freeCapacity: {
@@ -8825,7 +8825,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count Google Cloud trial credits as recurring free Gemini/Vertex capacity",
     overallScore: null,
     confidence: "Verified — current Google Cloud and Gemini billing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important distinction: generic Google Cloud $300 trial exists, but it cannot pay for Gemini API/AI Studio usage under current March 2026 rules.",
     freeCapacity: {
@@ -8873,7 +8873,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as recurring free pool; keep as one-time Google Cloud/Vertex AI trial infrastructure",
     overallScore: null,
     confidence: "Verified — current Google Cloud pricing + Gemini billing distinction",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Important correction: generic $300 Cloud credits can trial Google Cloud/Vertex AI services, but cannot be assumed usable for Gemini API.",
     freeCapacity: {
@@ -8920,7 +8920,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Do not count as sustainable recurring pool; valuable initial testing capacity",
     overallScore: null,
     confidence: "Verified — current official Volcengine Ark docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "500k is a common current new-user example, but Ark exposes model-specific free-usage fields, so do not hard-code it as universal.",
     freeCapacity: {
@@ -8967,7 +8967,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as paid performance-optimized provider",
     overallScore: null,
     confidence: "Verified — current official Wafer model catalog",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Strong paid-performance option, not a free provider.",
     freeCapacity: {
       amount: null,
@@ -9013,7 +9013,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free pool; useful for temporary inference testing",
     overallScore: null,
     confidence: "Verified — current official W&B pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Free inference is explicitly time-limited; not equivalent to a renewable daily/monthly quota.",
     freeCapacity: {
@@ -9060,7 +9060,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Strong recurring free coding-agent resource; not a general-purpose API quota",
     overallScore: null,
     confidence: "Verified — current official Windsurf usage docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important: free usage continues after 25 credits through zero-credit models, Tab and AI Command.",
     freeCapacity: {
@@ -9109,7 +9109,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as sustainable recurring free pool; useful high-value one-time API trial",
     overallScore: null,
     confidence: "Verified — current official x5LAB pricing",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "500K token trial is explicit and API-level; no recurring free tier.",
     freeCapacity: {
       amount: 500000,
@@ -9155,7 +9155,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as paid high-capability provider",
     overallScore: null,
     confidence: "Verified — current official xAI billing/rate-limit/pricing docs",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Important: Tier 0 rate limits at $0 spend do not mean free API usage; requests consume paid credits.",
     freeCapacity: {
@@ -9203,7 +9203,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Keep as account-based consumer resource; do not count as an API free pool",
     overallScore: null,
     confidence: "Verified — current official xAI pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Free consumer Grok access exists, but no public API free-tier quota was established.",
     freeCapacity: {
       amount: null,
@@ -9249,7 +9249,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
     decision: "Exclude from sustainable free pool; retain as low-cost paid coding/model provider",
     overallScore: null,
     confidence: "Verified — current official Xiaomi MiMo Token Plan",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Current official plans are paid; previous limited-time free channels should not be treated as permanent free API access.",
     freeCapacity: {
@@ -9297,7 +9297,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Exclude from active routing immediately; archive as retiring provider and migrate workloads before 2026-09-03",
     overallScore: null,
     confidence: "Verified — current official 01.AI shutdown notice",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "This is a critical stale-registry correction: the Yi platform is actively winding down in 2026.",
     freeCapacity: {
@@ -9345,7 +9345,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count consumer Yuanbao as free API capacity; keep as web-only consumer service",
     overallScore: null,
     confidence: "Verified — current Tencent Yuanbao product/API separation",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes: "Yuanbao consumer access should not be conflated with paid developer APIs.",
     freeCapacity: {
       amount: null,
@@ -9391,7 +9391,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Keep as a strong free-model candidate; exact rate limits and reliability still need verification",
     overallScore: null,
     confidence: "Verified — current official Z.AI pricing",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Full free model pricing exists, but public page does not give a single global recurring quota.",
     freeCapacity: {
@@ -9440,7 +9440,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not route as an automated API free provider; use official API/free models instead",
     overallScore: null,
     confidence: "Verified — current Z.AI consumer web availability",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes: "Keep separate from official Z.AI API free-model access.",
     freeCapacity: {
       amount: null,
@@ -9486,7 +9486,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Do not count as free model provider; retain as free coding environment compatible with our external free providers",
     overallScore: null,
     confidence: "Verified — current official Zed plans",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Zed is strategically useful as a free harness, but its own hosted models are not included in the Free plan.",
     freeCapacity: {
@@ -9535,7 +9535,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "High-priority free gateway candidate, but merge with the existing ZenMux-Free pool in routing logic to prevent double counting",
     overallScore: null,
     confidence: "Verified — current official ZenMux subscription docs",
-    lastVerified: 46254,
+    lastVerified: "2026-08-20",
     notes:
       "Main ZenMux provider and the existing zenmux-free registry entry represent the same free gateway family; do not count their quotas twice.",
     freeCapacity: {
@@ -9584,7 +9584,7 @@ export const PROVIDER_INTELLIGENCE: readonly ProviderIntelligence[] = [
       "Strong recurring free aggregator candidate; multi-window quotas make it especially suitable for quota-aware routing",
     overallScore: null,
     confidence: "Verified — current official ZenMux subscription documentation",
-    lastVerified: 46253,
+    lastVerified: "2026-08-19",
     notes:
       "Excellent example of the exact multi-window free structure we wanted: 5-hour, weekly and monthly limits.",
     freeCapacity: {

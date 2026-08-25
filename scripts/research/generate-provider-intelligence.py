@@ -11,17 +11,73 @@ INPUT = ROOT / "OmniRoute_Provider_Intelligence_Master_Updated_2026-08-20_Batch8
 OUTPUT = ROOT / "open-sse/config/providerIntelligence.generated.ts"
 
 
-def clean(value):
+from datetime import date, datetime, timedelta
+
+
+NUMERIC_FIELDS = {
+    "Model Count",
+    "Free Amount",
+    "Overall Score",
+    "Amount",
+    "RPM",
+    "RPH",
+    "RPD",
+    "TPM",
+    "Concurrency",
+}
+
+
+def excel_serial_to_iso(value):
+    # Excel's 1900 date system. openpyxl may expose dates as numeric serials
+    # when workbook formatting is inconsistent.
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if 30000 <= float(value) <= 60000:
+            base = datetime(1899, 12, 30)
+            dt = base + timedelta(days=float(value))
+            return dt.date().isoformat()
+    return None
+
+
+def clean_field(name, value):
     if value is None:
         return None
+
+    field = str(name).strip()
+
+    if field == "Last Verified":
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        converted = excel_serial_to_iso(value)
+        if converted is not None:
+            return converted
+        return str(value)
+
+    if field in NUMERIC_FIELDS:
+        if isinstance(value, bool):
+            return None
+
+        if isinstance(value, (int, float)):
+            return int(value) if float(value).is_integer() else float(value)
+
+        if isinstance(value, str):
+            stripped = value.strip().replace(",", "")
+            if not stripped:
+                return None
+            try:
+                number = float(stripped)
+                return int(number) if number.is_integer() else number
+            except ValueError:
+                return None
+
     if isinstance(value, float) and value.is_integer():
         return int(value)
+
     return value
 
 
 def row_to_dict(headers, values):
     return {
-        str(h).strip(): clean(v)
+        str(h).strip(): clean_field(h, v)
         for h, v in zip(headers, values)
         if h is not None
     }
