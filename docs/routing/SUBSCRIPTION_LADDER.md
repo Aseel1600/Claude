@@ -155,7 +155,8 @@ name that promises the opposite.
 ```
 
 Budget gating is inert until a spend resolver is wired: with no accounting available a paid
-rung is ordered but never gated. Rung ordering, quota-based exhaustion, and reset re-entry all
+rung is ordered but never gated. As of v3.8.51 the `rungBudgetUsd` setting is accepted by the
+schema but NOT yet enforced — treat it as reserved configuration, not an active spend cap. Rung ordering, quota-based exhaustion, and reset re-entry all
 work without it.
 
 ## Composition
