@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 
 import {
   buildExclusiveDashboardSessions,
@@ -317,6 +317,53 @@ test("sessions API keeps legacy fields additive and decorates only in-flight lea
   assert.equal(releasedBody.count, 1);
   assert.equal(releasedBody.sessions[0].sessionId, "legacy-unmanaged");
   assert.deepEqual(releasedBody.exclusiveSessions, []);
+});
+
+test("sessions API preserves legacy data when the exclusive projection fails", async () => {
+  const secretFailure = {
+    ownerHash: "d".repeat(64),
+    generation: 91,
+    apiKeyId: "private-api-key-id",
+    credential: "private-credential",
+    token: "private-token",
+  };
+  sessionManager.touchSession("legacy-fallback", "legacy-connection");
+  sessionManager.registerKeySession("legacy-key", "legacy-fallback");
+
+  const db = core.getDbInstance();
+  const prepareMock = mock.method(db, "prepare", () => {
+    throw new Error(JSON.stringify(secretFailure));
+  });
+  const warnings: unknown[][] = [];
+  const warnMock = mock.method(console, "warn", (...args: unknown[]) => {
+    warnings.push(args);
+  });
+
+  try {
+    const response = await sessionsRoute.GET();
+    const body = (await response.json()) as {
+      count: number;
+      sessions: Array<{ sessionId: string; connectionId: string | null }>;
+      byApiKey: Record<string, number>;
+      exclusiveSessions: unknown[];
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(body.count, 1);
+    assert.equal(body.sessions[0].sessionId, "legacy-fallback");
+    assert.equal(body.sessions[0].connectionId, "legacy-connection");
+    assert.deepEqual(body.byApiKey, { "legacy-key": 1 });
+    assert.deepEqual(body.exclusiveSessions, []);
+    assert.deepEqual(warnings, [["[SESSIONS] Exclusive session projection unavailable"]]);
+
+    const observableOutput = JSON.stringify({ body, warnings });
+    for (const forbidden of Object.values(secretFailure)) {
+      assert.equal(observableOutput.includes(String(forbidden)), false);
+    }
+  } finally {
+    warnMock.mock.restore();
+    prepareMock.mock.restore();
+  }
 });
 
 test("sessions route keeps raw lease SQL out of the API and sanitizes failures", () => {
