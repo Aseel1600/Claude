@@ -513,11 +513,17 @@ export const WEB_COOKIE_PROVIDERS = {
     color: "#6D28D9",
     textIcon: "MX",
     website: "https://www.maxai.co",
-    subscriptionRisk: true,
-    riskNoticeVariant: "webCookie",
+    // No subscriptionRisk / riskNoticeVariant / notice: MaxAI is TOKEN-authenticated
+    // (a bearer access token + a long-lived refresh token that OmniRoute refreshes
+    // browserlessly), NOT a fragile browser-cookie session, so the "webCookie"
+    // caveat ("may invalidate at any time, log in again, not for unattended use")
+    // and the "oauth" caveat ("official session not authorized for proxy use") are
+    // both inaccurate — MaxAI is a purpose-built aggregator whose token IS meant for
+    // API use. Treated like codex-app-server: no risk banner and no notice; the
+    // authHint carries the only guidance a connecting operator needs.
     toolCalling: "emulated",
     authHint:
-      "Use browser sign-in to mint a MaxAI access token. OmniRoute signs each request and routes it through residential egress; the token is refreshed via an isolated headless browser (MaxAI's OAuth refresh cannot be called directly).",
+      "Sign in once (email code or browser) to mint a MaxAI access token. OmniRoute signs each request, routes it through residential egress, and refreshes the token browserlessly, so a connection stays valid for about a year without re-login.",
   },
 };
 
