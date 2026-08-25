@@ -931,6 +931,7 @@ async function handleComboChatInner({
     // Surface a recovery hint + auto-clear the session pin after enough consecutive
     // no-target failures (silent-stop fix). Threshold of 3 prevents a one-off account
     // wipe from destroying the prompt-cache pin benefit on the next request.
+    recordComboFailure(effectiveSessionId, combo.name);
     // #11371: same early-exit release as the pinned-turn path above.
     targetResolution.quotaShareRelease?.();
     return errorResponseWithComboDiagnostics(
