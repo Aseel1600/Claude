@@ -1,16 +1,16 @@
 ---
 title: "Provider Reference"
-version: 3.8.50
-lastUpdated: 2026-08-23
+version: 3.8.51
+lastUpdated: 2026-08-25
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-08-23
+> **Last generated:** 2026-08-25
 
-Total providers: **350**. See category breakdown below.
+Total providers: **353**. See category breakdown below.
 
 ## Categories
 
@@ -82,7 +82,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zed` | `zd` | Zed IDE | OAuth | [link](https://zed.dev) | Zed stores LLM provider credentials (OpenAI, Anthropic, Google, Mistral, xAI) in the OS keychain. Use the Import button below to discover and import them automatically. |
 | `zed-hosted` | — | Zed Hosted Models | OAuth | [link](https://zed.dev) | Sign in with your Zed account (native-app sign-in). OmniRoute generates a one-time RSA keypair and opens zed.dev to authorize it — on a remote/headless install, copy the resulting 127.0.0.1 callback URL from your browser's address bar and paste it back here. Distinct from the 'Zed IDE' credential-import entry above: this proxies chat completions through Zed's own hosted model aggregator (cloud.zed.dev), fronting Anthropic/OpenAI/Google/xAI models under your Zed plan. |
 
-## Web Cookie Providers (35)
+## Web Cookie Providers (36)
 
 | ID | Alias | Name | Tags | Website | Notes | Tool calling |
 |----|-------|------|------|---------|-------|--------------|
@@ -106,6 +106,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `inner-ai` | `in-ai` | Inner.ai (Subscription) | Web cookie | [link](https://app.innerai.com) | Paste your token cookie and email separated by a space: open DevTools → Application → Cookies → .innerai.com, copy the token value, then append a space and your Inner.ai login email. Example: eyJhbG... user@example.com | emulated |
 | `kimi-web` | `kimi-web` | Kimi Web | Web cookie | [link](https://www.kimi.ai) | Paste access_token from www.kimi.ai DevTools → Application → Local Storage. A legacy kimi-auth cookie is also accepted. | — |
 | `lmarena` | `lma` | Arena (Free) | Web cookie | [link](https://arena.ai) | Paste the full Cookie header from arena.ai (DevTools → Network → request → Cookie). Include arena-auth-prod-v1.0/.1… and cf_clearance/__cf_bm when present. OmniRoute uses Chrome TLS impersonation; if Arena still 403s, set providerSpecificData.recaptchaV3Token from a live browser session. | — |
+| `maxai` | `mx` | MaxAI | Web cookie | [link](https://www.maxai.co) | Sign in once (email code or browser) to mint a MaxAI access token. OmniRoute signs each request, routes it through residential egress, and refreshes the token browserlessly, so a connection stays valid for about a year without re-login. | emulated |
 | `microsoft-designer-web` | `msdesigner` | Microsoft Designer (Image Generation) | Web cookie | [link](https://designer.microsoft.com) | Sign in at designer.microsoft.com, then open DevTools → Network, generate an image, and find the request to DallE.ashx?action=GetDallEImagesCogSci. Copy the value of its Authorization: Bearer header (the access_token — no 'Bearer ' prefix). The token is short-lived; this is an unofficial, reverse-engineered integration. | — |
 | `muse-spark-web` | `ms-web` | Muse Spark Web (Meta AI) | Web cookie | [link](https://www.meta.ai) | Paste your ecto_1_sess cookie AND the ecto1:... WS auth token from meta.ai. Capture the ecto1: token in DevTools → Network → WS → the clippy request's Authorization query param. Example: ecto_1_sess=4240a308...NVDg0; ecto1:ABCD... | emulated |
 | `notion-web` | `nw` | Notion AI Web (Unofficial/Experimental) | Web cookie | [link](https://www.notion.so) | Paste only the token_v2 cookie VALUE from app.notion.com (DevTools → Application → Cookies → token_v2). Do not paste token_v2= or the full Cookie header. Workspace is auto-detected; space_id / notion_user_id are optional. | — |
@@ -122,7 +123,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web` | `zw` | Z.ai Web | Web cookie | [link](https://chat.z.ai) | Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport. | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (231)
+## API Key Providers (paid / paid-with-free-credits) (233)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -342,6 +343,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `vertex-partner` | `vp` | Vertex AI Partners | API key, enterprise | [link](https://cloud.google.com/vertex-ai) | Provide the same Service Account JSON used for Vertex AI partner models. |
 | `void-ai` | `void-ai` | Void AI | API key, aggregator | [link](https://voidai.app) | The public model catalog marks some models with a free plan requirement, but access is conditional and no numeric quota is confirmed. |
 | `volcengine` | `volcengine` | Volcengine | API key | [link](https://www.volcengine.com) | — |
+| `volcengine-agent-plan` | `veap` | Volcengine Ark Agent Plan | API key | [link](https://console.volcengine.com/ark/region:cn-beijing/subscription/agent-plan) | Connect your Volcano Engine account or use an Ark Agent Plan subscription API key. |
+| `volcengine-coding-plan` | `vecp` | Volcengine Ark Coding Plan | API key | [link](https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan) | Connect your Volcano Engine account or use an Ark Coding Plan subscription API key. |
 | `voyage-ai` | `voyage` | Voyage AI | API key, embed/rerank | [link](https://www.voyageai.com) | Bearer API key for Voyage AI embeddings and rerank APIs. |
 | `wafer` | `wafer` | Wafer AI | API key | [link](https://wafer.ai) | — |
 | `wandb` | `wandb` | Weights & Biases Inference | API key | [link](https://wandb.ai) | — |
@@ -438,7 +441,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 - Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)
 - Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)
-- Executors: [`open-sse/executors/`](../../open-sse/executors/) (108 implementations)
+- Executors: [`open-sse/executors/`](../../open-sse/executors/) (110 implementations)
 - Translators: [`open-sse/translator/`](../../open-sse/translator/)
 
 ## See Also
