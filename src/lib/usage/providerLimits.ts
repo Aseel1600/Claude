@@ -440,11 +440,11 @@ export function hasUsableQuota(usage: JsonRecord): boolean {
 
 // A SYNTHETIC cooldown (persisted by a poller without a parseable upstream
 // reset — e.g. the Claude-subscription SUBSCRIPTION_QUOTA_COOLDOWN_MS lock) may
-// be overruled only by POSITIVE live-window evidence: every reported quota
-// window is replenished (remaining > 0) and at least one window carries a
-// documented reset timestamp that has already elapsed. Unknown-reset windows
-// never authorize an override (matching the kimi-coding partial-refresh
-// semantics); `unlimited` windows carry no reset evidence and are rejected.
+// be overruled only by POSITIVE live-window evidence: EVERY reported quota
+// window is replenished (remaining > 0) AND carries a documented reset
+// timestamp that has already elapsed. Unknown-reset windows never authorize an
+// override (matching the kimi-coding partial-refresh semantics);
+// `unlimited` windows carry no reset evidence and are rejected.
 export function syntheticCooldownOutlivedByRealWindows(
   usage: JsonRecord,
   nowMs: number = Date.now()
@@ -452,7 +452,6 @@ export function syntheticCooldownOutlivedByRealWindows(
   if (!isRecord(usage) || !isRecord(usage.quotas)) return false;
   const windows = Object.values(usage.quotas);
   if (windows.length === 0) return false;
-  let sawElapsedReset = false;
   for (const value of windows) {
     if (!isRecord(value) || value.unlimited === true) return false;
     const remaining =
@@ -462,12 +461,11 @@ export function syntheticCooldownOutlivedByRealWindows(
           ? value.remainingPercentage
           : null;
     if (remaining === null || remaining <= 0) return false;
-    if (value.resetAt != null) {
-      const resetMs = Date.parse(String(value.resetAt));
-      if (!Number.isNaN(resetMs) && resetMs <= nowMs) sawElapsedReset = true;
-    }
+    if (value.resetAt == null) return false;
+    const resetMs = Date.parse(String(value.resetAt));
+    if (Number.isNaN(resetMs) || resetMs > nowMs) return false;
   }
-  return sawElapsedReset;
+  return true;
 }
 
 /**
