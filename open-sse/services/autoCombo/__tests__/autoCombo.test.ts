@@ -71,7 +71,7 @@ describe("Scoring", () => {
 
 describe("Task Fitness", () => {
   it("should return fitness score for known model+task", () => {
-    const score = getTaskFitness("claude-sonnet", "coding");
+    const score = getTaskFitness("o3", "coding");
     expect(score).toBeGreaterThan(0.5);
   });
 
@@ -489,7 +489,7 @@ describe("LKGP Strategy", () => {
 
 describe("Task Fitness Resolution Chain", () => {
   it("getTaskFitness should return static table score for known models", () => {
-    const score = getTaskFitness("claude-sonnet", "coding");
+    const score = getTaskFitness("o3", "coding");
     expect(score).toBe(0.95);
   });
 
@@ -509,7 +509,7 @@ describe("Task Fitness Resolution Chain", () => {
   });
 
   it("getTaskFitnessWithSource should return source='fitness_table' for known static models", () => {
-    const result = getTaskFitnessWithSource("claude-sonnet", "coding");
+    const result = getTaskFitnessWithSource("o3", "coding");
     expect(result).toEqual({ score: 0.95, source: "fitness_table" });
   });
 
@@ -569,7 +569,7 @@ describe("Task Fitness Resolution Chain", () => {
   });
 
   it("getTaskFitnessWithSource returns 'fitness_table' for statically known models", () => {
-    const result = getTaskFitnessWithSource("claude-sonnet", "review");
+    const result = getTaskFitnessWithSource("o3", "review");
     expect(result.source).toBe("fitness_table");
     expect(result.score).toBe(0.92);
   });
@@ -590,15 +590,15 @@ describe("Task Fitness DB Resolution Chain", () => {
   it("falls back to static FITNESS_TABLE when DB is not initialized", () => {
     // In the test environment, DB is typically not initialized,
     // so getTaskFitness should fall through to the static table
-    const score = getTaskFitness("claude-sonnet", "coding");
-    // Static table has claude-sonnet → 0.95 for coding
+    const score = getTaskFitness("o3", "coding");
+    // Static table has o3 → 0.95 for coding
     expect(score).toBe(0.95);
   });
 
   it("falls back to static FITNESS_TABLE for review task type", () => {
-    const score = getTaskFitness("claude-opus", "review");
-    // Static table has claude-opus → 0.95 for review
-    expect(score).toBe(0.95);
+    const score = getTaskFitness("gemini-2.5-pro", "review");
+    // Static table has gemini-2.5-pro → 0.93 for review
+    expect(score).toBe(0.93);
   });
 
   it("falls back to wildcard boosts when no static entry exists and DB unavailable", () => {
@@ -629,14 +629,14 @@ describe("Task Fitness DB Resolution Chain", () => {
   });
 
   it("resolution chain: static table takes priority over wildcard for known models", () => {
-    // "claude-sonnet" is in the static table with coding=0.95
+    // "o3" is in the static table with coding=0.95
     // It does NOT match "coder" wildcard because the static table is checked first
-    const score = getTaskFitness("claude-sonnet", "coding");
+    const score = getTaskFitness("o3", "coding");
     expect(score).toBe(0.95); // From static table, NOT wildcard
   });
 
   it("getTaskFitnessWithSource identifies fitness_table as source for known models", () => {
-    const model = "claude-sonnet";
+    const model = "o3";
     const category = "coding";
 
     const result = getTaskFitnessWithSource(model, category);
@@ -645,14 +645,14 @@ describe("Task Fitness DB Resolution Chain", () => {
   });
 
   it("case insensitivity: model names are lowercased before lookup", () => {
-    const upperScore = getTaskFitness("CLAUDE-SONNET", "coding");
-    const lowerScore = getTaskFitness("claude-sonnet", "coding");
+    const upperScore = getTaskFitness("O3", "coding");
+    const lowerScore = getTaskFitness("o3", "coding");
     expect(upperScore).toBe(lowerScore);
   });
 
   it("case insensitivity: task types are lowercased before lookup", () => {
-    const upperScore = getTaskFitness("claude-sonnet", "CODING");
-    const lowerScore = getTaskFitness("claude-sonnet", "coding");
+    const upperScore = getTaskFitness("o3", "CODING");
+    const lowerScore = getTaskFitness("o3", "coding");
     expect(upperScore).toBe(lowerScore);
   });
 
