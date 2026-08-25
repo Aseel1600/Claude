@@ -299,6 +299,26 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     supportedSizes: ["1024x1024", "1792x1024", "1024x1792"],
   },
 
+  maxai: {
+    id: "maxai",
+    alias: "mx",
+    baseUrl: "https://api.maxai.me/gpt/get_image_generate_response",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "maxai-image",
+    models: [
+      { id: "gpt-image-1", name: "GPT Image 1 (MaxAI)" },
+      { id: "dall-e-3", name: "DALL-E 3 (MaxAI)" },
+      { id: "flux-1-schnell", name: "FLUX.1 [schnell] (MaxAI)" },
+      { id: "flux-1-dev", name: "FLUX.1 [dev] (MaxAI)" },
+      { id: "flux-1-pro", name: "FLUX.1 [pro] (MaxAI)" },
+      { id: "sd3-medium", name: "Stable Diffusion 3 Medium (MaxAI)" },
+    ],
+    // gpt-image-1/dall-e-3 are size-snapped to 1024x1024 by the handler; flux
+    // models pass any size through.
+    supportedSizes: ["1024x1024", "1024x1536", "1536x1024", "1024x1792", "1792x1024"],
+  },
+
   xai: {
     id: "xai",
     baseUrl: "https://api.x.ai/v1/images/generations",
