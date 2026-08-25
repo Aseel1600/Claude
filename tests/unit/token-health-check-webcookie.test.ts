@@ -156,6 +156,33 @@ describe("web-cookie health probe (#11488)", () => {
     assert.equal(persisted, null);
   });
 
+  it("stale rows are re-probed once the interval has elapsed", async () => {
+    let probes = 0;
+    let persisted: Record<string, unknown> | null = null;
+    const handled = await checkWebCookieConnectionIfNeeded(
+      baseParams({
+        conn: {
+          id: "c1",
+          provider: "claude-web",
+          apiKey: "cookie",
+          // Checked 61 minutes ago against a 60-minute interval — gate must open.
+          lastHealthCheckAt: new Date(new Date(NOW).getTime() - 61 * 60 * 1000).toISOString(),
+        },
+        probeFn: async () => {
+          probes++;
+          return { valid: true, error: null, unsupported: false };
+        },
+        persistFn: async (_id, data) => {
+          persisted = data as Record<string, unknown>;
+          return {};
+        },
+      })
+    );
+    assert.equal(handled, true);
+    assert.equal(probes, 1);
+    assert.deepEqual(persisted, { lastHealthCheckAt: NOW });
+  });
+
   it("rows without any credential are stamped without probing", async () => {
     let probed = false;
     let persisted: Record<string, unknown> | null = null;
