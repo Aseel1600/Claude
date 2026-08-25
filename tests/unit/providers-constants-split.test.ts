@@ -26,7 +26,10 @@
 // merge-train batch — independently bumped the gateways family too, landing at 231; Freebuff
 // (gateways, #10531) brings it to 232. #8864 moves uncloseai (gateways family) into
 // NOAUTH_PROVIDERS, dropping the APIKEY_PROVIDERS count to 231. Logfare (gateways, #10987) brings it back to 232.
-// #11176 removes hackclub (gateways family), landing at 231.
+// #11176 removes hackclub (gateways family), landing at 231. Two Volcengine Ark subscription plans
+// (volcengine-agent-plan/volcengine-coding-plan, regional family) bring the live tip to 233. The
+// UC Direct provider (uncensored.com metered Developer API) adds one frontier-labs entry
+// (uc-direct), landing at 234.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -55,12 +58,12 @@ test("barrel still exports every catalog + key helpers", () => {
   }
 });
 
-test("APIKEY_PROVIDERS merges the 6 family files into 231 entries (no loss / no dup)", async () => {
+test("APIKEY_PROVIDERS merges the 6 family files into 234 entries (no loss / no dup)", async () => {
   const keys = Object.keys((P as Record<string, object>).APIKEY_PROVIDERS);
-  assert.equal(keys.length, 231);
-  assert.equal(new Set(keys).size, 231, "duplicate keys after spread-merge");
+  assert.equal(keys.length, 234);
+  assert.equal(new Set(keys).size, 234, "duplicate keys after spread-merge");
   // the merged object's entry-count equals the sum of the 6 semantic family files; families are a
-  // strict partition (every provider in exactly one), so the sum must be exactly 231.
+  // strict partition (every provider in exactly one), so the sum must be exactly 234.
   const families: [string, string][] = [
     ["gateways", "APIKEY_PROVIDERS_GATEWAYS"],
     ["frontier-labs", "APIKEY_PROVIDERS_FRONTIER"],
@@ -80,7 +83,7 @@ test("APIKEY_PROVIDERS merges the 6 family files into 231 entries (no loss / no 
       seen.add(k);
     }
   }
-  assert.equal(famTotal, 231, "families must partition all 231 providers");
+  assert.equal(famTotal, 234, "families must partition all 234 providers");
 });
 
 test("AI_PROVIDERS Proxy aggregates all sections; lookups resolve", () => {

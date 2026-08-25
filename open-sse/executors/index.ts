@@ -8,6 +8,7 @@ import { QoderExecutor } from "./qoder.ts";
 import { KiroExecutor } from "./kiro.ts";
 import { CodexExecutor } from "./codex.ts";
 import { CodexAppServerExecutor } from "./codex-app-server.ts";
+import { UcExecutor } from "./uc.ts";
 import { CursorExecutor } from "./cursor.ts";
 import { TraeExecutor } from "./trae.ts";
 import { DefaultExecutor } from "./default.ts";
@@ -99,6 +100,7 @@ const executors = {
   bedrock: new BedrockExecutor(),
   codex: new CodexExecutor(),
   "codex-app-server": new CodexAppServerExecutor({}, "codex-app-server"),
+  uc: new UcExecutor(),
   "chatgpt-web-codex": new ChatGptWebCodexExecutor(),
   "cgpt-codex": new ChatGptWebCodexExecutor(),
   cursor: new CursorExecutor(),
