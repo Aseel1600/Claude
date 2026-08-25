@@ -61,7 +61,9 @@ function isSessionExpiredResult(result: {
   return (
     result.valid === false &&
     (result.errorCode === "AUTH_007" ||
-      String(result.error || "").toUpperCase().includes("SESSION_EXPIRED"))
+      String(result.error || "")
+        .toUpperCase()
+        .includes("SESSION_EXPIRED"))
   );
 }
 
@@ -72,7 +74,11 @@ export async function checkWebCookieConnectionIfNeeded(params: {
   intervalMin: number;
   log: LogFn;
   logWarn: LogFn;
-  getConnectionLogLabel: (conn: { name?: string | null; email?: string | null; id?: string | null }) => string;
+  getConnectionLogLabel: (conn: {
+    name?: string | null;
+    email?: string | null;
+    id?: string | null;
+  }) => string;
   logPrefix: string;
   probeFn?: typeof validateWebCookieProvider;
   persistFn?: typeof updateProviderConnection;
@@ -82,7 +88,8 @@ export async function checkWebCookieConnectionIfNeeded(params: {
 
   // Interval gate FIRST so steady-state ticks cost one date comparison, not a probe.
   const lastCheckMs = conn.lastHealthCheckAt ? new Date(conn.lastHealthCheckAt).getTime() : 0;
-  if (lastCheckMs > 0 && Date.now() - lastCheckMs < intervalMin * 60 * 1000) return true;
+  if (lastCheckMs > 0 && new Date(now).getTime() - lastCheckMs < intervalMin * 60 * 1000)
+    return true;
 
   const persist = params.persistFn || updateProviderConnection;
   const probe = params.probeFn || validateWebCookieProvider;
