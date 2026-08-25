@@ -73,6 +73,14 @@ export function resolveLaunchTarget(opts = {}) {
     } catch {
       /* no context */
     }
+    // If a specific port was given and it differs from the context's port (or the default 20128),
+    // we should prefer the explicitly provided port.
+    if (opts.port && fromCtx) {
+      const portUrlStr = `http://localhost:${opts.port}`;
+      if (fromCtx.includes(":20128") && opts.port !== "20128") {
+        fromCtx = portUrlStr;
+      }
+    }
     baseUrl = fromCtx
       ? stripTrailingSlash(fromCtx).replace(/\/v1$/, "")
       : `http://localhost:${Number(opts.port ?? process.env.PORT ?? 20128) || 20128}`;
