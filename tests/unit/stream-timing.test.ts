@@ -71,11 +71,17 @@ test("interruption is recorded and does not reset other timing", async () => {
 
 test("normal completion: totalMs() is monotonic and >= first-forward latency", async () => {
   const t = createStreamTiming();
-  await new Promise((r) => setTimeout(r, 15));
+  const SLEEP_MS = 15;
+  await new Promise((r) => setTimeout(r, SLEEP_MS));
   t.markForward();
   const total = t.totalMs();
   const ttft = t.ttftMs();
-  assert.ok(total >= 15);
+  // Node's setTimeout can fire a hair EARLY under a loaded CI runner (timer
+  // coalescing + sub-ms rounding), so total occasionally measures ~14.9ms for a
+  // 15ms sleep. Allow a 1ms tolerance; the assertion still proves the elapsed
+  // time was captured and is monotonic. The real invariant (ttft <= total) is
+  // checked exactly below.
+  assert.ok(total >= SLEEP_MS - 1, `total ${total}ms should be ~>= ${SLEEP_MS}ms`);
   assert.ok(ttft !== null && ttft <= total, "ttft must be <= total duration");
 });
 
