@@ -1,7 +1,7 @@
 ---
 title: "Admission lanes — two lane systems, what gates each, where each reports"
 status: active
-lastUpdated: 2026-08-10
+lastUpdated: 2026-08-25
 ---
 
 # Admission lanes (#9654) — two lane systems, what gates each, where each reports
@@ -13,16 +13,37 @@ complementary; operators should know which one they are looking at.
 
 - **Scope:** the buffered-body/heap path for `POST /v1/chat/completions`. Guards
   against heap amplification from large coding-agent bodies (#4380).
-- **Gate:** **always on.** Each distinct API key (hashed) — or `anonymous` — gets its
-  own lane with `CHAT_MAX_HEAVY_IN_FLIGHT` capacity, so one session's burst cannot
-  starve another session's heavyweight slot.
+- **Gate:** **always on.** Every API key and `anonymous` contend for one process-global
+  heavyweight/memory budget. Hashed connection keys select round-robin fairness queues;
+  they never create per-key capacity. On a healthy process, bounded extra headroom is
+  derived from initialized runtime memory telemetry unless the operator explicitly
+  configures it. The provider samples during controller construction, so health does
+  not remain `telemetry_unavailable` until the first admission attempt.
 - **Tuning:**
   - `OMNIROUTE_CHAT_VIRTUAL_TTL_MS` — idle-lane eviction (default 60000)
   - `OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS` — lane count cap (default 64)
   - `OMNIROUTE_CHAT_ADMISSION_QUEUE_MS` — queue-wait before 503 (default 2000)
   - `OMNIROUTE_CHAT_ADMISSION_MAX_QUEUED_BYTES` — queued-bytes heap valve (default 4 MB)
-- **Reports:** not in `GET /api/monitoring/health` today; observable via
-  `PerConnectionAdmissionController.snapshot()` (sessionId hash, activeHeavy, idleMs).
+  - `OMNIROUTE_CHAT_ADMISSION_HEALTHY_HEADROOM` — optional exact healthy-headroom override;
+    when unset, runtime-derived capacity has no fixed session-count ceiling and fails back to
+    the configured primary capacity (default 1) only when critical telemetry is unavailable
+  - `OMNIROUTE_CHAT_ADMISSION_HEAVY_REQUEST_COST_BYTES` — bounded per-request reservation
+    (default 1 GiB)
+  - `OMNIROUTE_CHAT_ADMISSION_RESERVED_MEMORY_BYTES` — bounded OS/application reserve
+    (default 512 MiB)
+  - `OMNIROUTE_CHAT_ADMISSION_RECOVERY_STABLE_MS` — real-time recovery interval
+    (default 5000 ms)
+- **Derivation:** the tightest coherent V8, process-available/constrained, host-memory,
+  cgroup-v1, cgroup-v2 `memory.max`, or cgroup-v2 `memory.high` budget wins. Process RSS,
+  heap, external, and ArrayBuffer pressure are included without double-counting ArrayBuffers
+  that are already part of `external`. Eligible provider supply can only lower the result;
+  it cannot create memory capacity. The hierarchical gates merged in #11493 remain the sole
+  provider/account scheduling authority.
+- **Reports:** the management-protected full `GET /api/monitoring/health` view exposes
+  process-global active/available counts, calculated capacity, configured/effective headroom,
+  telemetry availability, the exact limiter, and every valid considered byte budget. Cgroup
+  paths, credentials, account identities, and request details are never included; anonymous
+  health remains liveness-only.
 
 ## 2. Adaptive runtime virtual lanes (`open-sse/services/admission`)
 
