@@ -50,6 +50,9 @@ with sync_playwright() as p:
     check("floating header tabs", page.locator(".floating-header .tab-btn").count() >= 5)
     check("canvas graph da", page.locator("#graph-canvas").count() == 1)
     check("graph controls", page.locator(".graph-btn").count() >= 5)
+    check("command form da", page.locator("#command-form").count() == 1)
+    check("command input beschriftet", page.locator("#command-input").get_attribute("aria-label") == "Orchestra Command")
+    check("command submit da", page.locator("#command-submit").count() == 1)
 
     # --- 2. Sidebar tabs: Projects <-> Node Types ---
     page.locator('.sidebar-tab[data-side-tab="legend"]').click()

@@ -9,10 +9,10 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from orca import queue, skills, worker as orca_worker
+from orca import queue, routing, skills, worker as orca_worker
 from orca.scheduler import run_scheduled_jobs
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -522,6 +522,62 @@ async def orca_status():
 async def orca_jobs(request: Request, limit: int = 50):
     require_token(request)
     return no_cache({"jobs": queue.list_jobs(limit)})
+
+
+@app.post("/orca/commands")
+async def orca_command(request: Request):
+    require_token(request)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid json")
+    if not isinstance(body, dict) or not str(body.get("text", "")).strip():
+        raise HTTPException(status_code=400, detail="command text required")
+    text = str(body["text"]).strip()
+    decision = routing.route_command(text, skills.list_skills())
+    if not skills.load_skill(decision.skill):
+        raise HTTPException(status_code=503, detail="fallback skill daily-brainstorm not found")
+    job = queue.create_job(decision.skill, {"text": text, "routing": {"skill": decision.skill, "confidence": decision.confidence, "reason": decision.reason, "matched_terms": list(decision.matched_terms)}}, trigger="command-bar")
+    ledger("task", {"id": job["id"], "skill": decision.skill, "trigger": "command-bar"})
+    return {"ok": True, "job": job, "routing": {"skill": decision.skill, "confidence": decision.confidence, "reason": decision.reason, "matched_terms": list(decision.matched_terms)}}
+
+
+def format_sse(event: dict) -> str:
+    payload = {"id": event["id"], "job_id": event["job_id"], "status": event["status"], "step": event.get("step"), "step_index": event.get("step_index"), "step_total": event.get("step_total"), "message": event["message"], "payload": event.get("payload", {}), "timestamp": event["created_at"]}
+    return f"id: {event['id']}\nevent: {event['event_type']}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@app.get("/orca/events")
+async def orca_events(request: Request, job_id: str | None = None):
+    require_token(request)
+    if job_id and not queue.job_by_id(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    try:
+        after_id = max(0, int(request.headers.get("Last-Event-ID", "0")))
+    except ValueError:
+        after_id = 0
+
+    async def stream():
+        import asyncio
+        last_data = asyncio.get_event_loop().time()
+        cursor = after_id
+        while True:
+            if await request.is_disconnected():
+                break
+            events = queue.events_since(job_id, after_id=cursor, limit=100)
+            if events:
+                for event in events:
+                    cursor = event["id"]
+                    yield format_sse(event)
+                    if job_id and event["event_type"] in {"job.completed", "job.failed"}:
+                        return
+                last_data = asyncio.get_event_loop().time()
+            elif asyncio.get_event_loop().time() - last_data >= 5:
+                yield ": heartbeat\n\n"
+                last_data = asyncio.get_event_loop().time()
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"})
 
 
 @app.post("/orca/jobs")

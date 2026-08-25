@@ -265,7 +265,12 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
   backdrop-filter: var(--surface-blur);
   align-items: center;
 }
-.header-left { flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: 12px; }
+.header-left { flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: 12px; min-width: 0; }
+.command-form { display: flex; align-items: center; gap: 6px; min-width: 260px; max-width: 420px; flex: 1; }
+.command-form input { min-width: 0; width: 100%; padding: 8px 12px; background: rgba(2,6,23,.7); border: 1px solid var(--border-main); border-radius: 8px; }
+.command-form button { padding: 8px 14px; border-radius: 8px; background: var(--primary); color: white; font-weight: 700; }
+.command-routing { position: absolute; top: calc(100% + 8px); left: 12px; max-width: 420px; padding: 8px 12px; border: 1px solid var(--border-main); border-radius: 8px; background: var(--surface-elevated); color: var(--text-secondary); font-size: 12px; }
+
 .header-center { display: flex; gap: 8px; justify-content: center; }
 .header-right { flex: 1; }
 
@@ -774,6 +779,12 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   <header class="floating-header">
     <div class="header-left">
       <button class="tab-btn" id="load-session-btn">Load Session</button>
+      <form id="command-form" class="command-form" aria-label="Orchestra Command">
+        <label class="visually-hidden" for="command-input">Orchestra Command</label>
+        <input id="command-input" name="command" autocomplete="off" placeholder="Tell the orchestra what to do..." aria-label="Orchestra Command" required>
+        <button id="command-submit" type="submit">Run</button>
+      </form>
+      <div id="command-routing" class="command-routing" aria-live="polite" hidden></div>
     </div>
     <div class="header-center" role="tablist" aria-label="Hauptansichten">
       <button class="tab-btn active" data-main-tab="graph" role="tab" aria-selected="true">Knowledge Graph</button>
@@ -1931,6 +1942,81 @@ function updatePanelClass() {
   panel.classList.toggle('closed', state.isClosed);
   panel.classList.toggle('expanded', state.isExpanded);
 }
+function wireCommandBar() {
+  const form = document.getElementById('command-form');
+  const input = document.getElementById('command-input');
+  const submit = document.getElementById('command-submit');
+  const routing = document.getElementById('command-routing');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    submit.disabled = true;
+    routing.hidden = false;
+    routing.textContent = 'Routing command...';
+    try {
+      const response = await fetch(API + '/orca/commands', { method: 'POST', headers: { ...AUTH.headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      if (!response.ok) throw new Error((await response.text()) || ('HTTP ' + response.status));
+      const data = await response.json();
+      const job = data.job;
+      state.activeJobId = job.id;
+      state.activeJobController?.abort();
+      routing.textContent = `${data.routing.skill} · ${Math.round(data.routing.confidence * 100)}% · ${data.routing.reason}`;
+      connectJobEvents(job.id);
+    } catch (error) {
+      routing.textContent = 'Befehl fehlgeschlagen: ' + error.message;
+      submit.disabled = false;
+    }
+  });
+}
+
+async function connectJobEvents(jobId) {
+  const controller = new AbortController();
+  state.activeJobController = controller;
+  const bar = document.getElementById('job-status-bar');
+  bar.hidden = false;
+  try {
+    const response = await fetch(API + '/orca/events?job_id=' + encodeURIComponent(jobId), { headers: { ...AUTH.headers, Accept: 'text/event-stream', 'Last-Event-ID': String(state.lastEventId || 0) }, signal: controller.signal });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const frames = buffer.split(/\\n\\n/);
+      buffer = frames.pop();
+      for (const frame of frames) {
+        if (!frame.trim() || frame.startsWith(':')) continue;
+        const lines = frame.split(/\\n/);
+        const eventName = (lines.find(line => line.startsWith('event:')) || '').slice(6).trim();
+        const idLine = lines.find(line => line.startsWith('id:'));
+        if (idLine) state.lastEventId = Number(idLine.slice(3).trim()) || state.lastEventId;
+        const dataLine = lines.find(line => line.startsWith('data:'));
+        if (dataLine) applyJobEvent(eventName, JSON.parse(dataLine.slice(5).trim()));
+      }
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') showError('Job-Stream fehlgeschlagen: ' + error.message);
+  } finally {
+    document.getElementById('command-submit').disabled = false;
+  }
+}
+
+function applyJobEvent(eventName, event) {
+  const bar = document.getElementById('job-status-bar');
+  bar.hidden = false;
+  document.getElementById('job-status-title').textContent = `${event.status} · ${eventName}`;
+  const step = event.step_index && event.step_total ? `Step ${event.step_index}/${event.step_total} · ` : '';
+  document.getElementById('job-status-meta').textContent = `${step}${event.message} · Job ${event.job_id}`;
+  if (eventName === 'job.completed' || eventName === 'job.failed') {
+    loadMemory();
+    loadHealth();
+    if (eventName === 'job.completed') setTimeout(() => { bar.hidden = true; }, 3000);
+  }
+}
+
 function wireJobStatus() {
   if (!token) return;
   setInterval(async () => {
@@ -1958,6 +2044,7 @@ function init() {
   wireGraphEvents();
   wireNavigation();
   wireSearch();
+  wireCommandBar();
   renderLegend();
   renderFilterPills();
   updatePanelClass();
