@@ -193,8 +193,20 @@ async function postExchangeAntigravity(
       // standard-tier/personal accounts must bring their own GCP project.
       // A body that DOES carry one (string or {id}) is a real onboarding
       // success; the retry loadCodeAssist below picks the id up (it can lag).
+      // The legacy `{done:true}` acknowledgement shape is ALSO a real
+      // onboarding success (project creation is async server-side) — it must
+      // proceed to the discovery retry, not be misclassified as BYOP, or the
+      // retry loadCodeAssist never runs and discovery reports a false failure.
       const bodyText = await response.text().catch(() => "");
-      if (bodyText && !bodyText.includes("cloudaicompanionProject")) {
+      let legacyDoneAck = false;
+      try {
+        legacyDoneAck =
+          bodyText.trim().startsWith("{") &&
+          (JSON.parse(bodyText) as { done?: unknown })?.done === true;
+      } catch {
+        legacyDoneAck = false;
+      }
+      if (bodyText && !bodyText.includes("cloudaicompanionProject") && !legacyDoneAck) {
         console.log(
           "[oauth] antigravity onboardUser succeeded without creating a project — Google BYOP (user-defined GCP project) required"
         );
