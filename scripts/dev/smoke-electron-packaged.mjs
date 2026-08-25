@@ -360,7 +360,12 @@ function isInsideDir(parentDir, candidateDir) {
   return candidate === parent || candidate.startsWith(parent + sep);
 }
 
-export async function ensureSmokeEnvDirs(smokeEnv, dataDir) {
+export async function ensureSmokeEnvDirs(smokeEnv, dataDir, { currentPlatform = platform() } = {}) {
+  // The win32 branches below must key off the SMOKE TARGET's platform, not the
+  // host's: tests (and any future cross-platform dry-run) inject a win32-shaped
+  // smokeEnv while running on a Linux CI host, and branching on the host
+  // platform() there silently skipped the USERPROFILE/APPDATA userData tree —
+  // exactly what this function exists to pre-create (#7592).
   const dirNames = [
     "DATA_DIR",
     "HOME",
@@ -383,7 +388,7 @@ export async function ensureSmokeEnvDirs(smokeEnv, dataDir) {
   // On Windows, Electron derives its userData from APPDATA/<productName>.
   // requestSingleInstanceLock() runs synchronously at module load and
   // fails silently if the directory doesn't exist yet — causing exit(0).
-  if (platform() === "win32" && smokeEnv.APPDATA) {
+  if (currentPlatform === "win32" && smokeEnv.APPDATA) {
     for (const subdir of ["omniroute-desktop", "OmniRoute", "omniroute"]) {
       dirs.push(join(smokeEnv.APPDATA, subdir));
     }
@@ -393,7 +398,7 @@ export async function ensureSmokeEnvDirs(smokeEnv, dataDir) {
   // service throws — rather than creates — when that directory is missing,
   // which makes requestSingleInstanceLock() return false and the app exit(0)
   // before app.whenReady(). Pre-create the derived tree as well.
-  if (platform() === "win32" && smokeEnv.USERPROFILE) {
+  if (currentPlatform === "win32" && smokeEnv.USERPROFILE) {
     for (const subdir of ["omniroute-desktop", "OmniRoute", "omniroute"]) {
       dirs.push(join(smokeEnv.USERPROFILE, "AppData", "Roaming", subdir));
     }

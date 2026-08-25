@@ -53,7 +53,10 @@ test("electron smoke pre-creates the USERPROFILE-derived Roaming userData tree o
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-smoke-env-test-"));
   try {
     const smokeEnv = buildSmokeEnv({ currentPlatform: "win32", dataDir });
-    await ensureSmokeEnvDirs(smokeEnv, dataDir);
+    // Inject the smoke TARGET platform: ensureSmokeEnvDirs must key its win32
+    // userData-tree branches off the target, not the host OS — otherwise this
+    // guard can never pass on a Linux CI host (the 8/9 red the reviewer hit).
+    await ensureSmokeEnvDirs(smokeEnv, dataDir, { currentPlatform: "win32" });
 
     for (const appName of ["omniroute-desktop", "OmniRoute", "omniroute"]) {
       const derived = path.join(smokeEnv.USERPROFILE, "AppData", "Roaming", appName);
