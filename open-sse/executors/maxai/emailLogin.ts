@@ -25,6 +25,8 @@
  */
 import { buildMaxaiSignedHeaders } from "./signing.ts";
 import { maxaiStaticHeaders, MAXAI_BASE_URL } from "./protocol.ts";
+import { ensureMaxaiConstants } from "./constantsStore.ts";
+import type { MaxaiSigningConstants } from "./constants.ts";
 
 export const MAXAI_SIGNIN_EMAIL_PATH = "/oauth/signin_with_email";
 export const MAXAI_VERIFY_CODE_PATH = "/oauth/verify_secret_code";
@@ -76,11 +78,15 @@ export interface MaxaiEmailVerifyResult {
 }
 
 /** Build signed headers for a blank-user OAuth route (user id is blanked in the proof). */
-function signedOauthHeaders(path: string, deviceId: string): Record<string, string> {
+function signedOauthHeaders(
+  path: string,
+  deviceId: string,
+  constants: MaxaiSigningConstants
+): Record<string, string> {
   return {
     ...maxaiStaticHeaders(),
     // userId is blanked inside computeMaxaiProof for BLANK_USER_ROUTES; pass "".
-    ...buildMaxaiSignedHeaders({ path, userId: "", deviceId }),
+    ...buildMaxaiSignedHeaders({ path, userId: "", deviceId }, constants),
   };
 }
 
@@ -104,11 +110,18 @@ export async function requestMaxaiEmailCode(
     return { ok: false, status: 0, error: "missing email or deviceId" };
   }
 
+  // Initial login is the FIRST signed call — ensure we have live signing constants
+  // (extracted from MaxAI's public bundle) before signing. No keys = cannot sign.
+  const constants = await ensureMaxaiConstants({ fetchImpl: doFetch, signal: input.signal });
+  if (!constants) {
+    return { ok: false, status: 0, error: "MaxAI signing constants unavailable (extraction failed)" };
+  }
+
   let res: Response;
   try {
     res = await doFetch(MAXAI_BASE_URL + MAXAI_SIGNIN_EMAIL_PATH, {
       method: "POST",
-      headers: signedOauthHeaders(MAXAI_SIGNIN_EMAIL_PATH, input.deviceId),
+      headers: signedOauthHeaders(MAXAI_SIGNIN_EMAIL_PATH, input.deviceId, constants),
       body: JSON.stringify({ email: input.email, app: "maxai_webapp" }),
       signal: input.signal ?? undefined,
     });
@@ -144,6 +157,11 @@ export async function verifyMaxaiEmailCode(
     return { ok: false, status: 0, error: "missing email, code, or deviceId" };
   }
 
+  const constants = await ensureMaxaiConstants({ fetchImpl: doFetch, signal: input.signal });
+  if (!constants) {
+    return { ok: false, status: 0, error: "MaxAI signing constants unavailable (extraction failed)" };
+  }
+
   const requestBody = {
     email: input.email,
     secret_code: input.code,
@@ -163,7 +181,7 @@ export async function verifyMaxaiEmailCode(
   try {
     res = await doFetch(MAXAI_BASE_URL + MAXAI_VERIFY_CODE_PATH, {
       method: "POST",
-      headers: signedOauthHeaders(MAXAI_VERIFY_CODE_PATH, input.deviceId),
+      headers: signedOauthHeaders(MAXAI_VERIFY_CODE_PATH, input.deviceId, constants),
       body: JSON.stringify(requestBody),
       signal: input.signal ?? undefined,
     });

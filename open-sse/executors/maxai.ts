@@ -26,6 +26,7 @@ import { PROVIDERS } from "../config/constants.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { resolveMaxaiCredential, type MaxaiCredential } from "./maxai/credentials.ts";
 import { buildMaxaiSignedHeaders } from "./maxai/signing.ts";
+import { ensureMaxaiConstants } from "./maxai/constantsStore.ts";
 import {
   maxaiAccessTokenNeedsRefresh,
   maxaiRefreshAccessToken,
@@ -181,20 +182,33 @@ export class MaxAiExecutor extends BaseExecutor {
       docList = [];
     }
 
+    const constants = await ensureMaxaiConstants({ signal: input.signal });
+    if (!constants) {
+      return errorResponse(
+        401,
+        "MaxAI signing constants unavailable (extraction failed); cannot sign the request.",
+        "maxai_auth_error"
+      );
+    }
+
     const conversationId = newConversationId();
     const chatBody = buildMaxaiChatBody({
       conversationId,
       text,
       modelName: input.model,
+      appVersion: constants.appVersion,
       imageUrls,
       docList: docList.length ? docList : undefined,
     });
 
-    const signedHeaders = buildMaxaiSignedHeaders({
-      path: MAXAI_CHAT_PATH,
-      userId: cred.userId,
-      deviceId: cred.deviceId,
-    });
+    const signedHeaders = buildMaxaiSignedHeaders(
+      {
+        path: MAXAI_CHAT_PATH,
+        userId: cred.userId,
+        deviceId: cred.deviceId,
+      },
+      constants
+    );
     const headers: Record<string, string> = {
       ...maxaiStaticHeaders(),
       ...signedHeaders,
@@ -396,18 +410,24 @@ export class MaxAiExecutor extends BaseExecutor {
     nudgedText: string
   ): Promise<{ reasoning: string; answer: string } | null> {
     try {
+      const constants = await ensureMaxaiConstants({ signal: input.signal });
+      if (!constants) return null;
       const retryBody = buildMaxaiChatBody({
         conversationId: newConversationId(),
         text: nudgedText,
         modelName: input.model,
+        appVersion: constants.appVersion,
       });
       const headers: Record<string, string> = {
         ...maxaiStaticHeaders(),
-        ...buildMaxaiSignedHeaders({
-          path: MAXAI_CHAT_PATH,
-          userId: cred.userId,
-          deviceId: cred.deviceId,
-        }),
+        ...buildMaxaiSignedHeaders(
+          {
+            path: MAXAI_CHAT_PATH,
+            userId: cred.userId,
+            deviceId: cred.deviceId,
+          },
+          constants
+        ),
         Authorization: `Bearer ${accessToken}`,
         ...(input.upstreamExtraHeaders ?? {}),
       };

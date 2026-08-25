@@ -11,7 +11,6 @@
  * honors `model_name` and serves the real paid model, so no bookkeeping is sent.
  */
 import { randomUUID } from "node:crypto";
-import { MAXAI_APP_VERSION } from "./signing.ts";
 
 export const MAXAI_BASE_URL = "https://api.maxai.me";
 export const MAXAI_CHAT_PATH = "/gpt/cwc/chat";
@@ -64,6 +63,8 @@ export function buildMaxaiChatBody(opts: {
   modelName: string;
   language?: string;
   relatedQuestionCnt?: string;
+  /** Extracted app_version for chrome_extension_version (from the signing constants). */
+  appVersion: string;
   /**
    * Vision input: current-turn image URLs (data: or http(s):) to attach to the
    * request. MaxAI's `/gpt/cwc/chat` accepts inline OpenAI-shaped image parts in
@@ -93,7 +94,7 @@ export function buildMaxaiChatBody(opts: {
     conversation_id: opts.conversationId,
     chat_history: [],
     message_content: messageContent,
-    chrome_extension_version: MAXAI_APP_VERSION,
+    chrome_extension_version: opts.appVersion,
     model_name: opts.modelName,
     prompt_id: "chat",
     prompt_name: "chat",

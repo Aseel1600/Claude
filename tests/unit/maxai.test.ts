@@ -38,60 +38,272 @@ import {
   MAXAI_VERIFY_CODE_PATH,
 } from "../../open-sse/executors/maxai/emailLogin.ts";
 import { discoverMaxaiModels } from "../../open-sse/services/maxaiModels.ts";
+import {
+  __setMaxaiConstantsForTest,
+  resetMaxaiConstantsMemo,
+} from "../../open-sse/executors/maxai/constantsStore.ts";
+import {
+  parseMaxaiConstants,
+  assembleMaxaiConstants,
+  validateMaxaiConstants,
+  findChunkUrls,
+  fetchMaxaiConstants,
+  decodeNjHeaderNames,
+  resolveWebpackGetter,
+  looksLikeSignerChunk,
+} from "../../open-sse/executors/maxai/constants.ts";
+import {
+  MOCK_CONSTANTS,
+  MOCK_HMAC_KEY,
+  MOCK_AES_KEY,
+  MOCK_CTX_KEY,
+  MOCK_DOC_ID_KEY,
+  MOCK_APP_VERSION,
+  MOCK_USER_ID,
+  MOCK_DEVICE_ID,
+  referenceProof,
+  makeSyntheticAppChunk,
+  makeSyntheticSignerChunk,
+  makeSyntheticAppHtml,
+} from "./helpers/maxaiMockConstants.ts";
 
-const USER_ID = "217f0819-965c-4926-8397-6059aacd2dcd";
+// A synthetic user id (UUID-shaped, not real) for signer-algorithm tests.
+const USER_ID = MOCK_USER_ID;
+
+// The signer takes an extracted constants object. Tests use MOCK values only —
+// nothing id/key/version-shaped here is a real MaxAI value (the real ones are
+// fetched at runtime and persisted to the DB, never committed).
+const TEST_CONSTANTS = MOCK_CONSTANTS;
+const HMAC_KEY = MOCK_HMAC_KEY;
+const AES_KEY = MOCK_AES_KEY;
+const APP_VERSION = MOCK_APP_VERSION;
+
+// Seed the in-process signing-constants memo so the signed network helpers
+// (refresh / email login / model discovery) don't try to fetch the live MaxAI
+// bundle during unit tests. Production resolves these via ensure/refresh →
+// store → live extraction; here we inject the known-good set directly.
+__setMaxaiConstantsForTest(TEST_CONSTANTS);
 
 // ── Signer: byte-exact vs real captured web-app requests ─────────────────────
 
-test("computeMaxaiProof reproduces the real captured `p` (sample 0)", () => {
-  const p = computeMaxaiProof("/conversation/get_conversation_list", 1784594159681, USER_ID);
-  assert.equal(p, "3afc648d5beeb200a8292cdd274cded12bce273aa2cb0a2ae1b3aed56ca50afa");
-});
-
-test("computeMaxaiProof reproduces the real captured `p` (sample 1)", () => {
-  const p = computeMaxaiProof(
-    "/conversation/get_group_and_conversation_list",
-    1784594159681,
-    USER_ID
-  );
-  assert.equal(p, "503837e5569e71844a6fda7ba5229e4a75d51e8f5ea62c7663bb848e940cc2e0");
+test("computeMaxaiProof matches an independent reference implementation (mock key)", () => {
+  // Prove the HMAC-SHA1 → SM3 algorithm against a SEPARATE reference impl (not the
+  // production module) over a MOCK key, so a pass means the math matches an
+  // external spec — not merely itself, and with zero real constants committed.
+  const t = 1784594159681;
+  const path = "/conversation/get_conversation_list";
+  const p = computeMaxaiProof(path, t, USER_ID, HMAC_KEY, APP_VERSION);
+  assert.equal(p, referenceProof(APP_VERSION, t, path, USER_ID, HMAC_KEY));
+  // A different path or key yields a different proof (algorithm is sensitive).
+  assert.notEqual(p, computeMaxaiProof("/gpt/cwc/chat", t, USER_ID, HMAC_KEY, APP_VERSION));
+  assert.notEqual(p, computeMaxaiProof(path, t, USER_ID, MOCK_AES_KEY, APP_VERSION));
 });
 
 test("computeMaxaiProof blanks the user id only on /oauth/* routes", () => {
   // A blank-user route yields a different proof than the same route with a uid,
   // proving the uid is dropped for /oauth/* (and only there).
   const t = 1784594159681;
-  const oauthWithUid = computeMaxaiProof("/oauth/signin_with_email", t, USER_ID);
-  const oauthNoUid = computeMaxaiProof("/oauth/signin_with_email", t, "");
+  const oauthWithUid = computeMaxaiProof("/oauth/signin_with_email", t, USER_ID, HMAC_KEY, APP_VERSION);
+  const oauthNoUid = computeMaxaiProof("/oauth/signin_with_email", t, "", HMAC_KEY, APP_VERSION);
   assert.equal(oauthWithUid, oauthNoUid); // uid ignored for /oauth/*
-  const chatWithUid = computeMaxaiProof("/gpt/cwc/chat", t, USER_ID);
-  const chatNoUid = computeMaxaiProof("/gpt/cwc/chat", t, "");
+  const chatWithUid = computeMaxaiProof("/gpt/cwc/chat", t, USER_ID, HMAC_KEY, APP_VERSION);
+  const chatNoUid = computeMaxaiProof("/gpt/cwc/chat", t, "", HMAC_KEY, APP_VERSION);
   assert.notEqual(chatWithUid, chatNoUid); // uid honored elsewhere
+});
+
+test("computeMaxaiProof requires the key + app version (never signs with a guess)", () => {
+  assert.throws(() => computeMaxaiProof("/x", 1, USER_ID, "", APP_VERSION));
+  assert.throws(() => computeMaxaiProof("/x", 1, USER_ID, HMAC_KEY, ""));
 });
 
 test("maxaiAesEncrypt produces a CryptoJS Salted__ envelope, deterministic with a fixed salt", () => {
   const salt = Buffer.from("0011223344556677", "hex");
-  const a = maxaiAesEncrypt("payload", undefined, salt);
-  const b = maxaiAesEncrypt("payload", undefined, salt);
+  const a = maxaiAesEncrypt("payload", AES_KEY, salt);
+  const b = maxaiAesEncrypt("payload", AES_KEY, salt);
   assert.equal(a, b); // same salt → deterministic
   const raw = Buffer.from(a, "base64");
   assert.equal(raw.subarray(0, 8).toString("ascii"), "Salted__");
   assert.equal(raw.subarray(8, 16).toString("hex"), "0011223344556677");
   // Random salt differs each call.
-  assert.notEqual(maxaiAesEncrypt("payload"), maxaiAesEncrypt("payload"));
+  assert.notEqual(maxaiAesEncrypt("payload", AES_KEY), maxaiAesEncrypt("payload", AES_KEY));
+});
+
+// ── Constants extractor: parse SYNTHETIC bundle chunks → the signing constants ──
+// The fixtures are generated in-code (helpers/maxaiMockConstants.ts) with MOCK
+// values — no real MaxAI bundle, key, id, or app version is committed anywhere.
+
+const APP_CHUNK = makeSyntheticAppChunk();
+const SIGNER_CHUNK = makeSyntheticSignerChunk();
+
+test("parseMaxaiConstants extracts every value from a webpack-shaped chunk", () => {
+  const parsed = parseMaxaiConstants(APP_CHUNK, SIGNER_CHUNK);
+  assert.equal(parsed.hmacKey, MOCK_HMAC_KEY);
+  assert.equal(parsed.aesKey, MOCK_AES_KEY);
+  assert.equal(parsed.appVersion, MOCK_APP_VERSION);
+  assert.equal(parsed.docIdKey, MOCK_DOC_ID_KEY);
+  assert.equal(parsed.ctxKey, MOCK_CTX_KEY);
+  // Header names decoded from the nj(hex) calls in the signer chunk.
+  assert.equal(parsed.headerNames.authorization, "X-Authorization");
+  assert.equal(parsed.headerNames.clientDomain, "X-Client-Domain");
+  assert.equal(parsed.headerNames.random, "X-Random");
+});
+
+test("resolveWebpackGetter follows an export getter to its literal value", () => {
+  const src = 'a.d(t,{Mn:function(){return u}});let s="zzz",u="deadbeefcafe";';
+  assert.equal(resolveWebpackGetter(src, "Mn"), "deadbeefcafe");
+  assert.equal(resolveWebpackGetter(src, "Nope"), null);
+});
+
+test("decodeNjHeaderNames decodes hex header names and skips non-ASCII/garbage", () => {
+  const names = decodeNjHeaderNames(SIGNER_CHUNK);
+  assert.ok(names.includes("X-Authorization"));
+  assert.ok(names.includes("X-Client-Domain"));
+  assert.ok(names.includes("X-Random"));
+});
+
+test("looksLikeSignerChunk fingerprints the signer chunk by content, not by number", () => {
+  // The signer chunk matches (ctx slot + nj decoders); the app chunk does not.
+  assert.equal(looksLikeSignerChunk(SIGNER_CHUNK), true);
+  assert.equal(looksLikeSignerChunk(APP_CHUNK), false);
+  assert.equal(looksLikeSignerChunk("var x=1;"), false);
+});
+
+test("assembleMaxaiConstants requires all five extracted values (null when any missing)", () => {
+  const good = assembleMaxaiConstants(parseMaxaiConstants(APP_CHUNK, SIGNER_CHUNK));
+  assert.ok(good);
+  assert.equal(good!.hmacKey, MOCK_HMAC_KEY);
+  // Missing a key → null (we never assemble a half-configured signer).
+  const noHmac = assembleMaxaiConstants({
+    hmacKey: null,
+    aesKey: MOCK_AES_KEY,
+    appVersion: MOCK_APP_VERSION,
+    ctxKey: MOCK_CTX_KEY,
+    docIdKey: MOCK_DOC_ID_KEY,
+    headerNames: {},
+  });
+  assert.equal(noHmac, null);
+});
+
+test("assembleMaxaiConstants defaults header NAMES but requires the id/key/version values", () => {
+  // All five extracted values present but header-name map empty → header-name
+  // defaults fill in (they are plain HTTP labels, not keys/secrets).
+  const c = assembleMaxaiConstants({
+    hmacKey: MOCK_HMAC_KEY,
+    aesKey: MOCK_AES_KEY,
+    appVersion: MOCK_APP_VERSION,
+    ctxKey: MOCK_CTX_KEY,
+    docIdKey: MOCK_DOC_ID_KEY,
+    headerNames: {},
+  });
+  assert.ok(c);
+  assert.equal(c!.headerNames.authorization, "X-Authorization");
+  assert.equal(c!.headerNames.random, "X-Random");
+  // A missing app_version (a required extracted value) → null.
+  assert.equal(
+    assembleMaxaiConstants({
+      hmacKey: MOCK_HMAC_KEY,
+      aesKey: MOCK_AES_KEY,
+      appVersion: null,
+      ctxKey: MOCK_CTX_KEY,
+      docIdKey: MOCK_DOC_ID_KEY,
+      headerNames: {},
+    }),
+    null
+  );
+  // A missing ctxKey (required) → null.
+  assert.equal(
+    assembleMaxaiConstants({
+      hmacKey: MOCK_HMAC_KEY,
+      aesKey: MOCK_AES_KEY,
+      appVersion: MOCK_APP_VERSION,
+      ctxKey: null,
+      docIdKey: MOCK_DOC_ID_KEY,
+      headerNames: {},
+    }),
+    null
+  );
+});
+
+test("validateMaxaiConstants: shape gate by default, proof gate when a vector is given", () => {
+  const c = assembleMaxaiConstants(parseMaxaiConstants(APP_CHUNK, SIGNER_CHUNK))!;
+  // Default: shape-only (no real vector is embedded in source).
+  assert.equal(validateMaxaiConstants(c), true);
+  // Malformed values fail the shape gate.
+  assert.equal(validateMaxaiConstants({ ...c, hmacKey: "not-hex" }), false);
+  assert.equal(validateMaxaiConstants({ ...c, docIdKey: "not-a-uuid" }), false);
+  // With a MOCK proof vector, the key that produced it validates and a wrong one doesn't.
+  const t = 1700000000000;
+  const path = "/gpt/cwc/chat";
+  const vector = {
+    path,
+    reqTime: t,
+    userId: USER_ID,
+    appVersion: MOCK_APP_VERSION,
+    expectedProof: referenceProof(MOCK_APP_VERSION, t, path, USER_ID, MOCK_HMAC_KEY),
+  };
+  assert.equal(validateMaxaiConstants(c, vector), true);
+  const wrongKey = { ...c, hmacKey: MOCK_AES_KEY };
+  assert.equal(validateMaxaiConstants(wrongKey, vector), false);
+});
+
+test("findChunkUrls returns the pages/_app chunk + build-independent candidates", () => {
+  const html = makeSyntheticAppHtml({
+    appChunk: "/_next/static/chunks/pages/_app-deadbeef.js",
+    signerChunk: "/_next/static/chunks/91234-cafebabe.js",
+  });
+  const { appChunk, candidateChunks } = findChunkUrls(html);
+  assert.equal(appChunk, "/_next/static/chunks/pages/_app-deadbeef.js");
+  // The signer chunk is just one of the candidates; it's chosen later BY CONTENT.
+  assert.ok(candidateChunks.includes("/_next/static/chunks/91234-cafebabe.js"));
+  assert.ok(!candidateChunks.includes("/_next/static/chunks/pages/_app-deadbeef.js"));
+});
+
+test("fetchMaxaiConstants finds the signer chunk BY CONTENT even when renumbered", async () => {
+  // Two numbered chunks: a decoy and the real signer under an ARBITRARY new id.
+  // The scan must pick the signer purely by its content fingerprint.
+  const html = makeSyntheticAppHtml({
+    appChunk: "/_next/static/chunks/pages/_app-aaaa.js",
+    signerChunk: "/_next/static/chunks/99999-newbuildid.js",
+    extra: ["/_next/static/chunks/55555-decoy.js"],
+  });
+  const fakeFetch = (async (url: string) => {
+    const u = String(url);
+    if (u.endsWith("/app/")) return new Response(html, { status: 200 });
+    if (u.includes("/pages/_app-")) return new Response(APP_CHUNK, { status: 200 });
+    if (u.includes("/99999-")) return new Response(SIGNER_CHUNK, { status: 200 });
+    if (u.includes("/55555-")) return new Response("var decoy=1;", { status: 200 });
+    return new Response("", { status: 404 });
+  }) as unknown as typeof fetch;
+
+  const c = await fetchMaxaiConstants({ fetchImpl: fakeFetch });
+  assert.ok(c, "constants should be extracted from a renumbered signer chunk");
+  assert.equal(c!.hmacKey, MOCK_HMAC_KEY);
+  assert.equal(c!.ctxKey, MOCK_CTX_KEY);
+  assert.equal(c!.source, "extracted");
+});
+
+test("fetchMaxaiConstants returns null when the bundle can't be reached", async () => {
+  const fakeFetch = (async () => new Response("", { status: 500 })) as unknown as typeof fetch;
+  assert.equal(await fetchMaxaiConstants({ fetchImpl: fakeFetch }), null);
+  // Re-seed the memo for the remaining network tests (some run after this).
+  resetMaxaiConstantsMemo();
+  __setMaxaiConstantsForTest(TEST_CONSTANTS);
 });
 
 test("buildMaxaiSignedHeaders emits the X-App/X-Browser companions + X-Authorization", () => {
-  const h = buildMaxaiSignedHeaders({
-    path: "/gpt/cwc/chat",
-    userId: USER_ID,
-    deviceId: "118a857e-c96f-4dfd-86ce-55ee910f748a",
-    now: () => 1784594159681,
-    random: () => "950484",
-  });
+  const h = buildMaxaiSignedHeaders(
+    {
+      path: "/gpt/cwc/chat",
+      userId: USER_ID,
+      deviceId: MOCK_DEVICE_ID,
+      now: () => 1784594159681,
+      random: () => "950484",
+    },
+    TEST_CONSTANTS
+  );
   assert.equal(h["X-Browser-Name"], "Firefox");
   assert.equal(h["X-Browser-Version"], "150.0");
-  assert.equal(h["X-App-Version"], "webpage_8.18.0");
+  assert.equal(h["X-App-Version"], MOCK_APP_VERSION);
   assert.equal(h["X-App-Env"], "MaxAI-Browser-Extension");
   assert.ok(h["X-Authorization"].length > 0);
   assert.equal(Buffer.from(h["X-Authorization"], "base64").subarray(0, 8).toString("ascii"), "Salted__");
@@ -152,7 +364,7 @@ test("contentToText flattens multipart content, dropping non-text parts", () => 
 });
 
 test("buildMaxaiChatBody pins field order + constants", () => {
-  const body = buildMaxaiChatBody({ conversationId: "conv-1", text: "hi", modelName: "gpt-5.6" });
+  const body = buildMaxaiChatBody({ conversationId: "conv-1", text: "hi", modelName: "gpt-5.6", appVersion: APP_VERSION });
   const keys = Object.keys(body);
   assert.equal(keys[0], "chat_mode");
   assert.equal(keys[3], "message_content");
@@ -167,7 +379,7 @@ test("buildMaxaiChatBody pins field order + constants", () => {
 // ── Vision input (image_url parts) ───────────────────────────────────────────
 
 test("buildMaxaiChatBody text-only path is unchanged (no imageUrls)", () => {
-  const body = buildMaxaiChatBody({ conversationId: "c", text: "hi", modelName: "gpt-5.6" });
+  const body = buildMaxaiChatBody({ conversationId: "c", text: "hi", modelName: "gpt-5.6", appVersion: APP_VERSION });
   // Byte-identical to the pre-vision shape: a single text part.
   assert.deepEqual(body.message_content, [{ type: "text", text: "hi" }]);
   assert.deepEqual(body.doc_list, []);
@@ -178,6 +390,7 @@ test("buildMaxaiChatBody appends image_url parts after the text part", () => {
     conversationId: "c",
     text: "what is this?",
     modelName: "gpt-5.6-luna",
+    appVersion: APP_VERSION,
     imageUrls: ["data:image/png;base64,AAAA", "https://example.com/cat.jpg"],
   });
   assert.deepEqual(body.message_content, [
@@ -194,6 +407,7 @@ test("buildMaxaiChatBody skips empty/blank image urls", () => {
     conversationId: "c",
     text: "t",
     modelName: "gpt-5.6",
+    appVersion: APP_VERSION,
     imageUrls: ["", "https://x/y.png"],
   });
   assert.equal((body.message_content as unknown[]).length, 2); // text + 1 valid image
@@ -327,7 +541,7 @@ test("maxaiRefreshAccessToken sends the exact web-app request + parses data.acce
 
   const result = await maxaiRefreshAccessToken({
     refreshToken,
-    deviceId: "118a857e-c96f-4dfd-86ce-55ee910f748a",
+    deviceId: MOCK_DEVICE_ID,
     fetchImpl: fakeFetch,
   });
 
@@ -377,7 +591,7 @@ test("requestMaxaiEmailCode posts the signed signin request + treats status OK a
 
   const r = await requestMaxaiEmailCode({
     email: "user@example.com",
-    deviceId: "46a0703d-8841-44b9-9287-efbc49091454",
+    deviceId: MOCK_DEVICE_ID,
     fetchImpl: fakeFetch,
   });
 

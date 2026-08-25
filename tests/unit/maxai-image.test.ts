@@ -8,6 +8,12 @@ import {
   MAXAI_IMAGE_PATH,
 } from "../../open-sse/handlers/imageGeneration/providers/maxaiImage.ts";
 import { IMAGE_PROVIDERS } from "../../open-sse/config/imageRegistry.ts";
+import { __setMaxaiConstantsForTest } from "../../open-sse/executors/maxai/constantsStore.ts";
+import { MOCK_CONSTANTS } from "./helpers/maxaiMockConstants.ts";
+
+// Image generation signs like any request; seed the in-process constants memo
+// with MOCK values so the handler doesn't try to fetch the live MaxAI bundle.
+__setMaxaiConstantsForTest(MOCK_CONSTANTS);
 
 // A minimal valid MaxAI credential (userId derives nothing here; the signer is
 // exercised elsewhere). providerSpecificData carries the token + device id.
@@ -15,7 +21,7 @@ const CRED = {
   providerSpecificData: {
     maxaiAccessToken: "tok-abc",
     maxaiDeviceId: "dev-123",
-    maxaiUserId: "217f0819-965c-4926-8397-6059aacd2dcd",
+    maxaiUserId: "11111111-1111-4111-8111-111111111111",
   },
 };
 

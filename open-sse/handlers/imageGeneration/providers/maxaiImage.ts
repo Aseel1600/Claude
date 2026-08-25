@@ -17,6 +17,7 @@
 
 import { resolveMaxaiCredential } from "../../../executors/maxai/credentials.ts";
 import { buildMaxaiSignedHeaders } from "../../../executors/maxai/signing.ts";
+import { ensureMaxaiConstants } from "../../../executors/maxai/constantsStore.ts";
 import { MAXAI_BASE_URL, maxaiStaticHeaders } from "../../../executors/maxai/protocol.ts";
 import { sanitizeErrorMessage } from "../../../utils/error.ts";
 import { saveImageErrorResult, saveImageSuccessResult } from "../../imageGeneration.ts";
@@ -145,9 +146,19 @@ export async function handleMaxaiImageGeneration({
     model_name: canonicalModel,
   };
 
+  const constants = await ensureMaxaiConstants({ fetchImpl, signal });
+  if (!constants) {
+    return saveImageErrorResult({
+      provider,
+      model,
+      status: 401,
+      startTime,
+      error: "MaxAI signing constants unavailable (extraction failed).",
+    });
+  }
   const headers: Record<string, string> = {
     ...maxaiStaticHeaders(),
-    ...buildMaxaiSignedHeaders({ path: MAXAI_IMAGE_PATH, userId: cred.userId, deviceId: cred.deviceId }),
+    ...buildMaxaiSignedHeaders({ path: MAXAI_IMAGE_PATH, userId: cred.userId, deviceId: cred.deviceId }, constants),
     Authorization: `Bearer ${cred.accessToken}`,
     "Content-Type": "application/json",
   };

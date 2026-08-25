@@ -21,12 +21,10 @@
  */
 import { createHmac } from "node:crypto";
 import { buildMaxaiSignedHeaders } from "./signing.ts";
+import { ensureMaxaiConstants } from "./constantsStore.ts";
 import { maxaiStaticHeaders, MAXAI_BASE_URL } from "./protocol.ts";
 
 export const MAXAI_UPLOAD_PATH = "/app/upload_document";
-// Public web-app constant: HMAC-SHA1 key for the content-addressed doc_id
-// (extension createDocId). Not a secret — ships in the maxai.co bundle.
-const MAXAI_DOC_ID_KEY = "7b82a776-daab-4847-a1df-dd35fc5059b0";
 
 export interface MaxaiDocListEntry {
   doc_id: string;
@@ -41,8 +39,9 @@ export interface InlineDoc {
   bytes: Buffer;
 }
 
-/** doc_id = HMAC-SHA1(file_bytes, IT) hex. Content-addressed; MaxAI verifies it. */
-export function computeMaxaiDocId(bytes: Buffer, key: string = MAXAI_DOC_ID_KEY): string {
+/** doc_id = HMAC-SHA1(file_bytes, docIdKey) hex. Content-addressed; MaxAI verifies it. */
+export function computeMaxaiDocId(bytes: Buffer, key: string): string {
+  if (!key) throw new Error("computeMaxaiDocId: missing docIdKey");
   return createHmac("sha1", key).update(bytes).digest("hex");
 }
 
@@ -204,7 +203,9 @@ export async function uploadMaxaiDocument(
   opts?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<MaxaiDocListEntry | null> {
   const fetchImpl = opts?.fetchImpl ?? fetch;
-  const docId = computeMaxaiDocId(doc.bytes);
+  const constants = await ensureMaxaiConstants({ fetchImpl, signal: opts?.signal });
+  if (!constants) return null;
+  const docId = computeMaxaiDocId(doc.bytes, constants.docIdKey);
   const docType = maxaiDocType(doc.filename, doc.mimeType);
   const boundary = `----maxai${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
   const bodyBuf = buildUploadMultipart(doc, docId, docType, boundary);
@@ -214,7 +215,7 @@ export async function uploadMaxaiDocument(
   const { "Content-Type": _drop, ...staticHeaders } = maxaiStaticHeaders();
   const headers: Record<string, string> = {
     ...staticHeaders,
-    ...buildMaxaiSignedHeaders({ path: MAXAI_UPLOAD_PATH, userId: auth.userId, deviceId: auth.deviceId }),
+    ...buildMaxaiSignedHeaders({ path: MAXAI_UPLOAD_PATH, userId: auth.userId, deviceId: auth.deviceId }, constants),
     Authorization: `Bearer ${auth.accessToken}`,
     "Content-Type": `multipart/form-data; boundary=${boundary}`,
   };

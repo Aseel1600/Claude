@@ -10,28 +10,35 @@ import {
   uploadMaxaiDocument,
   resolveMaxaiDocList,
 } from "../../open-sse/executors/maxai/documents.ts";
+import { __setMaxaiConstantsForTest } from "../../open-sse/executors/maxai/constantsStore.ts";
+import { MOCK_CONSTANTS, MOCK_DOC_ID_KEY } from "./helpers/maxaiMockConstants.ts";
+
+// Doc uploads sign like any request, so seed the in-process constants memo with
+// MOCK values instead of mocking the bundle fetch. Nothing real is committed.
+const DOC_ID_KEY = MOCK_DOC_ID_KEY;
+__setMaxaiConstantsForTest(MOCK_CONSTANTS);
 
 const AUTH = {
   accessToken: "tok-abc",
-  userId: "217f0819-965c-4926-8397-6059aacd2dcd",
-  deviceId: "dev-123",
+  userId: "11111111-1111-4111-8111-111111111111",
+  deviceId: "22222222-2222-4222-8222-222222222222",
 };
 
 // --- doc_id (content-addressed HMAC-SHA1) --------------------------------
 
-test("computeMaxaiDocId matches the HMAC-SHA1(bytes, IT) reference", () => {
-  // Cross-checked against python hmac.new(key, b'hello world', sha1).hexdigest()
-  assert.equal(
-    computeMaxaiDocId(Buffer.from("hello world")),
-    "18cf2b0a0eade6900f19745752a6e8571319c257"
-  );
+test("computeMaxaiDocId is a stable HMAC-SHA1(bytes, key) hex digest", () => {
+  // Cross-checked shape: HMAC-SHA1 hex is 40 chars; deterministic for same input.
+  const id = computeMaxaiDocId(Buffer.from("hello world"), DOC_ID_KEY);
+  assert.equal(id.length, 40);
+  assert.match(id, /^[0-9a-f]{40}$/);
+  assert.equal(computeMaxaiDocId(Buffer.from("hello world"), DOC_ID_KEY), id);
+  // Different key or bytes → different id.
+  assert.notEqual(id, computeMaxaiDocId(Buffer.from("hello world"), "different-key"));
+  assert.notEqual(id, computeMaxaiDocId(Buffer.from("other"), DOC_ID_KEY));
 });
 
-test("computeMaxaiDocId is deterministic (same bytes -> same id)", () => {
-  const a = computeMaxaiDocId(Buffer.from("abc"));
-  const b = computeMaxaiDocId(Buffer.from("abc"));
-  assert.equal(a, b);
-  assert.equal(a.length, 40); // sha1 hex
+test("computeMaxaiDocId requires a key (never hashes with a guess)", () => {
+  assert.throws(() => computeMaxaiDocId(Buffer.from("x"), ""));
 });
 
 // --- doc_type classification --------------------------------------------
@@ -157,7 +164,7 @@ test("uploadMaxaiDocument returns a doc_list entry on upload_done", async () => 
     { fetchImpl }
   );
   assert.ok(entry);
-  assert.equal(entry!.doc_id, computeMaxaiDocId(Buffer.from("hi")));
+  assert.equal(entry!.doc_id, computeMaxaiDocId(Buffer.from("hi"), DOC_ID_KEY));
   assert.equal(entry!.doc_type, "chat_file");
   assert.equal(entry!.file_name, "a.txt");
   assert.match(hitUrl, /\/app\/upload_document$/);

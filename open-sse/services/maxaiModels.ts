@@ -20,6 +20,7 @@
  */
 import { resolveMaxaiCredential } from "../executors/maxai/credentials.ts";
 import { buildMaxaiSignedHeaders } from "../executors/maxai/signing.ts";
+import { ensureMaxaiConstants } from "../executors/maxai/constantsStore.ts";
 import {
   maxaiStaticHeaders,
   MAXAI_BASE_URL,
@@ -110,11 +111,15 @@ export async function discoverMaxaiModels(
   }
 
   const path = MAXAI_MODELS_CONFIG_PATH;
+  const constants = await ensureMaxaiConstants({ fetchImpl: doFetch, signal: input.signal });
+  if (!constants) {
+    throw new Error("MaxAI signing constants unavailable (extraction failed).");
+  }
   const res = await doFetch(MAXAI_BASE_URL + path, {
     method: "POST",
     headers: {
       ...maxaiStaticHeaders(),
-      ...buildMaxaiSignedHeaders({ path, userId: cred.userId, deviceId: cred.deviceId }),
+      ...buildMaxaiSignedHeaders({ path, userId: cred.userId, deviceId: cred.deviceId }, constants),
       Authorization: `Bearer ${cred.accessToken}`,
     },
     body: "{}",

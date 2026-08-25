@@ -28,6 +28,7 @@
 import { buildMaxaiSignedHeaders } from "./signing.ts";
 import { maxaiStaticHeaders, MAXAI_BASE_URL } from "./protocol.ts";
 import { userIdFromJwt, accessTokenExpiry } from "./credentials.ts";
+import { refreshMaxaiConstants } from "./constantsStore.ts";
 
 export const MAXAI_REFRESH_PATH = "/oauth/refresh_access_token";
 
@@ -78,11 +79,23 @@ export async function maxaiRefreshAccessToken(
     return { ok: false, status: 0, error: "missing refreshToken, deviceId, or userId" };
   }
 
-  const signed = buildMaxaiSignedHeaders({
-    path: MAXAI_REFRESH_PATH,
-    userId,
-    deviceId: input.deviceId,
-  });
+  // Daily refresh is our freshness checkpoint for the signing constants: re-extract
+  // from MaxAI's public bundle so a MaxAI-side key/app-version rotation is picked up
+  // within a day (self-heal). refreshMaxaiConstants persists a changed set and
+  // returns the current-best; on a fetch miss it returns whatever's already stored.
+  const constants = await refreshMaxaiConstants({ fetchImpl: doFetch, signal: input.signal });
+  if (!constants) {
+    return { ok: false, status: 0, error: "MaxAI signing constants unavailable (extraction failed)" };
+  }
+
+  const signed = buildMaxaiSignedHeaders(
+    {
+      path: MAXAI_REFRESH_PATH,
+      userId,
+      deviceId: input.deviceId,
+    },
+    constants
+  );
   const headers: Record<string, string> = {
     ...maxaiStaticHeaders(),
     ...signed,
