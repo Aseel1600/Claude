@@ -1355,7 +1355,7 @@ test("#11408 guard: no-executable-targets early exit still records the combo fai
     allCombos: null,
   });
 
-  const payload = (await result.json()) as any;
+  await result.json();
   assert.equal(result.status, 404);
   // The quota-share slot release must not replace the #5923 silent-stop
   // bookkeeping: the consecutive-failure counter must still advance so the

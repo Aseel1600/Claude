@@ -1,14 +1,29 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { bindVolcenginePlansFromConsoleCredentials } from "@/lib/providers/volcenginePlanBinding";
+import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+
+// All fields optional: a bare POST (no body) legitimately triggers the manual
+// headful login flow, so an empty object must validate. Zod still rejects
+// wrong-typed fields (e.g. a non-string phone) per Hard Rule #7 / t06 gate.
+const connectBodySchema = z.object({
+  timeout: z.number().optional(),
+  phone: z.string().optional(),
+});
 
 export async function POST(request: Request): Promise<NextResponse> {
   const auth = await requireManagementAuth(request);
   if (auth) return auth;
 
-  const body = await request.json().catch(() => ({}));
-  const timeout = typeof body.timeout === "number" ? body.timeout : undefined;
+  const rawBody = await request.json().catch(() => ({}));
+  const validation = validateBody(connectBodySchema, rawBody);
+  if (isValidationFailure(validation)) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+  const body = validation.data;
+  const timeout = body.timeout;
 
   // Auto flow: phone present → start a session-based headless phone/SMS login.
   if (typeof body.phone === "string" && body.phone.trim()) {

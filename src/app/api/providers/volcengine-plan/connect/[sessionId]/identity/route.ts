@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { bindVolcenginePlansFromConsoleCredentials } from "@/lib/providers/volcenginePlanBinding";
+import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+
+// index is validated for integer/range below; timeout stays optional. All
+// fields optional so the shape is tolerant, but Zod enforces types per Rule #7.
+const identityBodySchema = z.object({
+  timeout: z.number().optional(),
+  index: z.union([z.string(), z.number()]).optional(),
+});
 
 /**
  * POST /api/providers/volcengine-plan/connect/[sessionId]/identity
@@ -16,7 +25,12 @@ export async function POST(
   if (auth) return auth;
 
   const { sessionId } = await params;
-  const body = await request.json().catch(() => ({}));
+  const rawBody = await request.json().catch(() => ({}));
+  const validation = validateBody(identityBodySchema, rawBody);
+  if (isValidationFailure(validation)) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+  const body = validation.data;
 
   try {
     const { volcengineConsoleAutoLoginService } =
@@ -37,7 +51,7 @@ export async function POST(
       );
     }
 
-    const timeout = typeof body.timeout === "number" ? body.timeout : undefined;
+    const timeout = body.timeout;
     const session = await volcengineConsoleAutoLoginService.selectIdentity(sessionId, index, {
       timeout,
     });

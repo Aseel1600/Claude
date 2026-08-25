@@ -361,6 +361,22 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "__Secure-better-auth.session_token"],
   },
+  maxai: {
+    kind: "token",
+    credentialName: "MaxAI access token (Bearer) + device id",
+    placeholder:
+      "Use browser sign-in — OmniRoute mints the MaxAI access token, device id, and user id for you",
+    acceptsFullCookieHeader: false,
+    storageKeys: [
+      "accessToken",
+      "access_token",
+      "maxaiAccessToken",
+      "deviceId",
+      "maxaiDeviceId",
+      "userId",
+      "maxaiUserId",
+    ],
+  },
 } satisfies Record<string, WebSessionCredentialRequirement> &
   Record<keyof typeof WEB_COOKIE_PROVIDERS, WebSessionCredentialRequirement>;
 

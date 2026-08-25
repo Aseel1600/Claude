@@ -2372,16 +2372,6 @@
       "count": 2
     }
   },
-  "src/lib/guardrails/videoBridgeContactSheet.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/lib/guardrails/videoBridgeRuntime.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/lib/guardrails/visionBridgeHelpers.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -4421,7 +4411,7 @@
   },
   "tests/unit/combo-routing-engine.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 267
+      "count": 268
     }
   },
   "tests/unit/combo-same-provider-cascade.test.ts": {

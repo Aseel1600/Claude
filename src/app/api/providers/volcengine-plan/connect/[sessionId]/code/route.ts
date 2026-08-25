@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { bindVolcenginePlansFromConsoleCredentials } from "@/lib/providers/volcenginePlanBinding";
+import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+
+// Lenient by design: code/captcha may be absent while the session waits, so all
+// fields are optional. Zod still rejects wrong-typed fields per Hard Rule #7.
+const codeBodySchema = z.object({
+  timeout: z.number().optional(),
+  code: z.union([z.string(), z.number()]).optional(),
+  captcha: z.string().optional(),
+});
 
 /**
  * POST /api/providers/volcengine-plan/connect/[sessionId]/code
@@ -17,7 +27,12 @@ export async function POST(
   if (auth) return auth;
 
   const { sessionId } = await params;
-  const body = await request.json().catch(() => ({}));
+  const rawBody = await request.json().catch(() => ({}));
+  const validation = validateBody(codeBodySchema, rawBody);
+  if (isValidationFailure(validation)) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+  const body = validation.data;
 
   try {
     const { volcengineConsoleAutoLoginService } =
@@ -30,7 +45,7 @@ export async function POST(
       );
     }
 
-    const timeout = typeof body.timeout === "number" ? body.timeout : undefined;
+    const timeout = body.timeout;
     const session = await volcengineConsoleAutoLoginService.submitCode(
       sessionId,
       String(body.code ?? ""),

@@ -22,6 +22,17 @@ function makeJsonRpcRequest(body: unknown): NextRequest {
   }) as unknown as NextRequest;
 }
 
+/**
+ * Minimal NextRequest stand-in for the Agent Card GET handler, which derives
+ * its base URL via getBaseUrl(request) (reads request.nextUrl.origin). Mirrors
+ * the mock used by tests/unit/agent-card-route.test.ts.
+ */
+function makeAgentCardRequest(
+  url = "http://localhost:20128/.well-known/agent-card.json"
+): NextRequest {
+  return { nextUrl: new URL(url) } as unknown as NextRequest;
+}
+
 test.beforeEach(async () => {
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
@@ -48,7 +59,13 @@ test("#10839: v1.0 SendMessage is aliased to message/send and reshapes the respo
   );
   assert.equal(res.status, 200);
   const body = (await res.json()) as {
-    result?: { task?: { id: string; status?: { message?: { parts?: { text?: string }[] } }; artifacts?: unknown } };
+    result?: {
+      task?: {
+        id: string;
+        status?: { message?: { parts?: { text?: string }[] } };
+        artifacts?: unknown;
+      };
+    };
     error?: unknown;
   };
   assert.equal(body.error, undefined, JSON.stringify(body));
@@ -102,7 +119,7 @@ test("#10839: SendStreamingMessage no longer 404s (aliased to message/stream)", 
 });
 
 test("#10839: GET /.well-known/agent-card.json serves a v1.0 card declaring both interfaces", async () => {
-  const res = await agentCardRoute.GET();
+  const res = await agentCardRoute.GET(makeAgentCardRequest());
   assert.equal(res.status, 200);
   const card = (await res.json()) as { supportedInterfaces?: { protocolVersion?: string }[] };
   assert.ok(Array.isArray(card.supportedInterfaces));

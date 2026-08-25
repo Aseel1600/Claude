@@ -72,6 +72,12 @@ const EXPECTED: Record<InventoryKind, Record<string, number>> = {
     "open-sse/services/alibabaFreeTier.ts": 1,
     "open-sse/services/alibabaFreeTierQuotaFetcher.ts": 1,
     "open-sse/services/combo/providerWildcard.ts": 1,
+    // #11xxx: readConnectionForCooldownGate reads the connection row in the live
+    // combo dispatch/retry path (handleComboChat + handleRoundRobinCombo) to
+    // enforce the persisted rate_limited_until cooldown before dispatching. This
+    // is the same request-time managed-lease surface as providerWildcard/chatCore,
+    // so it is class B.
+    "open-sse/services/combo.ts": 1,
     "open-sse/services/tokenRefresh.ts": 1,
     "src/app/(dashboard)/dashboard/tools/agent-bridge/page.tsx": 1,
     "src/app/api/cloud/auth/route.ts": 1,
@@ -128,6 +134,15 @@ const EXPECTED: Record<InventoryKind, Record<string, number>> = {
     "src/lib/oauth/utils/codexAuthImport.ts": 1,
     "src/lib/providerModels/managedModelImport.ts": 1,
     "src/lib/providers/codexConnectionDefaults.ts": 1,
+    // #11xxx: one-time boot backfill that enumerates connections only to patch a
+    // metadata flag (autoSync:true) on existing volc-plan rows. It never resolves
+    // credentials or dispatches against the lease, so it is administrative
+    // persistence, class C (same family as connectionPersistence/codexConnectionDefaults).
+    "src/lib/providers/volcPlanAutoSyncBackfill.ts": 1,
+    // #11xxx: plan-binding credential import that looks up an existing connection
+    // by name to create-or-update its persisted row from console credentials. It
+    // is write-side connection persistence, not a request-time lease dispatch, class C.
+    "src/lib/providers/volcenginePlanBinding.ts": 1,
     "src/lib/proxyEgress.ts": 1,
     "src/lib/quota/connectionRecovery.ts": 2,
     "src/lib/sync/bundle.ts": 1,
@@ -180,6 +195,7 @@ const CLASSIFICATION: Record<InventoryKind, Record<string, BypassClass>> = {
         "open-sse/services/alibabaFreeTier.ts",
         "open-sse/services/alibabaFreeTierQuotaFetcher.ts",
         "open-sse/services/combo/providerWildcard.ts",
+        "open-sse/services/combo.ts",
         "open-sse/services/tokenRefresh.ts",
         "src/app/api/translator/send/route.ts",
         "src/lib/credentialHealth/scheduler.ts",

@@ -152,7 +152,12 @@ test("postExchange attempts onboarding when projectId is empty and returns disco
     }
     if (u.includes("onboardUser")) {
       onboardUserCalled = true;
-      return jsonRes({ done: true });
+      // A real onboarding success carries cloudaicompanionProject in the body;
+      // #8491's BYOP guard only SKIPS the retry loadCodeAssist when the body has
+      // NO project (personal/standard-tier). This test exercises the genuine
+      // success path (project created → retry discovers new-project-456), so the
+      // onboardUser body must carry a project.
+      return jsonRes({ cloudaicompanionProject: "new-project-456", done: true });
     }
     return jsonRes({});
   }) as typeof fetch;

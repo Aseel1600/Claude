@@ -74,6 +74,10 @@ export interface TlsFetchOptions {
   proxy?: string | null;
   /** Stable account/connection identity used to isolate cookies and circuit state. */
   sessionScope?: string;
+  /** wreq-js browser profile to impersonate (default "chrome_124"). e.g. "firefox_150". */
+  browserProfile?: string;
+  /** wreq-js OS to emulate (default "macos"). e.g. "windows". */
+  os?: string;
 }
 
 function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> | undefined {
@@ -270,12 +274,18 @@ export class TlsClient {
     return proxy === undefined ? (getProxyFromEnv() ?? null) : proxy;
   }
 
-  private getSessionKey(resolvedProxy: string | null, sessionScope?: string): string {
+  private getSessionKey(
+    resolvedProxy: string | null,
+    sessionScope?: string,
+    browserProfile?: string
+  ): string {
     const scope = sessionScope?.trim() || this.legacySessionScope;
     return createHash("sha256")
       .update(scope)
       .update("\0")
       .update(resolvedProxy ?? "")
+      .update("\0")
+      .update(browserProfile ?? "chrome_124")
       .digest("base64url");
   }
 
@@ -503,7 +513,9 @@ export class TlsClient {
 
   private async getSession(
     resolvedProxy: string | null,
-    key: string
+    key: string,
+    browserProfile = "chrome_124",
+    os = "macos"
   ): Promise<WreqSession | null> {
     const cached = this.sessions.get(key);
     if (cached) {
@@ -517,8 +529,8 @@ export class TlsClient {
     this.reserveSessionCapacity(key);
 
     const sessionOpts: Record<string, unknown> = {
-      browser: "chrome_124",
-      os: "macos",
+      browser: browserProfile,
+      os,
     };
     if (resolvedProxy) sessionOpts.proxy = resolvedProxy;
     const globalEpoch = this.globalSessionEpoch;
@@ -564,7 +576,7 @@ export class TlsClient {
   /** Fetch with Chrome 124 TLS fingerprint and an account-scoped persistent cookie jar. */
   async fetch(url: string, options: TlsFetchOptions = {}): Promise<Response> {
     const resolvedProxy = this.resolveProxy(options.proxy);
-    const key = this.getSessionKey(resolvedProxy, options.sessionScope);
+    const key = this.getSessionKey(resolvedProxy, options.sessionScope, options.browserProfile);
     if (!this.checkCircuit(key)) {
       const state = this.circuits.get(key);
       const error = new Error("wreq-js circuit open — skipping TLS request") as Error & {
@@ -588,7 +600,12 @@ export class TlsClient {
       this.releaseSession(key);
     };
     try {
-      session = await this.getSession(resolvedProxy, key);
+      session = await this.getSession(
+        resolvedProxy,
+        key,
+        options.browserProfile,
+        options.os
+      );
       if (!session) throw new Error("wreq-js not available");
       this.retainSession(key);
       sessionUseRetained = true;
