@@ -68,6 +68,16 @@ jobs:
             "$EVENT_NAME" "$REF_TYPE" "$REF_NAME" "$INPUT_VERSION" "$DEFAULT_BRANCH")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+          # Frozen release branches keep receiving coordination commits after the
+          # next cycle becomes the default branch. They must not overwrite :next,
+          # but that expected no-op is not a workflow failure.
+          if [ "$VERSION" = "skip" ]; then
+            echo "promote_latest=false" >> "$GITHUB_OUTPUT"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping Docker publish from non-default release branch: $REF_NAME"
+            exit 0
+          fi
+
           # 2) Decide whether to promote :latest. Floating channels are never
           # eligible, and the helper independently fails closed for non-semver.
           PROMOTE="false"
