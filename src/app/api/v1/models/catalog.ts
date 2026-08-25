@@ -1611,9 +1611,10 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
           const visionFields =
-            !modelType || modelType === "chat"
-              ? getCustomVisionCapabilityFields(model, aliasId, modelId)
-              : null;
+            // A chat model is the no-specialty case: classifyModelSupportedEndpoints
+            // returns type=undefined for it (specialty types are embedding/rerank/
+            // image/video/audio), so `!modelType` alone identifies chat models.
+            !modelType ? getCustomVisionCapabilityFields(model, aliasId, modelId) : null;
 
           if (includeAlias) {
             models.push({
@@ -1645,7 +1646,8 @@ async function buildUnifiedModelsResponseCore(
             const providerPrefixedId = `${canonicalProviderId}/${modelId}`;
             if (models.some((m) => m.id === providerPrefixedId)) continue;
             const providerVisionFields =
-              !modelType || modelType === "chat"
+              // Chat model = no-specialty case (see the alias branch above).
+              !modelType
                 ? getCustomVisionCapabilityFields(model, providerPrefixedId, modelId)
                 : null;
             models.push({

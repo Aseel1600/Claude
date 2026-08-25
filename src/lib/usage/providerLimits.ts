@@ -513,7 +513,42 @@ export async function maybeClearRecoveredQuotaState(
 ): Promise<ProviderConnectionLike> {
   if (!hasUsableQuota(usage)) return connection;
   if (isTerminalStatusForQuotaRecovery(connection.testStatus)) return connection;
-  if (hasActiveCooldown(connection)) return connection;
+  if (connection.lastErrorType === "quota_exhausted") {
+    if (
+      connection.lastErrorSource === CLAUDE_EXTRA_USAGE_ERROR_SOURCE &&
+      isClaudeExtraUsageBlockEnabled(connection.provider, connection.providerSpecificData) &&
+      isClaudeExtraUsageQueued(usage)
+    ) {
+      // Claude's pay-as-you-go extra-usage block is orthogonal to the
+      // session/weekly quota windows checked below: the upstream can report a
+      // fully recovered quota window while extraUsage.queued is still true.
+      // Only syncClaudeExtraUsageStateIfNeeded (buildClaudeExtraUsageConnectionUpdate)
+      // owns clearing this specific state; the general window-recovery logic
+      // below must not release it just because some quota window looks fresh.
+      return connection;
+    }
+
+    const quotas = usage?.quotas;
+    if (isRecord(quotas)) {
+      // Honor the REAL per-window resetAt from the freshly fetched quota
+      // instead of the synthetic cooldown persisted at failure time (e.g.
+      // Claude's flat 1h SUBSCRIPTION_QUOTA_COOLDOWN_MS when no upstream
+      // reset was parseable). Only stay locked if some window that governs
+      // this connection's quota is still demonstrably exhausted.
+      const anyStillBlocking = Object.values(quotas).some((value) =>
+        windowStillExhaustedAfterRealReset(value, Date.now())
+      );
+      if (anyStillBlocking) return connection;
+    } else if (hasActiveCooldown(connection)) {
+      // No quota object at all (degraded/failed fetch shape); fall back to
+      // the previous synthetic-cooldown guard.
+      return connection;
+    }
+  } else if (hasActiveCooldown(connection)) {
+    // Non-quota transient error: a rateLimitedUntil set by the upstream 429
+    // handler is a hard statement and must never be overruled by a quota poll.
+    return connection;
+  }
 
   const hasTransientState =
     connection.testStatus === "unavailable" ||
