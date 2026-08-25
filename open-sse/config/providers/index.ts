@@ -63,6 +63,7 @@ import { nubeProvider } from "./registry/nube/index.ts";
 import { clinepassProvider } from "./registry/clinepass/index.ts";
 import { sparkdeskProvider } from "./registry/sparkdesk/index.ts";
 import { nlpcloudProvider } from "./registry/nlpcloud/index.ts";
+import { oneminaiProvider } from "./registry/oneminai/index.ts";
 import { nvidiaProvider } from "./registry/nvidia/index.ts";
 import { api_airforceProvider } from "./registry/api-airforce/index.ts";
 import { mistralProvider } from "./registry/mistral/index.ts";
@@ -332,6 +333,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   clinepass: clinepassProvider,
   sparkdesk: sparkdeskProvider,
   nlpcloud: nlpcloudProvider,
+  oneminai: oneminaiProvider,
   nvidia: nvidiaProvider,
   "api-airforce": api_airforceProvider,
   mistral: mistralProvider,

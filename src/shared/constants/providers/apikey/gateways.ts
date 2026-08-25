@@ -3,6 +3,22 @@
  * Pure data; merged by apikey/index.ts via spread (god-file decomposition; semantic split).
  */
 export const APIKEY_PROVIDERS_GATEWAYS = {
+  // 1min.ai (https://docs.1min.ai) — multi-model chat aggregator with its own
+  // custom API (single `prompt` string + real SSE, not OpenAI-compatible).
+  // OmniRoute's oneminai executor translates both directions.
+  oneminai: {
+    id: "oneminai",
+    alias: "1min",
+    name: "1min.AI",
+    icon: "hub",
+    color: "#6366F1",
+    textIcon: "1M",
+    website: "https://1min.ai",
+    authHint: "Create an API key at https://docs.1min.ai/docs/api/create-api-key, then paste it here.",
+    apiHint:
+      "1min.ai uses a proprietary chat API (single prompt string + SSE) instead of OpenAI chat/completions. OmniRoute flattens OpenAI messages into a labeled prompt and translates the SSE stream.",
+    passthroughModels: true,
+  },
   // Cheaper Inference (https://cheaperinference.com) — OSS-sponsor gateway.
   // Cost-ranked reseller of 42 upstream models (Anthropic/OpenAI/Google/Moonshot/
   // xAI/Z.AI/DeepSeek/MiniMax) behind one OpenAI-compatible surface, with a native
