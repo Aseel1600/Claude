@@ -1,0 +1,1 @@
+- **fix(docker-bun):** make `Dockerfile.bun` install reliable with pre-install script helpers and native `bun:sqlite` smoke check ([#11469](https://github.com/diegosouzapw/OmniRoute/pull/11469)) — thanks @TheDemonTuan
