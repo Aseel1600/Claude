@@ -1,16 +1,16 @@
 ---
 title: "Provider Reference"
-version: 3.8.50
-lastUpdated: 2026-08-23
+version: 3.8.51
+lastUpdated: 2026-08-25
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-08-23
+> **Last generated:** 2026-08-25
 
-Total providers: **350**. See category breakdown below.
+Total providers: **353**. See category breakdown below.
 
 ## Categories
 
@@ -122,7 +122,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web` | `zw` | Z.ai Web | Web cookie | [link](https://chat.z.ai) | Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport. | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (231)
+## API Key Providers (paid / paid-with-free-credits) (233)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -342,6 +342,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `vertex-partner` | `vp` | Vertex AI Partners | API key, enterprise | [link](https://cloud.google.com/vertex-ai) | Provide the same Service Account JSON used for Vertex AI partner models. |
 | `void-ai` | `void-ai` | Void AI | API key, aggregator | [link](https://voidai.app) | The public model catalog marks some models with a free plan requirement, but access is conditional and no numeric quota is confirmed. |
 | `volcengine` | `volcengine` | Volcengine | API key | [link](https://www.volcengine.com) | — |
+| `volcengine-agent-plan` | `veap` | Volcengine Ark Agent Plan | API key | [link](https://console.volcengine.com/ark/region:cn-beijing/subscription/agent-plan) | Connect your Volcano Engine account or use an Ark Agent Plan subscription API key. |
+| `volcengine-coding-plan` | `vecp` | Volcengine Ark Coding Plan | API key | [link](https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan) | Connect your Volcano Engine account or use an Ark Coding Plan subscription API key. |
 | `voyage-ai` | `voyage` | Voyage AI | API key, embed/rerank | [link](https://www.voyageai.com) | Bearer API key for Voyage AI embeddings and rerank APIs. |
 | `wafer` | `wafer` | Wafer AI | API key | [link](https://wafer.ai) | — |
 | `wandb` | `wandb` | Weights & Biases Inference | API key | [link](https://wandb.ai) | — |
@@ -377,7 +379,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `vllm` | `vllm` | vLLM | Local, self-hosted | [link](https://github.com/vllm-project/vllm) | API key optional. Configure the local vLLM OpenAI-compatible base URL (default: http://localhost:8000/v1). |
 | `xinference` | `xinference` | XInference | Local, self-hosted | [link](https://inference.readthedocs.io) | API key optional. Configure the local XInference OpenAI-compatible base URL (default: http://localhost:9997/v1). |
 
-## Search Providers (14)
+## Search Providers (15)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -394,6 +396,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `serper-search` | `serper-search` | Serper Search | Search | [link](https://serper.dev) | API key from serper.dev dashboard |
 | `tavily-search` | `tavily-search` | Tavily Search | Search | [link](https://tavily.com) | API key from app.tavily.com (format: tvly-...) |
 | `x-search` | `x_search` | X Search (Grok) | Search | [link](https://docs.x.ai/developers/tools/x-search) | SuperGrok OAuth (xai-oauth) or xAI API key. This is Grok X Search, not the X Developer MCP. |
+| `xquik-search` | `xquik` | Xquik X Search | Search | [link](https://docs.xquik.com) | Xquik API key (xq_...). Search is metered per returned post; the catalog estimate uses 5 results. |
 | `youcom-search` | `youcom-search` | You.com Search | Search | [link](https://you.com/business/api/) | X-API-Key from the You.com platform dashboard |
 
 ## Audio-only Providers (12)
@@ -438,7 +441,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 - Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)
 - Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)
-- Executors: [`open-sse/executors/`](../../open-sse/executors/) (108 implementations)
+- Executors: [`open-sse/executors/`](../../open-sse/executors/) (109 implementations)
 - Translators: [`open-sse/translator/`](../../open-sse/translator/)
 
 ## See Also
