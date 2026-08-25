@@ -101,10 +101,15 @@ describe("Task Fitness", () => {
       // The fix: getTaskFitnessWithSource strips a trailing "-free" suffix
       // and re-queries arena_elo with the base id. We seed an arena_elo
       // row directly via the DB module, look up the free variant, and
-      // assert the alias path returns the base score with source
-      // "arena_elo_free_alias".
-      const baseId = "alias-base-test-4517";
-      const freeId = "alias-base-test-4517-free";
+      // assert the alias path returns the base score, now tagged
+      // "arena_elo:inherited" by the shared resolver (#11489).
+      //
+      // #11489 also made the base-id lookup CATALOG-ANCHORED, so this uses a
+      // real catalog pair instead of the synthetic ids it was written with:
+      // an id that resolves to a base no provider actually ships is a ghost,
+      // and inheriting a score for it was never meaningful.
+      const baseId = "mimo-v2.5";
+      const freeId = "mimo-v2.5-free";
       const { upsertModelIntelligence, deleteModelIntelligence } =
         await import("../../../../src/lib/db/modelIntelligence.ts");
       // Seed arena_elo on the base id only — no row exists for the free id.
@@ -121,9 +126,9 @@ describe("Task Fitness", () => {
       try {
         const result = getTaskFitnessWithSource(freeId, "coding");
         // Without the fix: result.source would be "wildcard_boost" (0.5 default).
-        // With the fix: result.source is "arena_elo_free_alias" with score 0.42.
+        // With the fix: result.source is "arena_elo:inherited" with score 0.42.
         expect(result.score).toBeCloseTo(0.42, 5);
-        expect(result.source).toBe("arena_elo_free_alias");
+        expect(result.source).toBe("arena_elo:inherited");
       } finally {
         deleteModelIntelligence(baseId, "arena_elo", "coding");
         invalidateFitnessCache();
