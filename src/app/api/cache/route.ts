@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
     const trendHours = Math.min(720, Math.max(1, Number.isNaN(rawHours) ? 24 : rawHours));
 
     const cacheStats = getCacheStats();
+    // Promise.all allows concurrent execution; if one rejects, others still resolve,
+    // which is safe for this read-only stats endpoint.
     const [idempotencyStats, promptCacheMetrics, trend, settings] = await Promise.all([
       getIdempotencyStats(),
       getCacheMetrics(),

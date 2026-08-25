@@ -88,6 +88,7 @@ export async function deleteProviderConnection(id: string) {
     db.prepare("DELETE FROM provider_connections WHERE id = ?").run(id);
   })();
 
+  // These two helpers touch disjoint tables (combos vs lkgp) and are safe to run concurrently.
   await Promise.all([
     _cleanupDeletedComboConnectionRefs(id),
     _cleanupDeletedLKGPConnectionRefs(id),

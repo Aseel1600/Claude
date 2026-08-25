@@ -11,6 +11,8 @@ import FirstRunReadinessCard from "../dashboard/FirstRunReadinessCard";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  // Even if getSettings() rejects, getMachineId() runs concurrently, which is acceptable
+  // as both paths fail-fast on error and avoids the waterfall penalty.
   const [settings, machineId] = await Promise.all([getSettings(), getMachineId()]);
   const isBootstrapped = process.env.OMNIROUTE_BOOTSTRAPPED === "true";
   return (
