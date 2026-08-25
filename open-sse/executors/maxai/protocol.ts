@@ -64,12 +64,35 @@ export function buildMaxaiChatBody(opts: {
   modelName: string;
   language?: string;
   relatedQuestionCnt?: string;
+  /**
+   * Vision input: current-turn image URLs (data: or http(s):) to attach to the
+   * request. MaxAI's `/gpt/cwc/chat` accepts inline OpenAI-shaped image parts in
+   * `message_content` alongside the text part. Empty/omitted = text-only (the
+   * default, byte-identical to the pre-vision body).
+   */
+  imageUrls?: string[];
+  /**
+   * Doc-RAG: uploaded-document references (from /app/upload_document). Each entry
+   * is `{ doc_id, doc_type, file_name, current }`. Empty/omitted = no docs (the
+   * default `doc_list: []`).
+   */
+  docList?: Array<Record<string, unknown>>;
 }): Record<string, unknown> {
+  // message_content is a typed-parts array: the text part ALWAYS leads (so the
+  // flattened transcript stays first and the no-image path is unchanged), then
+  // any image_url parts ride alongside. Mirrors the OpenAI multimodal shape,
+  // which MaxAI passes through (openai-to-cursor.ts vision pattern).
+  const messageContent: Array<Record<string, unknown>> = [{ type: "text", text: opts.text }];
+  for (const url of opts.imageUrls ?? []) {
+    if (typeof url === "string" && url) {
+      messageContent.push({ type: "image_url", image_url: { url } });
+    }
+  }
   const values: Record<string, unknown> = {
     chat_mode: "pro_chat",
     conversation_id: opts.conversationId,
     chat_history: [],
-    message_content: [{ type: "text", text: opts.text }],
+    message_content: messageContent,
     chrome_extension_version: MAXAI_APP_VERSION,
     model_name: opts.modelName,
     prompt_id: "chat",
@@ -78,7 +101,7 @@ export function buildMaxaiChatBody(opts: {
       RELATED_QUESTION_CNT: opts.relatedQuestionCnt ?? "5",
       AI_RESPONSE_LANGUAGE: opts.language ?? "English",
     },
-    doc_list: [],
+    doc_list: opts.docList ?? [],
     event_source: "web",
     streaming: true,
     prompt_type: "freestyle",
@@ -121,6 +144,39 @@ export function contentToText(content: unknown): string {
       .join("\n");
   }
   return "";
+}
+
+/**
+ * Extract image_url URLs from the CURRENT (last user) turn of an OpenAI
+ * messages[] array. MaxAI is stateless-full-history, so we attach only the
+ * current turn's images (history images would be re-sent every request and
+ * bloat the body). Returns raw url strings (data: or http(s):) in order.
+ */
+export function extractCurrentTurnImages(messages: OpenAiMessage[]): string[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === "user") {
+      const content = messages[i]?.content;
+      if (!Array.isArray(content)) return [];
+      const urls: string[] = [];
+      for (const part of content) {
+        if (part && typeof part === "object" && (part as { type?: unknown }).type === "image_url") {
+          const imageUrl = (part as { image_url?: unknown }).image_url;
+          if (typeof imageUrl === "string" && imageUrl) {
+            urls.push(imageUrl);
+          } else if (
+            imageUrl &&
+            typeof imageUrl === "object" &&
+            typeof (imageUrl as { url?: unknown }).url === "string" &&
+            (imageUrl as { url: string }).url
+          ) {
+            urls.push((imageUrl as { url: string }).url);
+          }
+        }
+      }
+      return urls;
+    }
+  }
+  return [];
 }
 
 /** Render OpenAI tool_calls[] as the prompted `<tool_call>` text MaxAI understands. */

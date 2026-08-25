@@ -33,6 +33,7 @@ import {
 import {
   assembleMaxaiContext,
   buildMaxaiChatBody,
+  extractCurrentTurnImages,
   MAXAI_BASE_URL,
   MAXAI_CHAT_PATH,
   maxaiStaticHeaders,
@@ -158,11 +159,19 @@ export class MaxAiExecutor extends BaseExecutor {
       return errorResponse(400, "No user message to send to MaxAI.", "maxai_empty_request");
     }
 
+    // Vision input: attach the CURRENT user turn's images (data: / http(s):) to
+    // message_content so vision-capable MaxAI models actually see them. Extract
+    // from the original messages (pre-tool-munging); text stays flattened.
+    const imageUrls = extractCurrentTurnImages(
+      (body.messages ?? []) as Array<{ role?: string; content?: unknown }>
+    );
+
     const conversationId = newConversationId();
     const chatBody = buildMaxaiChatBody({
       conversationId,
       text,
       modelName: input.model,
+      imageUrls,
     });
 
     const signedHeaders = buildMaxaiSignedHeaders({

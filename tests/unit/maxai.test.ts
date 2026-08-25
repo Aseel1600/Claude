@@ -17,6 +17,7 @@ import {
   assembleMaxaiContext,
   buildMaxaiChatBody,
   contentToText,
+  extractCurrentTurnImages,
 } from "../../open-sse/executors/maxai/protocol.ts";
 import {
   splitThink,
@@ -161,6 +162,72 @@ test("buildMaxaiChatBody pins field order + constants", () => {
   assert.equal(body.model_name, "gpt-5.6");
   assert.equal(body.streaming, true);
   assert.equal(body.platform_feature, "web_app");
+});
+
+// ── Vision input (image_url parts) ───────────────────────────────────────────
+
+test("buildMaxaiChatBody text-only path is unchanged (no imageUrls)", () => {
+  const body = buildMaxaiChatBody({ conversationId: "c", text: "hi", modelName: "gpt-5.6" });
+  // Byte-identical to the pre-vision shape: a single text part.
+  assert.deepEqual(body.message_content, [{ type: "text", text: "hi" }]);
+  assert.deepEqual(body.doc_list, []);
+});
+
+test("buildMaxaiChatBody appends image_url parts after the text part", () => {
+  const body = buildMaxaiChatBody({
+    conversationId: "c",
+    text: "what is this?",
+    modelName: "gpt-5.6-luna",
+    imageUrls: ["data:image/png;base64,AAAA", "https://example.com/cat.jpg"],
+  });
+  assert.deepEqual(body.message_content, [
+    { type: "text", text: "what is this?" },
+    { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
+    { type: "image_url", image_url: { url: "https://example.com/cat.jpg" } },
+  ]);
+  // Text part stays first so the flattened transcript leads.
+  assert.equal((body.message_content as Array<{ type: string }>)[0].type, "text");
+});
+
+test("buildMaxaiChatBody skips empty/blank image urls", () => {
+  const body = buildMaxaiChatBody({
+    conversationId: "c",
+    text: "t",
+    modelName: "gpt-5.6",
+    imageUrls: ["", "https://x/y.png"],
+  });
+  assert.equal((body.message_content as unknown[]).length, 2); // text + 1 valid image
+});
+
+test("extractCurrentTurnImages pulls images from the LAST user turn only", () => {
+  const urls = extractCurrentTurnImages([
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "old" },
+        { type: "image_url", image_url: { url: "data:image/png;base64,OLD" } },
+      ],
+    },
+    { role: "assistant", content: "ok" },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "look" },
+        { type: "image_url", image_url: { url: "https://c/1.jpg" } },
+        { type: "image_url", image_url: "https://c/2.jpg" }, // shorthand form
+      ],
+    },
+  ]);
+  // Only the current (last) user turn's images, both object and shorthand forms.
+  assert.deepEqual(urls, ["https://c/1.jpg", "https://c/2.jpg"]);
+});
+
+test("extractCurrentTurnImages returns [] for a plain-string user turn", () => {
+  assert.deepEqual(extractCurrentTurnImages([{ role: "user", content: "just text" }]), []);
+});
+
+test("extractCurrentTurnImages returns [] when there is no user turn", () => {
+  assert.deepEqual(extractCurrentTurnImages([{ role: "system", content: "sys" }]), []);
 });
 
 // ── SSE / think split ────────────────────────────────────────────────────────
