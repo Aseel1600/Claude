@@ -179,7 +179,12 @@ test("Codex Responses routing keeps reasoning effort while dropping GPT-only ver
     credentials: null,
   });
 
-  assert.equal(outbound.reasoning_effort, "low");
+  // #11409 reconciliation: opencode-go advertises ONLY glm-5.2-high/-max variants
+  // (providerRegistry go/index.ts), so the #11295/#11305 nearest-tier capability
+  // clamp legitimately upgrades the unsupported "low" request to the smallest
+  // declared tier ("high"). The #7533 no-mutation guarantee still holds for any
+  // tier the resolved target actually declares (covered by the z.ai/Claude cases).
+  assert.equal(outbound.reasoning_effort, "high");
   assert.equal(outbound.verbosity, undefined);
 });
 
