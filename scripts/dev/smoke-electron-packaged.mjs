@@ -360,7 +360,7 @@ function isInsideDir(parentDir, candidateDir) {
   return candidate === parent || candidate.startsWith(parent + sep);
 }
 
-async function ensureSmokeEnvDirs(smokeEnv, dataDir) {
+export async function ensureSmokeEnvDirs(smokeEnv, dataDir) {
   const dirNames = [
     "DATA_DIR",
     "HOME",
@@ -386,6 +386,16 @@ async function ensureSmokeEnvDirs(smokeEnv, dataDir) {
   if (platform() === "win32" && smokeEnv.APPDATA) {
     for (const subdir of ["omniroute-desktop", "OmniRoute", "omniroute"]) {
       dirs.push(join(smokeEnv.APPDATA, subdir));
+    }
+  }
+  // Electron resolves the Roaming profile from %USERPROFILE%\AppData\Roaming
+  // (USERPROFILE takes precedence over the APPDATA env var) and the path
+  // service throws — rather than creates — when that directory is missing,
+  // which makes requestSingleInstanceLock() return false and the app exit(0)
+  // before app.whenReady(). Pre-create the derived tree as well.
+  if (platform() === "win32" && smokeEnv.USERPROFILE) {
+    for (const subdir of ["omniroute-desktop", "OmniRoute", "omniroute"]) {
+      dirs.push(join(smokeEnv.USERPROFILE, "AppData", "Roaming", subdir));
     }
   }
 
@@ -506,7 +516,14 @@ async function waitForReady({ logs, smokeUrl, timeoutMs, settleMs, exitState }) 
  * by the single-launch path and the cold-restart (two-launch) path so both
  * exercise identical spawn/readiness/shutdown behavior.
  */
-async function launchAndCollectLogs({ appExecutable, smokeUrl, dataDir, timeoutMs, settleMs, streamLogs }) {
+async function launchAndCollectLogs({
+  appExecutable,
+  smokeUrl,
+  dataDir,
+  timeoutMs,
+  settleMs,
+  streamLogs,
+}) {
   const smokeEnv = buildSmokeEnv({ dataDir });
   await assertPortIsFree(smokeUrl);
   await ensureSmokeEnvDirs(smokeEnv, dataDir);
@@ -568,7 +585,14 @@ async function main() {
     !process.env.ELECTRON_SMOKE_DATA_DIR && process.env.ELECTRON_SMOKE_KEEP_DATA !== "1";
 
   try {
-    await launchAndCollectLogs({ appExecutable, smokeUrl, dataDir, timeoutMs, settleMs, streamLogs });
+    await launchAndCollectLogs({
+      appExecutable,
+      smokeUrl,
+      dataDir,
+      timeoutMs,
+      settleMs,
+      streamLogs,
+    });
 
     if (!coldRestart) return;
 
