@@ -15,6 +15,9 @@ import {
   type ExclusiveDashboardSession,
 } from "@/lib/sessionObservability";
 
+const EXCLUSIVE_PROJECTION_WARNING = "[SESSIONS] Exclusive session projection unavailable";
+let exclusiveProjectionWarningEmitted = false;
+
 export async function GET() {
   try {
     const sessions = getActiveSessions();
@@ -41,8 +44,12 @@ export async function GET() {
         sessions,
         connectionNames
       );
+      exclusiveProjectionWarningEmitted = false;
     } catch {
-      console.warn("[SESSIONS] Exclusive session projection unavailable");
+      if (!exclusiveProjectionWarningEmitted) {
+        exclusiveProjectionWarningEmitted = true;
+        console.warn(EXCLUSIVE_PROJECTION_WARNING);
+      }
     }
 
     return NextResponse.json({

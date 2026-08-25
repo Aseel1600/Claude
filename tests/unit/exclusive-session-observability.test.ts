@@ -319,20 +319,27 @@ test("sessions API keeps legacy fields additive and decorates only in-flight lea
   assert.deepEqual(releasedBody.exclusiveSessions, []);
 });
 
-test("sessions API preserves legacy data when the exclusive projection fails", async () => {
+test("sessions API deduplicates projection warnings per contiguous outage", async () => {
   const secretFailure = {
     ownerHash: "d".repeat(64),
     generation: 91,
     apiKeyId: "private-api-key-id",
     credential: "private-credential",
     token: "private-token",
+    connectionIdentity: "private-connection-identity",
+    leaseOwnership: "private-lease-ownership",
+    fencingMaterial: "private-fencing-material",
   };
+  const nowMock = mock.method(Date, "now", () => BASE_TIME);
   sessionManager.touchSession("legacy-fallback", "legacy-connection");
   sessionManager.registerKeySession("legacy-key", "legacy-fallback");
 
   const db = core.getDbInstance();
-  const prepareMock = mock.method(db, "prepare", () => {
-    throw new Error(JSON.stringify(secretFailure));
+  const originalPrepare = db.prepare.bind(db);
+  let projectionFails = true;
+  const prepareMock = mock.method(db, "prepare", (sql: string) => {
+    if (projectionFails) throw new Error(JSON.stringify(secretFailure));
+    return originalPrepare(sql);
   });
   const warnings: unknown[][] = [];
   const warnMock = mock.method(console, "warn", (...args: unknown[]) => {
@@ -340,29 +347,53 @@ test("sessions API preserves legacy data when the exclusive projection fails", a
   });
 
   try {
-    const response = await sessionsRoute.GET();
-    const body = (await response.json()) as {
+    const firstResponse = await sessionsRoute.GET();
+    const firstBody = (await firstResponse.json()) as {
       count: number;
       sessions: Array<{ sessionId: string; connectionId: string | null }>;
       byApiKey: Record<string, number>;
       exclusiveSessions: unknown[];
     };
+    const secondResponse = await sessionsRoute.GET();
+    const secondBody = (await secondResponse.json()) as typeof firstBody;
 
-    assert.equal(response.status, 200);
-    assert.equal(body.count, 1);
-    assert.equal(body.sessions[0].sessionId, "legacy-fallback");
-    assert.equal(body.sessions[0].connectionId, "legacy-connection");
-    assert.deepEqual(body.byApiKey, { "legacy-key": 1 });
-    assert.deepEqual(body.exclusiveSessions, []);
+    assert.equal(firstResponse.status, 200);
+    assert.equal(secondResponse.status, 200);
+    assert.deepEqual(secondBody, firstBody);
+    assert.equal(firstBody.count, 1);
+    assert.equal(firstBody.sessions[0].sessionId, "legacy-fallback");
+    assert.equal(firstBody.sessions[0].connectionId, "legacy-connection");
+    assert.deepEqual(firstBody.byApiKey, { "legacy-key": 1 });
+    assert.deepEqual(firstBody.exclusiveSessions, []);
     assert.deepEqual(warnings, [["[SESSIONS] Exclusive session projection unavailable"]]);
 
-    const observableOutput = JSON.stringify({ body, warnings });
+    projectionFails = false;
+    const recoveredResponse = await sessionsRoute.GET();
+    assert.equal(recoveredResponse.status, 200);
+    projectionFails = true;
+
+    const laterOutageResponse = await sessionsRoute.GET();
+    const laterOutageBody = (await laterOutageResponse.json()) as typeof firstBody;
+    assert.equal(laterOutageResponse.status, 200);
+    assert.deepEqual(laterOutageBody, firstBody);
+    assert.deepEqual(warnings, [
+      ["[SESSIONS] Exclusive session projection unavailable"],
+      ["[SESSIONS] Exclusive session projection unavailable"],
+    ]);
+
+    const observableOutput = JSON.stringify({
+      firstBody,
+      secondBody,
+      laterOutageBody,
+      warnings,
+    });
     for (const forbidden of Object.values(secretFailure)) {
       assert.equal(observableOutput.includes(String(forbidden)), false);
     }
   } finally {
     warnMock.mock.restore();
     prepareMock.mock.restore();
+    nowMock.mock.restore();
   }
 });
 
