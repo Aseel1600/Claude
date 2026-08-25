@@ -110,7 +110,6 @@ function isPublicExactMethodRoute(pathname: string, method: string): boolean {
     ({ path, methods }) => pathMatchesExactRoute(pathname, path) && methods.has(normalizedMethod)
   );
 }
-}
 
 function isPublicCloudApiRoute(pathname: string, method: string): boolean {
   const normalizedMethod = String(method).toUpperCase();
@@ -152,7 +151,6 @@ export function isPublicApiRoute(pathname: string, method = "GET"): boolean {
 
   if (isPublicExactMethodRoute(pathname, method)) {
     return true;
-  }
   }
 
   if (isPublicCloudApiRoute(pathname, method)) {
