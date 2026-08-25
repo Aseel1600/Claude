@@ -808,7 +808,11 @@ test("provider-nodes create route rejects CC mode when feature flag is disabled"
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: "Hidden CC",
-        prefix: "cc",
+        // NOTE: "cc" is now the reserved alias of the built-in `claude` provider
+        // (getReservedProviderPrefixes()), so it is rejected by the reserved-prefix
+        // schema guard with 400 before the CC feature-flag gate (403) is reached.
+        // Use a non-reserved prefix so this test actually exercises the 403 gate.
+        prefix: "ccproxy",
         baseUrl: "https://proxy.example.com/v1",
         type: "anthropic-compatible",
         compatMode: "cc",
@@ -828,7 +832,8 @@ test("provider-nodes create route creates CC node with dedicated prefix when ena
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: "Hidden CC",
-        prefix: "cc",
+        // "cc" is a reserved prefix (claude alias); use a non-reserved prefix.
+        prefix: "ccproxy",
         baseUrl: "https://proxy.example.com/v1/messages?beta=true",
         type: "anthropic-compatible",
         compatMode: "cc",
