@@ -157,7 +157,15 @@ export function buildPersonaFrame(opts: {
   text: string;
   history: UcHistoryEntry[];
   uid: string;
+  /** Uploaded input-media blob references (images/docs) for the current turn. */
+  media?: Array<{ blobName: string; contentType: string }>;
 }): Record<string, unknown> {
+  // UC persona carries ONE media blob per frame (the captured single-file chat
+  // case); when several were uploaded we attach the first and list the rest under
+  // `media_blob_names` for forward-compat (the multi-file field is untested but
+  // harmless if the server ignores it). See UC-FILE-UPLOAD.md.
+  const media = opts.media ?? [];
+  const primary = media[0];
   return {
     message_id: randomUUID(),
     client_request_id: randomUUID(),
@@ -177,9 +185,14 @@ export function buildPersonaFrame(opts: {
     followups_enabled: false,
     free_tier_model_selected: false,
     user_identifier: opts.uid,
+    // no_media_in_chat means "don't render the media inline in the transcript",
+    // NOT "no media" — it stays true even when a blob is attached (per capture).
     no_media_in_chat: true,
-    media_blob_name: "",
-    media_content_type: "",
+    media_blob_name: primary?.blobName ?? "",
+    media_content_type: primary?.contentType ?? "",
+    ...(media.length > 1
+      ? { media_blob_names: media.map((m) => m.blobName), _uc_media_count: media.length }
+      : {}),
     adapty_profile_id: null,
   };
 }

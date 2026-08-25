@@ -23,6 +23,13 @@ interface UcModelSpec {
   contextLength: number;
   maxOutputTokens?: number;
   supportsReasoning?: boolean;
+  /**
+   * Vision-capable (the underlying model accepts image input). UC persona feeds
+   * images via the blob-upload layer (see uc/media.ts), which the backend parses
+   * server-side and hands to the model — so vision works for these ids.
+   * Sourced from UC's direct-mode catalog (direct-models.json capabilities).
+   */
+  supportsVision?: boolean;
 }
 
 /** The 19 offered persona (un-metered) chat models. */
@@ -33,36 +40,42 @@ export const UC_MODELS: UcModelSpec[] = [
     name: "Claude Opus 4.5",
     contextLength: 200_000,
     maxOutputTokens: 64_000,
+    supportsVision: true,
   },
   {
     id: "claude-opus-46",
     name: "Claude Opus 4.6",
     contextLength: 1_000_000,
     maxOutputTokens: 128_000,
+    supportsVision: true,
   },
   {
     id: "claude-opus-46-v2",
     name: "Claude Opus 4.6 (v2)",
     contextLength: 1_000_000,
     maxOutputTokens: 128_000,
+    supportsVision: true,
   },
   {
     id: "claude-opus-47",
     name: "Claude Opus 4.7",
     contextLength: 1_000_000,
     maxOutputTokens: 128_000,
+    supportsVision: true,
   },
   {
     id: "claude-opus-47-v2",
     name: "Claude Opus 4.7 (v2)",
     contextLength: 1_000_000,
     maxOutputTokens: 128_000,
+    supportsVision: true,
   },
   {
     id: "claude-opus-48-uncensored",
     name: "Claude Opus 4.8 (Uncensored)",
     contextLength: 1_000_000,
     maxOutputTokens: 128_000,
+    supportsVision: true,
   },
   // DeepSeek
   {
@@ -75,36 +88,46 @@ export const UC_MODELS: UcModelSpec[] = [
   // GLM
   { id: "glm-5.1", name: "GLM 5.1", contextLength: 202_752, maxOutputTokens: 131_072 },
   // OpenAI (gpt-5.5 is the only working persona GPT; guardrailed → code-style tools)
-  { id: "gpt-5.5", name: "GPT-5.5", contextLength: 1_050_000, maxOutputTokens: 128_000 },
+  {
+    id: "gpt-5.5",
+    name: "GPT-5.5",
+    contextLength: 1_050_000,
+    maxOutputTokens: 128_000,
+    supportsVision: true,
+  },
   // Google Gemini
   {
     id: "gemini-3-flash",
     name: "Gemini 3 Flash",
     contextLength: 1_048_576,
     maxOutputTokens: 65_536,
+    supportsVision: true,
   },
   {
     id: "gemini-31-uncensored",
     name: "Gemini 3.1 (Uncensored)",
     contextLength: 1_048_576,
     maxOutputTokens: 65_536,
+    supportsVision: true,
   },
   {
     id: "gemini-emotional",
     name: "Gemini (Emotional)",
     contextLength: 1_048_576,
     maxOutputTokens: 65_536,
+    supportsVision: true,
   },
   {
     id: "gemini-3-uncensored",
     name: "Gemini 3 (Uncensored)",
     contextLength: 1_048_576,
     maxOutputTokens: 65_536,
+    supportsVision: true,
   },
   // xAI Grok (no separate output cap — bounded by context window)
-  { id: "grok-4", name: "Grok 4", contextLength: 1_000_000 },
-  { id: "grok-4-20", name: "Grok 4.20", contextLength: 2_000_000 },
-  { id: "grok-4-3", name: "Grok 4.3", contextLength: 1_000_000 },
+  { id: "grok-4", name: "Grok 4", contextLength: 1_000_000, supportsVision: true },
+  { id: "grok-4-20", name: "Grok 4.20", contextLength: 2_000_000, supportsVision: true },
+  { id: "grok-4-3", name: "Grok 4.3", contextLength: 1_000_000, supportsVision: true },
   // Moonshot Kimi
   {
     id: "kimi-k2-thinking",
@@ -113,7 +136,13 @@ export const UC_MODELS: UcModelSpec[] = [
     maxOutputTokens: 262_144,
     supportsReasoning: true,
   },
-  { id: "kimi-k2.5", name: "Kimi K2.5", contextLength: 262_144, maxOutputTokens: 262_144 },
+  {
+    id: "kimi-k2.5",
+    name: "Kimi K2.5",
+    contextLength: 262_144,
+    maxOutputTokens: 262_144,
+    supportsVision: true,
+  },
   // MiniMax
   {
     id: "minimax-m2-her",
@@ -134,6 +163,7 @@ export const UC_REGISTRY_MODELS: RegistryModel[] = UC_MODELS.map((m) => ({
   toolCalling: true,
   ...(m.maxOutputTokens ? { maxOutputTokens: m.maxOutputTokens } : {}),
   ...(m.supportsReasoning ? { supportsReasoning: true } : {}),
+  ...(m.supportsVision ? { supportsVision: true } : {}),
 }));
 
 /** Default context window for an unknown model. */

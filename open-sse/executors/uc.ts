@@ -32,7 +32,7 @@
 import { BaseExecutor, type ExecuteInput, type ExecutorExecuteResult } from "./base.ts";
 import { PROVIDERS } from "../config/constants.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
-import { prepareToolMessages } from "../translator/webTools.ts";
+import { prepareToolMessages, parseToolCallsFromText } from "../translator/webTools.ts";
 import { buildToolModeResponse } from "./chatgptWebTools.ts";
 import { UC_BASE_URL } from "./uc/constants.ts";
 import { resolveUcCredential, type UcCredential } from "./uc/credentials.ts";
@@ -40,6 +40,13 @@ import { mintUcSessionToken, ucTokenCache, type UcSessionToken } from "./uc/cler
 import { assembleUcTurn } from "./uc/protocol.ts";
 import { detectUcSoftError, estimateUcTokens } from "./uc/stream.ts";
 import { runUcTurn, type UcTurnResult } from "./uc/ws.ts";
+import {
+  ucUsesCodestyle,
+  ucLooksLikeRefusal,
+  parseUcExtraDialects,
+  UC_CODESTYLE_HEADER,
+} from "./uc/toolDialect.ts";
+import { extractCurrentTurnMedia, uploadUcTurnMedia, type UcMediaBlob } from "./uc/media.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const SSE_HEADERS = {
@@ -69,6 +76,42 @@ function errorResponse(status: number, message: string, code: string): Response 
     }),
     { status, headers: JSON_HEADERS }
   );
+}
+
+/**
+ * Replace the standard `<tool>` contract that prepareToolMessages folded into the
+ * assembled text with UC's natural code-style header for guardrailed models. The
+ * shared shim always appends its `<tool>` block as the tail; we strip a trailing
+ * "Available tools:"-style block only when present and re-lead with the code-style
+ * header. Falls back to appending the code-style header when no block is found.
+ */
+function applyCodestylePreamble(text: string): string {
+  // The shared prepareToolMessages injects the tool contract as a system-message
+  // that assembleUcTurn folds into `text`. We can't reliably surgically remove it,
+  // so we PREPEND the code-style header — it re-frames tool use as prose, and the
+  // model prefers the last/clearest instruction. Cheap and safe.
+  return `${UC_CODESTYLE_HEADER}\n\n${text}`;
+}
+
+/**
+ * If the shared `<tool_call>` JSON parser would find nothing but a UC extra dialect
+ * (code-style `fn("x")` or Gemini `<tool_code>`) is present, rewrite those calls as
+ * canonical `<tool_call>{json}</tool_call>` blocks appended to the answer so the
+ * shared buildToolModeResponse parses them uniformly. No-op when the shared parser
+ * already sees calls or no extra dialect is present.
+ */
+function injectExtraDialectCalls(answer: string, requestedTools: unknown, model: string): string {
+  const sharedHasCall = !!parseToolCallsFromText(answer, "probe", requestedTools).toolCalls;
+  if (sharedHasCall) return answer;
+  const extra = parseUcExtraDialects(answer, requestedTools, model);
+  if (extra.length === 0) return answer;
+  const blocks = extra
+    .map(
+      (c) =>
+        `<tool_call>${JSON.stringify({ name: c.function.name, arguments: c.function.arguments })}</tool_call>`
+    )
+    .join("\n");
+  return `${answer}\n${blocks}`;
 }
 
 /**
@@ -164,18 +207,43 @@ export class UcExecutor extends BaseExecutor {
     }
 
     const body = (input.body ?? {}) as OpenAiChatBody;
+    const originalMessages = (body.messages ?? []) as Array<{ role?: string; content?: unknown }>;
+
+    // Vision + doc input (persona blob layer): extract inline images/docs from the
+    // current turn, upload each via the presigned-URL flow, and carry the blob
+    // refs in the frame. UC parses the blob server-side (image vision, PDF text).
+    // Best-effort: upload failures are skipped and the chat proceeds text-only.
+    let media: UcMediaBlob[] = [];
+    try {
+      const { inline } = extractCurrentTurnMedia(originalMessages);
+      if (inline.length) {
+        media = await uploadUcTurnMedia(inline, {
+          jwt,
+          uid: cred.uid,
+          signal: input.signal,
+          log: input.log ?? undefined,
+        });
+      }
+    } catch {
+      media = [];
+    }
 
     // Tool-calling (prompted protocol): inject the <tool> contract into the
     // messages so the model learns the client tools; response side parses the
     // <tool> blocks back into tool_calls. Same shim the web-cookie providers use.
+    // For models UC wraps in a hard guardrail that refuses the <tool_call> markup
+    // (e.g. gpt-5.5), swap to the natural code-style dialect that slips past it.
+    const codestyle = ucUsesCodestyle(input.model);
     const { hasTools, requestedTools, effectiveMessages } = prepareToolMessages(
       body as Record<string, unknown>,
-      (body.messages ?? []) as Array<{ role: string; content: unknown }>
+      originalMessages as Array<{ role: string; content: unknown }>
     );
 
-    const { text, history } = assembleUcTurn(
+    const assembled = assembleUcTurn(
       effectiveMessages as Array<{ role?: string; content?: unknown; name?: string }>
     );
+    let text = codestyle ? applyCodestylePreamble(assembled.text) : assembled.text;
+    const history = assembled.history;
     if (!text) {
       return wrap(errorResponse(400, "No user message to send to UC.", "uc_empty_request"), url);
     }
@@ -185,7 +253,12 @@ export class UcExecutor extends BaseExecutor {
     const promptTokens = estimateUcTokens(text);
     const capture = {
       headers: { Origin: "https://uncensored.com" },
-      transformedBody: { model: input.model, text, chat_history: history },
+      transformedBody: {
+        model: input.model,
+        text,
+        chat_history: history,
+        ...(media.length ? { media_blob_name: media[0].blobName } : {}),
+      },
     };
 
     // Tool mode: the <tool> protocol is only parseable once the full reply is in
@@ -193,19 +266,57 @@ export class UcExecutor extends BaseExecutor {
     // shim parse <tool> blocks into tool_calls (with a terminal SSE replay for
     // streaming callers). Mirrors every web-cookie provider's tool path.
     if (hasTools) {
-      const turn = await runUcTurn({
+      let turn = await runUcTurn({
         jwt,
         uid: cred.uid,
         model: input.model,
         text,
         history,
+        media,
         signal: input.signal,
       });
       const errResp = this.turnErrorResponse(turn, url);
       if (errResp) return errResp;
 
-      const answer = turn.content;
-      const reasoning = turn.reasoning;
+      let answer = turn.content;
+      let reasoning = turn.reasoning;
+
+      // AUTO-CURE: a guardrailed model (NOT already code-style) that REFUSED the
+      // <tool_call> markup gets ONE retry with the natural code-style dialect,
+      // which slips past the vendor guardrail. Only fires on an actual
+      // refusal-with-tools, so the working models never take this path.
+      const firstHasCall =
+        !!parseToolCallsFromText(answer, "probe", requestedTools).toolCalls ||
+        parseUcExtraDialects(answer, requestedTools, input.model).length > 0;
+      if (!firstHasCall && !codestyle && ucLooksLikeRefusal(answer)) {
+        const curedText = applyCodestylePreamble(assembled.text);
+        const retry = await runUcTurn({
+          jwt,
+          uid: cred.uid,
+          model: input.model,
+          text: curedText,
+          history,
+          media,
+          signal: input.signal,
+        });
+        if (!retry.error && retry.content) {
+          const retryHasCall =
+            !!parseToolCallsFromText(retry.content, "probe", requestedTools).toolCalls ||
+            parseUcExtraDialects(retry.content, requestedTools, input.model).length > 0;
+          if (retryHasCall) {
+            answer = retry.content;
+            reasoning = retry.reasoning;
+            input.log?.debug?.("uc", "tool refusal recovered via code-style retry");
+          }
+        }
+      }
+
+      // Supplement the shared <tool> parser with UC's extra dialects (code-style
+      // fn("x") + Gemini <tool_code>). If the shared JSON parser found no calls but
+      // an extra dialect did, rewrite the answer's calls as <tool_call> JSON so the
+      // shared buildToolModeResponse picks them up uniformly.
+      answer = injectExtraDialectCalls(answer, requestedTools, input.model);
+
       const completionTokens = estimateUcTokens(reasoning + answer);
       const buffered = new Response(
         JSON.stringify({
@@ -242,7 +353,7 @@ export class UcExecutor extends BaseExecutor {
     }
 
     if (input.stream) {
-      const stream = this.buildStream(input, jwt, cred, text, history, id, created);
+      const stream = this.buildStream(input, jwt, cred, text, history, media, id, created);
       return wrap(new Response(stream, { status: 200, headers: SSE_HEADERS }), url, capture);
     }
 
@@ -253,6 +364,7 @@ export class UcExecutor extends BaseExecutor {
       model: input.model,
       text,
       history,
+      media,
       signal: input.signal,
     });
     const errResp = this.turnErrorResponse(turn, url);
@@ -326,6 +438,7 @@ export class UcExecutor extends BaseExecutor {
     cred: UcCredential,
     text: string,
     history: ReturnType<typeof assembleUcTurn>["history"],
+    media: UcMediaBlob[],
     id: string,
     created: number
   ): ReadableStream<Uint8Array> {
@@ -342,6 +455,7 @@ export class UcExecutor extends BaseExecutor {
           model,
           text,
           history,
+          media,
           signal: input.signal,
           onEvent: (evt) => {
             if (evt.kind === "reasoning") {

@@ -54,6 +54,7 @@ import { handleGeminiWebImageGeneration } from "./imageGeneration/providers/gemi
 import { handleNvidiaNimImageGeneration } from "./imageGeneration/providers/nvidiaNim.ts";
 import { handleSegmindImageGeneration } from "./imageGeneration/providers/segmind.ts";
 import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/designerWeb.ts";
+import { handleUcImageGeneration } from "./imageGeneration/providers/ucImage.ts";
 import { handleCursorAgentImageGeneration } from "./imageGeneration/providers/cursorAgentImage.ts";
 import { handleMinimaxImageGeneration } from "./imageGeneration/providers/minimax.ts";
 import { handleAdobeFireflyImageGeneration } from "./imageGeneration/providers/adobeFirefly.ts";
@@ -566,6 +567,17 @@ export async function handleImageGeneration({
       body,
       credentials,
       log,
+    });
+  }
+
+  if (providerConfig.format === "uc-image") {
+    return handleUcImageGeneration({
+      model,
+      provider,
+      body,
+      credentials,
+      log,
+      signal,
     });
   }
 

@@ -41,6 +41,8 @@ export interface UcTurnInput {
   model: string;
   text: string;
   history: UcHistoryEntry[];
+  /** Uploaded input-media blobs (images/docs) for the current turn. */
+  media?: Array<{ blobName: string; contentType: string }>;
   timeoutMs?: number;
   signal?: AbortSignal | null;
   /** Called for each classified event (delta/reasoning/status/done/error). */
@@ -120,6 +122,7 @@ export function runUcTurn(input: UcTurnInput): Promise<UcTurnResult> {
           text: input.text,
           history: input.history,
           uid: input.uid,
+          media: input.media,
         });
         ws.send(JSON.stringify(frame));
       } catch (err) {

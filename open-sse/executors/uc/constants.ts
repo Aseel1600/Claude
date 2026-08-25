@@ -40,3 +40,20 @@ export const UC_WS_TIMEOUT_MS = 120_000;
 
 /** The web app version string the persona frame carries. */
 export const UC_APP_VERSION = "1.0.0-web";
+
+/**
+ * TTS (text-to-speech) WebSocket backend base. Distinct host from the persona
+ * chat WS (pubyar.com); the full URL is `${UC_TTS_WS_HOST}/{uid}?token={jwt}`.
+ * Same Clerk-JWT-in-query-param auth + `Origin: https://uncensored.com`
+ * handshake header as the chat socket (see UC-MEDIA-GENERATION.md).
+ */
+export const UC_TTS_WS_HOST = "wss://tts-stream.chatuncensored.ai";
+
+/** Default UC TTS voice (capture-confirmed; others presumably exist). */
+export const UC_TTS_DEFAULT_VOICE = "jade";
+
+/** Default UC TTS model tier carried in the `start` frame. */
+export const UC_TTS_DEFAULT_MODEL = "default";
+
+/** Default per-request UC TTS WebSocket timeout (ms). */
+export const UC_TTS_WS_TIMEOUT_MS = 120_000;
