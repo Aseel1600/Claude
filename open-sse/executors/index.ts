@@ -35,6 +35,7 @@ import { AzureAiExecutor } from "./azure-ai.ts";
 import { CommandCodeExecutor } from "./commandCode.ts";
 import { GitlabExecutor } from "./gitlab.ts";
 import { NlpCloudExecutor } from "./nlpcloud.ts";
+import { OneMinAiExecutor } from "./oneminai.ts";
 import { DevinDesktopExecutor } from "./devin-desktop.ts";
 import { ZedHostedExecutor } from "./zed-hosted.ts";
 import { DevinCliExecutor } from "./devin-cli.ts";
@@ -116,6 +117,8 @@ const executors = {
   gitlab: new GitlabExecutor(),
   "gitlab-duo": new GitlabExecutor("gitlab-duo"),
   nlpcloud: new NlpCloudExecutor(),
+  oneminai: new OneMinAiExecutor(),
+  "1min": new OneMinAiExecutor(), // Alias
   pollinations: new PollinationsExecutor(),
   pol: new PollinationsExecutor(), // Alias
   "cloudflare-ai": new CloudflareAIExecutor(),
@@ -324,6 +327,7 @@ export { AzureAiExecutor } from "./azure-ai.ts";
 export { CommandCodeExecutor } from "./commandCode.ts";
 export { GitlabExecutor } from "./gitlab.ts";
 export { NlpCloudExecutor } from "./nlpcloud.ts";
+export { OneMinAiExecutor } from "./oneminai.ts";
 export { DevinDesktopExecutor } from "./devin-desktop.ts";
 export { ZedHostedExecutor } from "./zed-hosted.ts";
 export { DevinCliExecutor } from "./devin-cli.ts";
