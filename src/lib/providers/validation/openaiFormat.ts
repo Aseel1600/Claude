@@ -410,16 +410,24 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
   const chatSuffix = apiType === "responses" ? "/responses" : "/chat/completions";
   const chatUrl = `${baseUrl}${chatSuffix}`;
   const testModelId = validationModelId;
+  const testBody =
+    apiType === "responses"
+      ? {
+          model: testModelId,
+          input: [{ role: "user", content: "test" }],
+          max_output_tokens: 1,
+        }
+      : {
+          model: testModelId,
+          messages: [{ role: "user", content: "test" }],
+          max_tokens: 1,
+        };
 
   try {
     const chatRes = await validationWrite(chatUrl, {
       method: "POST",
       headers: buildBearerHeaders(apiKey, providerSpecificData),
-      body: JSON.stringify({
-        model: testModelId,
-        messages: [{ role: "user", content: "test" }],
-        max_tokens: 1,
-      }),
+      body: JSON.stringify(testBody),
     });
 
     if (chatRes.ok) {

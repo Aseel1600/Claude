@@ -16,7 +16,6 @@ const { __setTlsFetchOverrideForTesting: __setPplxTlsFetchOverride } =
 const { __setTlsFetchOverrideForTesting: __setGrokTlsFetchOverride } =
   await import("../../open-sse/services/grokTlsClient.ts");
 
-
 const originalFetch = globalThis.fetch;
 
 test.afterEach(() => {
@@ -1232,9 +1231,13 @@ test("local OpenAI-style providers validate without sending Authorization when a
 });
 
 test("OpenAI-compatible validator covers /responses mode and final ping fallback", async () => {
-  const calls = [];
+  const calls: Array<{ url: string; method: string; body: string | undefined }> = [];
   globalThis.fetch = async (url, init = {}) => {
-    calls.push({ url: String(url), method: init.method || "GET" });
+    calls.push({
+      url: String(url),
+      method: init.method || "GET",
+      body: typeof init.body === "string" ? init.body : undefined,
+    });
     if (String(url).endsWith("/models")) {
       return new Response(JSON.stringify({ error: "no models" }), { status: 500 });
     }
@@ -1282,6 +1285,11 @@ test("OpenAI-compatible validator covers /responses mode and final ping fallback
     calls.map((call) => call.url),
     ["https://openai-like.example.com/v1/models", "https://openai-like.example.com/v1/responses"]
   );
+  const responsesBody = JSON.parse(calls[1].body || "{}");
+  assert.deepEqual(responsesBody.input, [{ role: "user", content: "test" }]);
+  assert.equal(responsesBody.max_output_tokens, 1);
+  assert.equal(responsesBody.messages, undefined);
+  assert.equal(responsesBody.max_tokens, undefined);
   assert.equal(pingFallback.valid, true);
   assert.equal(pingFallback.error, null);
 });
