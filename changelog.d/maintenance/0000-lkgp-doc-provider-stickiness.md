@@ -1,1 +1,0 @@
-- **docs(routing):** LKGP strategy copy now states provider-level stickiness and the explicit rules fallback instead of promising per-target pinning (#0000)
