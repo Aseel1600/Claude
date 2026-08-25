@@ -5,11 +5,13 @@
  * untested — or outright invalid — key's models were indistinguishable from a
  * provider that actually works.
  *
- * This suite pins the two behavior changes that close that gap:
+ * This suite pins the behavior changes that close that gap:
  *   1. POST /api/providers now creates the connection `isActive:false`.
  *   2. testSingleConnection() is the sole activation signal — it flips a
- *      connection to `isActive:true` only once a test actually PASSES; a
- *      failing test intentionally leaves `isActive` untouched.
+ *      connection to `isActive:true` once a test actually PASSES, or is
+ *      `skipped` as unverifiable/unsupported (trusted like before, since it
+ *      can never be health-checked); a failing test intentionally leaves
+ *      `isActive` untouched.
  *
  * All outbound provider validation traffic is stubbed (no real network) so the
  * suite is deterministic and network-independent, following the same pattern as
@@ -162,5 +164,43 @@ test("#11446: testSingleConnection never activates a connection whose test genui
     0,
     "a failing test must leave an inactive connection inactive — it must never silently " +
       "advertise an unverified/invalid connection"
+  );
+});
+
+test("#11446: testSingleConnection activates a connection whose test is skipped as unsupported", async () => {
+  // A connection whose provider has no registry entry (and matches none of the
+  // compatible/specialty validators) makes validateProviderApiKey() return
+  // `unsupported: true` deterministically, with no network call — the same
+  // "this provider can never be health-checked through the generic test surface"
+  // signal the fix treats as neutral-but-trusted. It must still be activated,
+  // otherwise it would stay hidden from /v1/models forever under the "only
+  // advertise tested connections" default, since it can never produce a passing
+  // probe result. (Distinct from an exclusive-lease-busy skip, which is a
+  // temporary "try again later" and must NOT activate — see
+  // tests/unit/exclusive-lease-connection-test-isolation.test.ts.)
+  const db = core.getDbInstance();
+  db.prepare(
+    `INSERT INTO provider_connections
+     (id, provider, auth_type, name, api_key, is_active, test_status, created_at, updated_at)
+     VALUES (?, ?, 'apikey', ?, ?, 0, 'unknown', ?, ?)`
+  ).run(
+    "activation-skip-connection",
+    "totally-unregistered-test-provider-11446",
+    "Activation Skip Connection",
+    "sk-activation-skip",
+    new Date().toISOString(),
+    new Date().toISOString()
+  );
+
+  const result = await testSingleConnection("activation-skip-connection");
+  assert.equal(result.skipped, true, `expected a skipped test, got ${JSON.stringify(result)}`);
+
+  const row = db
+    .prepare("SELECT is_active FROM provider_connections WHERE id = ?")
+    .get("activation-skip-connection") as { is_active: number };
+  assert.equal(
+    row.is_active,
+    1,
+    "a skipped/unsupported test must still activate a previously-inactive connection — see #11446"
   );
 });
