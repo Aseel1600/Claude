@@ -306,6 +306,7 @@
       "tests/unit/provider-error-rules.test.ts",
       "tests/unit/provider-health-matrix.test.ts",
       "tests/unit/provider-request-failure-pipeline.test.ts",
+      "tests/unit/providers-route-codex-account-pool.test.ts",
       "tests/unit/proxy-logs-egress-lookup-10880.test.ts",
       "tests/unit/public-client-ids-3493.test.ts",
       "tests/unit/publicCreds.test.ts",
