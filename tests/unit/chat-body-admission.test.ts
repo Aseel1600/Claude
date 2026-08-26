@@ -342,7 +342,7 @@ test("an existing byte-heavy lease is reused for structure-heavy admission", asy
 });
 
 test("heavyweight admission is atomic and returns retryable 503 at capacity", async () => {
-  const controller = new ChatAdmissionController(1);
+  const controller = new ChatAdmissionController(1, undefined, 0);
   const body = JSON.stringify({ messages: [{ role: "user", content: "x".repeat(40) }] });
   const options = { controller, largeBodyBytes: 32, hardMaxBytes: 1024 };
 
@@ -384,7 +384,7 @@ test("small unknown-length bodies do not consume heavyweight capacity", async ()
 
 test("unknown or lying-small lengths cannot bypass occupied heavyweight capacity", async () => {
   for (const contentLength of [null, "1"]) {
-    const controller = new ChatAdmissionController(1);
+    const controller = new ChatAdmissionController(1, undefined, 0);
     const held = controller.tryAcquireHeavy();
     assert.ok(held);
     let cancelled = false;
@@ -746,7 +746,7 @@ test("internal bypass still enforces the hard max byte bound", async () => {
 test("external clients cannot use the bypass header without a trusted self-loop bearer", async () => {
   const restore = withSelfLoopEnv({});
   try {
-    const controller = new ChatAdmissionController(1);
+    const controller = new ChatAdmissionController(1, undefined, 0);
     const parentLease = controller.tryAcquireHeavy();
     assert.ok(parentLease);
 
@@ -853,7 +853,7 @@ test("env-key bearer is honored as a self-loop admission bypass (REQUIRE_API_KEY
 test("sk_omniroute sentinel is rejected once an env key is configured (REQUIRE_API_KEY hardening)", async () => {
   const restore = withSelfLoopEnv({ OMNIROUTE_API_KEY: "env-key" });
   try {
-    const controller = new ChatAdmissionController(1);
+    const controller = new ChatAdmissionController(1, undefined, 0);
     // Parent holds the single heavyweight lease → capacity exhausted.
     const parentLease = controller.tryAcquireHeavy();
     assert.ok(parentLease);
