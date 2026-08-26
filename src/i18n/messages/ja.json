@@ -1266,7 +1266,7 @@
     "agentBridge": "Agent Bridge",
     "agentBridgeSubtitle": "IDEエージェントのトラフィックをインターセプト",
     "trafficInspector": "Traffic Inspector",
-    "trafficInspectorSubtitle": "LLM呼び出しの監視とHTTPSトラフィックのデバッグ",
+    "trafficInspectorSubtitle": "__MISSING__:Inspect request and response traffic from your apps",
     "cliCode": "CLIコード",
     "cliCodeSubtitle": "OmniRouteを指すコードツール",
     "cliAgents": "CLIエージェント",
@@ -11314,7 +11314,9 @@
       "noPayload": "このログエントリにはペイロードデータがありません。",
       "correlationId": "相関ID",
       "correlationIdValue": "相関ID: {id}",
-      "detailedPayloadInfo": "新しいリクエストのために四段階のクライアント/プロバイダー ペイロードビューを表示したい場合は、まず詳細なログ記録を有効にしてください。"
+      "detailedPayloadInfo": "新しいリクエストのために四段階のクライアント/プロバイダー ペイロードビューを表示したい場合は、まず詳細なログ記録を有効にしてください。",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12485,7 +12487,12 @@
     "typeApikey": "APIキー",
     "sortTypeFirst": "簡単な順",
     "sortTypeFirstHelp": "サインアップの手間（サインアップ不要 → OAuthログイン → APIキー）でグループ化し、各グループ内では品質順を維持",
-    "typeLegend": "サインアップ不要 = セットアップ不要 · OAuthログイン = 自身のアカウントでサインイン · APIキー = 自身のキーまたはプロバイダーの無料枠を使用"
+    "typeLegend": "サインアップ不要 = セットアップ不要 · OAuthログイン = 自身のアカウントでサインイン · APIキー = 自身のキーまたはプロバイダーの無料枠を使用",
+    "colReliability": "__MISSING__:Reliability",
+    "colReliabilityHelp": "__MISSING__:Share of calls this provider actually answered over the last 24 hours. A dash means it served too little traffic to state a rate.",
+    "reliabilitySample": "__MISSING__:{successes} of {requests} calls succeeded in the last {hours}h",
+    "reliabilityTooFew": "__MISSING__:Only {requests} calls in the last {hours}h — too few to state a rate",
+    "reliabilityNoTraffic": "__MISSING__:No calls recorded in the last 24h"
   },
   "discovery": {
     "title": "プロバイダー検出",

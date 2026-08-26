@@ -2,7 +2,6 @@ import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import {
   DEFAULT_SAFETY_SETTINGS,
-  tryParseJSON,
   cleanJSONSchemaForAntigravity,
 } from "../helpers/geminiHelper.ts";
 import { buildGeminiTools, sanitizeGeminiToolName } from "../helpers/geminiToolsSanitizer.ts";
@@ -186,13 +185,6 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
                   .map((c) => (c.type === "text" ? c.text : JSON.stringify(c)))
                   .join("\n");
               }
-              let parsedContent = tryParseJSON(content);
-              if (parsedContent === null) {
-                parsedContent = { result: content };
-              } else if (typeof parsedContent !== "object") {
-                parsedContent = { result: parsedContent };
-              }
-
               const toolUseId = block.tool_use_id;
               const name = toolUseNames[toolUseId] || "unknown";
 
@@ -210,7 +202,7 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
                 functionResponse: {
                   ...(stripFunctionCallId ? {} : { id: toolUseId }),
                   name,
-                  response: { result: parsedContent },
+                  response: { result: content },
                 },
               });
               break;

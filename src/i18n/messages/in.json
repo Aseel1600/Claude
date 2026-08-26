@@ -1266,7 +1266,7 @@
     "agentBridge": "Agent Bridge",
     "agentBridgeSubtitle": "Cegat lalu lintas agen IDE",
     "trafficInspector": "Pemeriksa Lalu Lintas",
-    "trafficInspectorSubtitle": "Pantau panggilan LLM + debug lalu lintas HTTPS apa pun",
+    "trafficInspectorSubtitle": "__MISSING__:Inspect request and response traffic from your apps",
     "cliCode": "Kode CLI",
     "cliCodeSubtitle": "Alat kode yang mengarah ke OmniRoute",
     "cliAgents": "Agen CLI",
@@ -11314,7 +11314,9 @@
       "noPayload": "Tidak ada data payload yang tersedia untuk entri log ini.",
       "correlationId": "ID Korelasi",
       "correlationIdValue": "ID Korelasi: {id}",
-      "detailedPayloadInfo": "Aktifkan logging terperinci terlebih dahulu jika Anda ingin tampilan payload klien/penyedia empat tahap untuk permintaan baru."
+      "detailedPayloadInfo": "Aktifkan logging terperinci terlebih dahulu jika Anda ingin tampilan payload klien/penyedia empat tahap untuk permintaan baru.",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12485,7 +12487,12 @@
     "typeApikey": "Kunci API",
     "sortTypeFirst": "Paling mudah terlebih dahulu",
     "sortTypeFirstHelp": "Kelompokkan berdasarkan upaya pendaftaran (Tanpa Pendaftaran → Masuk OAuth → Kunci API), mempertahankan urutan kualitas dalam setiap kelompok",
-    "typeLegend": "Tanpa Pendaftaran = tanpa penyiapan · Masuk OAuth = masuk dengan akun Anda sendiri · Kunci API = bawa kunci Anda sendiri atau tingkat gratis penyedia tersebut"
+    "typeLegend": "Tanpa Pendaftaran = tanpa penyiapan · Masuk OAuth = masuk dengan akun Anda sendiri · Kunci API = bawa kunci Anda sendiri atau tingkat gratis penyedia tersebut",
+    "colReliability": "__MISSING__:Reliability",
+    "colReliabilityHelp": "__MISSING__:Share of calls this provider actually answered over the last 24 hours. A dash means it served too little traffic to state a rate.",
+    "reliabilitySample": "__MISSING__:{successes} of {requests} calls succeeded in the last {hours}h",
+    "reliabilityTooFew": "__MISSING__:Only {requests} calls in the last {hours}h — too few to state a rate",
+    "reliabilityNoTraffic": "__MISSING__:No calls recorded in the last 24h"
   },
   "discovery": {
     "title": "Penemuan Penyedia",

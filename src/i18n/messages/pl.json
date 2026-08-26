@@ -1266,7 +1266,7 @@
     "agentBridge": "Agent Bridge",
     "agentBridgeSubtitle": "Przechwytywanie ruchu agenta IDE",
     "trafficInspector": "Traffic Inspector",
-    "trafficInspectorSubtitle": "Monitorowanie połączeń LLM + debugowanie dowolnego ruchu HTTPS",
+    "trafficInspectorSubtitle": "__MISSING__:Inspect request and response traffic from your apps",
     "cliCode": "CLI Code",
     "cliCodeSubtitle": "Narzędzia kodowania wskazujące na OmniRoute",
     "cliAgents": "CLI Agents",
@@ -11314,7 +11314,9 @@
       "noPayload": "Brak danych ładunku dostępnych dla tego wpisu dziennika.",
       "correlationId": "Identyfikator korelacji",
       "correlationIdValue": "Identyfikator korelacji: {id}",
-      "detailedPayloadInfo": "Najpierw włącz szczegółowe logowanie, jeśli chcesz uzyskać widok ładunku klienta/dostawcy w czterech etapach dla nowych żądań."
+      "detailedPayloadInfo": "Najpierw włącz szczegółowe logowanie, jeśli chcesz uzyskać widok ładunku klienta/dostawcy w czterech etapach dla nowych żądań.",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12485,7 +12487,12 @@
     "typeApikey": "Klucz API",
     "sortTypeFirst": "Najłatwiejsze najpierw",
     "sortTypeFirstHelp": "Grupuj według nakładu pracy przy rejestracji (Bez rejestracji → Logowanie OAuth → Klucz API), zachowując kolejność jakości w każdej grupie",
-    "typeLegend": "Bez rejestracji = zero konfiguracji · Logowanie OAuth = zaloguj się za pomocą własnego konta · Klucz API = użyj własnego klucza lub darmowego planu tego provider"
+    "typeLegend": "Bez rejestracji = zero konfiguracji · Logowanie OAuth = zaloguj się za pomocą własnego konta · Klucz API = użyj własnego klucza lub darmowego planu tego provider",
+    "colReliability": "__MISSING__:Reliability",
+    "colReliabilityHelp": "__MISSING__:Share of calls this provider actually answered over the last 24 hours. A dash means it served too little traffic to state a rate.",
+    "reliabilitySample": "__MISSING__:{successes} of {requests} calls succeeded in the last {hours}h",
+    "reliabilityTooFew": "__MISSING__:Only {requests} calls in the last {hours}h — too few to state a rate",
+    "reliabilityNoTraffic": "__MISSING__:No calls recorded in the last 24h"
   },
   "discovery": {
     "title": "Provider Discovery",

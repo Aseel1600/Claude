@@ -1266,7 +1266,7 @@
     "agentBridge": "Agent Bridge",
     "agentBridgeSubtitle": "יירוט תעבורת סוכן IDE",
     "trafficInspector": "מפקח תעבורה",
-    "trafficInspectorSubtitle": "ניטור קריאות LLM + דיבאג של כל תעבורת HTTPS",
+    "trafficInspectorSubtitle": "__MISSING__:Inspect request and response traffic from your apps",
     "cliCode": "קוד CLI",
     "cliCodeSubtitle": "כלי קוד המצביעים על OmniRoute",
     "cliAgents": "סוכני CLI",
@@ -11314,7 +11314,9 @@
       "noPayload": "אין נתוני payload זמינים עבור רשומת יומן זו.",
       "correlationId": "מזהה קורלציה",
       "correlationIdValue": "מזהה קורלציה: {id}",
-      "detailedPayloadInfo": "אפשר לוגים מפורטים קודם אם אתה רוצה את תצוגת העומס של הלקוח/ספק בארבעה שלבים עבור בקשות חדשות."
+      "detailedPayloadInfo": "אפשר לוגים מפורטים קודם אם אתה רוצה את תצוגת העומס של הלקוח/ספק בארבעה שלבים עבור בקשות חדשות.",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12485,7 +12487,12 @@
     "typeApikey": "מפתח API",
     "sortTypeFirst": "הקל ביותר תחילה",
     "sortTypeFirstHelp": "קבץ לפי מאמץ ההרשמה (ללא הרשמה → התחברות באמצעות OAuth → מפתח API), תוך שמירה על סדר האיכות בכל קבוצה",
-    "typeLegend": "ללא הרשמה = אפס הגדרות · התחברות באמצעות OAuth = כניסה עם החשבון שלך · מפתח API = שימוש במפתח משלך או במסלול החינמי של אותו ספק"
+    "typeLegend": "ללא הרשמה = אפס הגדרות · התחברות באמצעות OAuth = כניסה עם החשבון שלך · מפתח API = שימוש במפתח משלך או במסלול החינמי של אותו ספק",
+    "colReliability": "__MISSING__:Reliability",
+    "colReliabilityHelp": "__MISSING__:Share of calls this provider actually answered over the last 24 hours. A dash means it served too little traffic to state a rate.",
+    "reliabilitySample": "__MISSING__:{successes} of {requests} calls succeeded in the last {hours}h",
+    "reliabilityTooFew": "__MISSING__:Only {requests} calls in the last {hours}h — too few to state a rate",
+    "reliabilityNoTraffic": "__MISSING__:No calls recorded in the last 24h"
   },
   "discovery": {
     "title": "גילוי ספקים",

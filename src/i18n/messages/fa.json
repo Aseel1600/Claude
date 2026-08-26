@@ -1266,7 +1266,7 @@
     "agentBridge": "پل ایجنت",
     "agentBridgeSubtitle": "رهگیری ترافیک ایجنت IDE",
     "trafficInspector": "بازرس ترافیک",
-    "trafficInspectorSubtitle": "نظارت بر فراخوانی‌های LLM + اشکال‌زدایی هرگونه ترافیک HTTPS",
+    "trafficInspectorSubtitle": "__MISSING__:Inspect request and response traffic from your apps",
     "cliCode": "کد CLI",
     "cliCodeSubtitle": "ابزارهای کد متصل به OmniRoute",
     "cliAgents": "ایجنت‌های CLI",
@@ -11314,7 +11314,9 @@
       "noPayload": "هیچ داده بارگذاری شده‌ای برای این ورودی لاگ موجود نیست.",
       "correlationId": "شناسه همبستگی",
       "correlationIdValue": "شناسه همبستگی: {id}",
-      "detailedPayloadInfo": "ابتدا لاگ‌برداری دقیق را فعال کنید اگر می‌خواهید نمای بارگذاری چهار مرحله‌ای مشتری/تأمین‌کننده برای درخواست‌های جدید را مشاهده کنید."
+      "detailedPayloadInfo": "ابتدا لاگ‌برداری دقیق را فعال کنید اگر می‌خواهید نمای بارگذاری چهار مرحله‌ای مشتری/تأمین‌کننده برای درخواست‌های جدید را مشاهده کنید.",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12485,7 +12487,12 @@
     "typeApikey": "کلید API",
     "sortTypeFirst": "ابتدا آسان‌ترین‌ها",
     "sortTypeFirstHelp": "گروه‌بندی بر اساس میزان تلاش برای ثبت‌نام (بدون نیاز به ثبت‌نام ← ورود با OAuth ← کلید API)، با حفظ ترتیب کیفیت در هر گروه",
-    "typeLegend": "بدون نیاز به ثبت‌نام = بدون نیاز به راه‌اندازی · ورود با OAuth = ورود با حساب کاربری خودتان · کلید API = استفاده از کلید خودتان یا طرح رایگان آن ارائه‌دهنده"
+    "typeLegend": "بدون نیاز به ثبت‌نام = بدون نیاز به راه‌اندازی · ورود با OAuth = ورود با حساب کاربری خودتان · کلید API = استفاده از کلید خودتان یا طرح رایگان آن ارائه‌دهنده",
+    "colReliability": "__MISSING__:Reliability",
+    "colReliabilityHelp": "__MISSING__:Share of calls this provider actually answered over the last 24 hours. A dash means it served too little traffic to state a rate.",
+    "reliabilitySample": "__MISSING__:{successes} of {requests} calls succeeded in the last {hours}h",
+    "reliabilityTooFew": "__MISSING__:Only {requests} calls in the last {hours}h — too few to state a rate",
+    "reliabilityNoTraffic": "__MISSING__:No calls recorded in the last 24h"
   },
   "discovery": {
     "title": "شناسایی ارائه‌دهندگان",

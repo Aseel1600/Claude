@@ -1266,7 +1266,7 @@
     "agentBridge": "Agent Bridge",
     "agentBridgeSubtitle": "Chặn lưu lượng agent IDE",
     "trafficInspector": "Traffic Inspector",
-    "trafficInspectorSubtitle": "Giám sát lệnh gọi LLM + gỡ lỗi mọi lưu lượng HTTPS",
+    "trafficInspectorSubtitle": "Kiểm tra lưu lượng yêu cầu và phản hồi từ các ứng dụng của bạn",
     "trafficInspectorPurpose": "Xem chính xác những gì ứng dụng của bạn gửi đến và nhận từ các nhà cung cấp AI. Hoạt động với bất kỳ ứng dụng khách nào tương thích với OpenAI.",
     "cliCode": "CLI Code",
     "cliCodeSubtitle": "Các công cụ lập trình trỏ đến OmniRoute",
@@ -11316,7 +11316,9 @@
       "noPayload": "Không có dữ liệu payload cho mục nhật ký này.",
       "correlationId": "ID tương quan",
       "correlationIdValue": "ID tương quan: {id}",
-      "detailedPayloadInfo": "Hãy bật ghi nhật ký chi tiết trước nếu bạn muốn xem giao diện payload client/nhà cung cấp gồm 4 giai đoạn cho các yêu cầu mới."
+      "detailedPayloadInfo": "Hãy bật ghi nhật ký chi tiết trước nếu bạn muốn xem giao diện payload client/nhà cung cấp gồm 4 giai đoạn cho các yêu cầu mới.",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12487,7 +12489,12 @@
     "typeApikey": "Khóa API",
     "sortTypeFirst": "Dễ thiết lập trước",
     "sortTypeFirstHelp": "Nhóm theo mức độ thiết lập (Không cần đăng ký → Đăng nhập OAuth → Khóa API), đồng thời giữ thứ tự chất lượng trong từng nhóm",
-    "typeLegend": "Không cần đăng ký = không cần thiết lập · Đăng nhập OAuth = đăng nhập bằng tài khoản của bạn · Khóa API = dùng khóa riêng hoặc gói miễn phí của nhà cung cấp"
+    "typeLegend": "Không cần đăng ký = không cần thiết lập · Đăng nhập OAuth = đăng nhập bằng tài khoản của bạn · Khóa API = dùng khóa riêng hoặc gói miễn phí của nhà cung cấp",
+    "colReliability": "Độ tin cậy",
+    "colReliabilityHelp": "Tỷ lệ lệnh gọi mà nhà cung cấp này thực sự trả lời trong 24 giờ qua. Dấu gạch ngang nghĩa là lưu lượng quá ít để đưa ra tỷ lệ.",
+    "reliabilitySample": "{successes} trong {requests} lệnh gọi thành công trong {hours}h qua",
+    "reliabilityTooFew": "Chỉ có {requests} lệnh gọi trong {hours}h qua — quá ít để đưa ra tỷ lệ",
+    "reliabilityNoTraffic": "Không ghi nhận lệnh gọi nào trong 24h qua"
   },
   "discovery": {
     "title": "Khám phá nhà cung cấp",

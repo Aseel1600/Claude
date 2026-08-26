@@ -1266,7 +1266,7 @@
     "agentBridge": "Agent Bridge",
     "agentBridgeSubtitle": "Kaappaa IDE-agentin liikenne",
     "trafficInspector": "Liikennetarkastin",
-    "trafficInspectorSubtitle": "Valvo LLM-kutsuja + vianmääritä mitä tahansa HTTPS-liikennettä",
+    "trafficInspectorSubtitle": "__MISSING__:Inspect request and response traffic from your apps",
     "cliCode": "CLI-koodi",
     "cliCodeSubtitle": "OmniRouteen osoittavat koodityökalut",
     "cliAgents": "CLI-agentit",
@@ -11314,7 +11314,9 @@
       "noPayload": "Ei kuormitustietoja saatavilla tälle lokimerkinnälle.",
       "correlationId": "Korrelaatio-ID",
       "correlationIdValue": "Korrelaatio-ID: {id}",
-      "detailedPayloadInfo": "Ota ensin käyttöön yksityiskohtainen lokitus, jos haluat nelivaiheisen asiakas/toimittaja kuormitusnäkymän uusille pyyntöille."
+      "detailedPayloadInfo": "Ota ensin käyttöön yksityiskohtainen lokitus, jos haluat nelivaiheisen asiakas/toimittaja kuormitusnäkymän uusille pyyntöille.",
+      "copyAll": "Copy all",
+      "copiedAll": "Copied all"
     }
   },
   "proxyLogger": {
@@ -12485,7 +12487,12 @@
     "typeApikey": "API-avain",
     "sortTypeFirst": "Helpoin ensin",
     "sortTypeFirstHelp": "Ryhmittele rekisteröitymisvaivan mukaan (Ei rekisteröitymistä → OAuth-kirjautuminen → API-avain), säilyttäen laatuun perustuva järjestys kussakin ryhmässä",
-    "typeLegend": "Ei rekisteröitymistä = ei käyttöönottoa · OAuth-kirjautuminen = kirjaudu omalla tililläsi · API-avain = käytä omaa avaintasi tai palveluntarjoajan ilmaistasoa"
+    "typeLegend": "Ei rekisteröitymistä = ei käyttöönottoa · OAuth-kirjautuminen = kirjaudu omalla tililläsi · API-avain = käytä omaa avaintasi tai palveluntarjoajan ilmaistasoa",
+    "colReliability": "__MISSING__:Reliability",
+    "colReliabilityHelp": "__MISSING__:Share of calls this provider actually answered over the last 24 hours. A dash means it served too little traffic to state a rate.",
+    "reliabilitySample": "__MISSING__:{successes} of {requests} calls succeeded in the last {hours}h",
+    "reliabilityTooFew": "__MISSING__:Only {requests} calls in the last {hours}h — too few to state a rate",
+    "reliabilityNoTraffic": "__MISSING__:No calls recorded in the last 24h"
   },
   "discovery": {
     "title": "Palveluntarjoajien kartoitus",
