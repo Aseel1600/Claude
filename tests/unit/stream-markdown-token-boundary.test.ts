@@ -261,3 +261,34 @@ test("Gemini to Claude: flushes held boundary before tool call transition", () =
   );
   assert.ok(toolStart, "expected tool_use block after flushed text");
 });
+
+test("Gemini to Claude: fully-held chunk emits no empty text_delta (#11606 R1)", () => {
+  const state = createGeminiState();
+  // Chunk 1 ends with a single backtick (opener context) -> fully held.
+  const chunk1 = geminiToClaudeResponse(geminiChunk("Run `", false), state);
+  // Chunk 2 continues with the inline code body + closing backtick.
+  const chunk2 = geminiToClaudeResponse(geminiChunk("ls` done", true), state);
+  const result = flatten([chunk1, chunk2]);
+  const textDeltas = getTextDeltas(result);
+  // No zero-length delta may appear; the boundary flushes joined on chunk 2.
+  assert.ok(
+    textDeltas.every((d) => d.length > 0),
+    `zero-length text_delta emitted: ${JSON.stringify(textDeltas)}`
+  );
+  assert.deepEqual(textDeltas, ["Run ", "`ls` done"]);
+  // The trailing backtick is held; only the real text "Run " is emitted on
+  // chunk 1. In particular NO zero-length text_delta may appear (the R1
+  // finding: a fully-held "cleaned" chunk used to open a text block and fire
+  // an empty delta for nothing).
+  const chunk1TextDeltas = (chunk1 as unknown as Record<string, unknown>[])
+    .filter(
+      (e) =>
+        (e as Record<string, unknown>)?.type === "content_block_delta" &&
+        ((e as Record<string, unknown>).delta as Record<string, unknown>)?.type === "text_delta"
+    )
+    .map(
+      (e) =>
+        ((e as Record<string, unknown>).delta as Record<string, unknown>).text ?? ""
+    );
+  assert.deepEqual(chunk1TextDeltas, ["Run "]);
+});

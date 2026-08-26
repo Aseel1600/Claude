@@ -323,21 +323,27 @@ export function geminiToClaudeResponse(chunk, state) {
           const { emit: textToEmit, hold: textToHold } = splitMarkdownBoundary(combinedText);
           state._markdownBuffer = textToHold;
 
-          // Open a new text block only if none is open yet
-          if (state.openTextBlockIdx === null) {
-            const idx = state.contentBlockIndex++;
-            state.openTextBlockIdx = idx;
+          // Fully-held chunk (e.g. "`" + "code" → whole text deferred to the
+          // boundary buffer): emitting an empty delta here opens a text block
+          // and fires a zero-length text_delta for nothing. The held content
+          // flushes on the next chunk; skip the event pair entirely.
+          if (textToEmit) {
+            // Open a new text block only if none is open yet
+            if (state.openTextBlockIdx === null) {
+              const idx = state.contentBlockIndex++;
+              state.openTextBlockIdx = idx;
+              results.push({
+                type: "content_block_start",
+                index: idx,
+                content_block: { type: "text", text: "" },
+              });
+            }
             results.push({
-              type: "content_block_start",
-              index: idx,
-              content_block: { type: "text", text: "" },
+              type: "content_block_delta",
+              index: state.openTextBlockIdx,
+              delta: { type: "text_delta", text: textToEmit },
             });
           }
-          results.push({
-            type: "content_block_delta",
-            index: state.openTextBlockIdx,
-            delta: { type: "text_delta", text: textToEmit },
-          });
         }
       }
     }
