@@ -80,6 +80,10 @@
     "tests/unit/gemini-3-5-flash-thinking.test.ts": {
       "replacement": "tests/unit/model-capabilities-registry.test.ts",
       "reason": "v3.8.50 back-merge f95b03d7: the provider-neutral Gemini 3.5 Flash tier catalog was RETIRED (MODEL_SPECS entries removed; the thinking tiers now live under antigravity/gemini-3.7-flash-*), so the deleted file's thinking-capable/routing-policy fixtures pinned a retired surface and red-fail against HEAD. The replacement guards the retirement itself (retired ids have no provider-neutral specs) plus resolvable capability floors for the surviving gemini-3-flash-agent id. Verified legitimate, not masking."
+    },
+    "tests/unit/edgetts-provider.test.ts": {
+      "replacement": "tests/unit/edgetts-retirement.test.ts",
+      "reason": "v3.8.50 pending PR: the EdgeTTS executor and its positive protocol tests were retired together after a provenance/licensing HOLD. The replacement pins the new public contract across the speech registry, handler and UI-derived catalog while preserving gTTS, AWS Polly and ElevenLabs. Feature retirement, not test masking; prune after v3.8.50 merges to main."
     }
   },
   "tests/unit/catalog-updates-v3x.test.ts": "v3.8.45 #6248: fix(providers) remove deprecated MiMo V2 entries — os 5 asserts removidos pinavam specs de modelos mimo-v2-* que deixaram de existir no catálogo (54→49). Asserts seguem a remoção dos modelos, não enfraquecimento. Verificado legítimo. Prune após v3.8.45 mergear para main.",
