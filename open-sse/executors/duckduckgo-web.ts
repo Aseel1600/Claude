@@ -16,6 +16,7 @@ import { prepareToolMessages, buildToolAwareResult } from "../translator/webTool
 import type { Session } from "../services/sessionPool/session.ts";
 import { tryBackedChat } from "../services/browserBackedChat.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import { normalizeSystemRole } from "../services/roleNormalizer.ts";
 
 // Issue #6999: Lightweight circuit breaker for the DuckDuckGo executor.
 // After CB_THRESHOLD consecutive failures (429, 5xx, or network errors),
@@ -462,7 +463,17 @@ export class DuckDuckGoWebExecutor extends BaseExecutor {
       bodyObj,
       rawMessages
     );
-    const messages = effectiveMessages;
+    // #ddgw defense-in-depth: duckchat/v1/chat accepts only user/assistant roles.
+    // The request translator already folds system/developer for this provider
+    // (roleNormalizer), but anything that reintroduces them after translation —
+    // e.g. prepareToolMessages' injected tool prompt — must be folded here too,
+    // right before the upstream POST. Passing the provider id keeps the fold
+    // active even if the capability catalog ever drops this provider.
+    const messages = normalizeSystemRole(
+      effectiveMessages,
+      "duckduckgo-web",
+      upstreamModel
+    ) as typeof effectiveMessages;
     const isStreaming = stream !== false;
     const upstreamHeaders = upstreamExtraHeaders || {};
 
