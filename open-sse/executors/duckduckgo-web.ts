@@ -463,17 +463,7 @@ export class DuckDuckGoWebExecutor extends BaseExecutor {
       bodyObj,
       rawMessages
     );
-    // #ddgw defense-in-depth: duckchat/v1/chat accepts only user/assistant roles.
-    // The request translator already folds system/developer for this provider
-    // (roleNormalizer), but anything that reintroduces them after translation —
-    // e.g. prepareToolMessages' injected tool prompt — must be folded here too,
-    // right before the upstream POST. Passing the provider id keeps the fold
-    // active even if the capability catalog ever drops this provider.
-    const messages = normalizeSystemRole(
-      effectiveMessages,
-      "duckduckgo-web",
-      upstreamModel
-    ) as typeof effectiveMessages;
+    const messages = effectiveMessages;
     const isStreaming = stream !== false;
     const upstreamHeaders = upstreamExtraHeaders || {};
 
@@ -570,8 +560,17 @@ export class DuckDuckGoWebExecutor extends BaseExecutor {
         }
       }
 
+      // #ddgw defense-in-depth: duckchat/v1/chat accepts only user/assistant roles.
+      // Normalize after catalog resolution so the effective upstream model is used.
+      // This also shields the system tool prompt injected by prepareToolMessages.
+      const normalizedMessages = normalizeSystemRole(
+        messages,
+        "duckduckgo-web",
+        upstreamModel
+      ) as typeof messages;
+
       const sendChat = async (vqdHeaders: DuckDuckGoAuthHeaders): Promise<Response> => {
-        const payload = buildDuckDuckGoPayload(upstreamModel, messages);
+        const payload = buildDuckDuckGoPayload(upstreamModel, normalizedMessages);
         const response = await fetch(CHAT_URL, {
           method: "POST",
           headers: mergeHeadersCaseInsensitive(
@@ -797,10 +796,7 @@ export class DuckDuckGoWebExecutor extends BaseExecutor {
           try {
             return {
               vqd4: retry.vqd4,
-              vqdHash1: await solveDuckDuckGoChallenge(
-                retry.vqdHash1,
-                FAKE_HEADERS["User-Agent"]
-              ),
+              vqdHash1: await solveDuckDuckGoChallenge(retry.vqdHash1, FAKE_HEADERS["User-Agent"]),
               status: retry.status,
               retryAfter: retry.retryAfter,
             };
