@@ -3093,11 +3093,6 @@
       "count": 1
     }
   },
-  "src/sse/services/auth.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/sse/services/model.ts": {
     "no-restricted-imports": {
       "count": 2
