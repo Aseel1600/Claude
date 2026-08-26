@@ -2,7 +2,8 @@
 // TDD tests for check-lockfile.mjs — lockfile policy gate (Task 7.7).
 //
 // Strategy: the lockfile-lint binary is an external CLI tool; we do not spawn it
-// in unit tests. Instead, we test the two exported pure functions:
+// in unit tests. Instead, we test the exported policy helpers and inject the
+// process boundary used by the workspace consistency runner:
 //   - getLockfileLintConfig() — returns the policy configuration object
 //   - buildLockfileLintArgs()  — maps a config object to the argv array
 //
@@ -15,6 +16,8 @@ import path from "node:path";
 import {
   getLockfileLintConfig,
   buildLockfileLintArgs,
+  getWorkspaceDependencyCheckCommand,
+  runWorkspaceDependencyCheck,
 } from "../../../scripts/check/check-lockfile.mjs";
 
 // ---------------------------------------------------------------------------
@@ -178,4 +181,60 @@ test("buildLockfileLintArgs: --allowed-hosts values follow immediately after the
   assert.ok(hostIdx !== -1, "--allowed-hosts should be present");
   assert.equal(args[hostIdx + 1], "npm");
   assert.equal(args[hostIdx + 2], "verdaccio");
+});
+
+// ---------------------------------------------------------------------------
+// workspace dependency consistency
+// ---------------------------------------------------------------------------
+
+test("getWorkspaceDependencyCheckCommand: checks every workspace at direct depth", () => {
+  const command = getWorkspaceDependencyCheckCommand("linux");
+  assert.deepEqual(command.args, ["ls", "--workspaces", "--depth=0"]);
+});
+
+test("getWorkspaceDependencyCheckCommand: invokes npm directly outside Windows", () => {
+  const command = getWorkspaceDependencyCheckCommand("linux");
+  assert.equal(command.command, "npm");
+});
+
+test("getWorkspaceDependencyCheckCommand: invokes npm.cmd through cmd.exe on Windows", () => {
+  const command = getWorkspaceDependencyCheckCommand("win32", "C:\\Windows\\System32\\cmd.exe");
+  assert.equal(command.command, "C:\\Windows\\System32\\cmd.exe");
+  assert.deepEqual(command.args, ["/d", "/s", "/c", "npm.cmd", "ls", "--workspaces", "--depth=0"]);
+});
+
+test("runWorkspaceDependencyCheck: executes the selected command and returns success", () => {
+  const calls: unknown[][] = [];
+  const result = runWorkspaceDependencyCheck({
+    platform: "linux",
+    execFile: (...args: unknown[]) => {
+      calls.push(args);
+      return "tree is valid";
+    },
+  });
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.[0], "npm");
+  assert.deepEqual(calls[0]?.[1], ["ls", "--workspaces", "--depth=0"]);
+});
+
+test("runWorkspaceDependencyCheck: reports npm ls failures without masking diagnostics", () => {
+  const failure = Object.assign(new Error("ELSPROBLEMS"), {
+    stdout: "invalid playwright",
+    stderr: "npm error code ELSPROBLEMS",
+  });
+
+  const result = runWorkspaceDependencyCheck({
+    platform: "linux",
+    execFile: () => {
+      throw failure;
+    },
+  });
+
+  assert.deepEqual(result, {
+    ok: false,
+    stdout: "invalid playwright",
+    stderr: "npm error code ELSPROBLEMS",
+  });
 });
