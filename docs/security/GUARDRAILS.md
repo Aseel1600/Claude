@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
-version: 3.8.50
-lastUpdated: 2026-08-24
+version: 3.8.51
+lastUpdated: 2026-08-26
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-08-24 — v3.8.50 (Video Bridge visual dedup hardening + focused captions)
+> **Last updated:** 2026-08-26 — v3.8.51 (Video Bridge transcript-retention boundary)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -438,6 +438,37 @@ copied into the described result with source, confidence, and interval, and
 are rendered as untrusted observations alongside the frame captions. Invalid,
 out-of-range, or provenance-free text is rejected rather than mixed into the
 caption stream.
+
+#### Transcript retention boundary
+
+Transcript text remains available to the live bridge and upstream request, but it is not retained
+by OmniRoute's logging and memory surfaces. `videoTranscriptLogRedaction.ts` recognizes
+`transcript` and `audioTranscript` only inside supported video carriers. A field with either name
+in an ordinary tool argument or application object is preserved, and delimiter-shaped caller
+prose is not trusted as a bridge result.
+
+When the Video Bridge produces a description containing validated cues, it emits only a
+SHA-256/length identity in guardrail metadata. The request pipeline accepts those identities only
+from a successful, payload-modifying `video-bridge` result and uses them to omit the exact generated
+description segment after translation or concatenation. Raw transcript text is never placed in the
+metadata.
+
+The retention policy covers raw, converted, and provider request logs; provider and client response
+bodies; detailed pipeline artifacts; call logs, active/pending usage, rejected requests, proxy/error
+diagnostics, SSE chunks, and Memory extraction. Response bodies and stream chunks for a sensitive
+request are omitted because an upstream may echo request text. Safe operational metadata such as
+status, timing, provider, model, headers-presence, token counts, and the fact that redaction occurred
+remains available. The constant retained marker is `[omitted: video transcript]`.
+
+Inspection is bounded by depth, aggregate entries, trusted identities, description-prefix
+occurrences, candidate hashes, and total hashed text. Cycles and binary views are handled without
+retaining their contents. If a bound is exceeded, or an enumerable getter/proxy throws during
+inspection, the retained copy fails closed to the omission marker; the live request is not changed.
+
+Privacy-redacted Responses artifacts cannot safely reconstruct complete `previous_response_id`
+history. `responsesContinuationStore.ts` therefore rejects an artifact carrying the trusted
+pipeline-level redaction marker and asks the client to resend full history instead of replaying a
+silently incomplete conversation.
 
 An advanced caller may provide an already-authorized `audioTranscript` track
 for the same video. The fusion seam runs visual and audio observations under
