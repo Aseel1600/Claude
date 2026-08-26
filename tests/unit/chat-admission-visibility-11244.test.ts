@@ -13,9 +13,9 @@
 //      while a client abort mid-wait is NOT a shed (capacity was never denied);
 //  (b) the process-wide snapshot exposes shedTotal + shedsByReason next to the
 //      existing live fields;
-//  (c) each shed emits exactly one structured pino warn carrying
-//      reason/activeHeavy/waiting and the HMAC session fingerprint — never the raw
-//      API key (resolveSessionId already fingerprints the credential).
+//  (c) each shed emits exactly one structured pino warn carrying event-time capacity,
+//      headroom, limiter, reason, queue state, and the HMAC session fingerprint — never
+//      the raw API key (resolveSessionId already fingerprints the credential).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, existsSync } from "node:fs";
@@ -233,6 +233,12 @@ test("#11244 (c): each shed logs one structured warn with the session fingerprin
   assert.ok(contents.includes('"module":"chat-admission"'), "the log is scoped to the gate");
   assert.ok(contents.includes('"reason":"queue_timeout"'), "the shed reason is structured");
   assert.ok(contents.includes('"activeHeavy":1'), "live state travels with the log line");
+  assert.ok(contents.includes('"activeHealthyHeadroom":0'));
+  assert.ok(contents.includes('"activeHeavyTotal":1'));
+  assert.ok(contents.includes('"calculatedTotalHeavyCapacity":2'));
+  assert.ok(contents.includes('"availableHeavySlots":1'));
+  assert.ok(contents.includes('"healthyHeadroomReason":"environment_override"'));
+  assert.ok(contents.includes('"healthyHeadroomLimitingBudget":null'));
   assert.ok(contents.includes(fingerprint), "the lane fingerprint allows per-key correlation");
   assert.ok(!contents.includes(rawKey), "the raw API key must never reach the shed log");
 });

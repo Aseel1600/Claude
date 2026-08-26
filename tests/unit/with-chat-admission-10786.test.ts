@@ -2,9 +2,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { ChatAdmissionController, admitChatRequest } = await import(
-  "../../src/shared/middleware/chatBodyAdmission.ts"
-);
+const { ChatAdmissionController, admitChatRequest } =
+  await import("../../src/shared/middleware/chatBodyAdmission.ts");
 const { withChatAdmission } = await import("../../src/shared/middleware/withChatAdmission.ts");
 
 function largeBody(n = 64): string {
@@ -20,7 +19,7 @@ function chatRequest(url: string, body: string): Request {
 }
 
 test("withChatAdmission does not invoke the handler when a second large body is shed", async () => {
-  const controller = new ChatAdmissionController(1);
+  const controller = new ChatAdmissionController(1, undefined, 0);
   const options = { controller, largeBodyBytes: 32, hardMaxBytes: 1024, queueMs: 0 };
   const body = largeBody();
 
@@ -59,8 +58,14 @@ test("withChatAdmission invokes the handler and forwards the admitted request", 
 
 test("responses admits inline before json; messages wrap withChatAdmission before withInjectionGuard", async () => {
   const { readFileSync } = await import("node:fs");
-  const responses = readFileSync(new URL("../../src/app/api/v1/responses/route.ts", import.meta.url), "utf8");
-  const messages = readFileSync(new URL("../../src/app/api/v1/messages/route.ts", import.meta.url), "utf8");
+  const responses = readFileSync(
+    new URL("../../src/app/api/v1/responses/route.ts", import.meta.url),
+    "utf8"
+  );
+  const messages = readFileSync(
+    new URL("../../src/app/api/v1/messages/route.ts", import.meta.url),
+    "utf8"
+  );
   const catchAll = readFileSync(
     new URL("../../src/app/api/v1/responses/[...path]/route.ts", import.meta.url),
     "utf8"

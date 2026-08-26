@@ -13,7 +13,9 @@ import {
 import {
   ChatAdmissionController,
   PerConnectionAdmissionController,
+  admitChatRequest,
   admitChatStructure,
+  type ChatAdmissionShedEvent,
 } from "../../src/shared/middleware/chatBodyAdmission.ts";
 
 const GiB = 1024 * 1024 * 1024;
@@ -42,6 +44,19 @@ function heavyBody() {
     messages: Array.from({ length: 200 }, () => ({ role: "user", content: "x" })),
     tools: [],
   };
+}
+
+function byteHeavyRequest(lane: string): Request {
+  const body = JSON.stringify(heavyBody());
+  return new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${lane}`,
+      "content-length": String(body.length),
+      "content-type": "application/json",
+    },
+    body,
+  });
 }
 
 function policyFor(
@@ -210,9 +225,10 @@ test("runtime capacity has no fixed production session ceiling", () => {
 
 test("the measured large-host profile derives and admits its calculated capacity", async () => {
   const policy = policyFor(() => telemetry());
+  const sheds: ChatAdmissionShedEvent[] = [];
   const admission = new PerConnectionAdmissionController(1, {
     healthyHeadroomPolicy: policy,
-    onShed: () => {},
+    onShed: (event) => sheds.push(event),
   });
   const calculated = admission.snapshot().calculatedTotalHeavyCapacity;
   const leases = [];
@@ -229,6 +245,7 @@ test("the measured large-host profile derives and admits its calculated capacity
   const exhausted = await admitChatStructure(heavyBody(), null, {
     controller: admission.getController("measured-exhausted"),
     heapPressureCheck: () => false,
+    sessionId: "key_sanitized_measured_exhausted",
   });
   assert.equal(exhausted.admit, false);
   if (!exhausted.admit) {
@@ -237,12 +254,79 @@ test("the measured large-host profile derives and admits its calculated capacity
   }
   assert.equal(admission.snapshot().activeHeavyTotal, calculated);
   assert.equal(admission.snapshot().availableHeavySlots, 0);
+  assert.equal(sheds.length, 1);
+  assert.equal(sheds[0].activeHeavy, 1);
+  assert.equal(sheds[0].activeHealthyHeadroom, calculated - 1);
+  assert.equal(sheds[0].activeHeavyTotal, calculated);
+  assert.equal(sheds[0].configuredHealthyHeadroom, null);
+  assert.equal(sheds[0].effectiveHealthyHeadroom, calculated - 1);
+  assert.equal(sheds[0].calculatedTotalHeavyCapacity, calculated);
+  assert.equal(sheds[0].availableHeavySlots, 0);
+  assert.equal(sheds[0].memorySafeTotalHeavyCapacity, calculated);
+  assert.equal(sheds[0].healthyHeadroomLimitingBudget, "v8_heap");
+  assert.equal(sheds[0].healthyHeadroomReason, "v8_heap_capacity");
+  assert.equal(sheds[0].telemetryAvailability, "available");
+  assert.equal(sheds[0].waiting, 0);
+  assert.equal(sheds[0].queuedBytes, 0);
+  assert.equal(sheds[0].lane, "key_sanitized_measured_exhausted");
 
   for (const lease of leases) {
     lease.release();
     lease.release();
   }
   assert.equal(admission.snapshot().activeHeavyTotal, 0, "release is exact-once");
+});
+
+test("a second independent byte-heavy structural request uses available healthy headroom", async () => {
+  const policy = createRuntimeHeavyHeadroomPolicy({
+    explicitHeadroom: 10,
+    baseCapacity: 1,
+    legacyHeadroom: 1,
+    shedRatio: 0.75,
+  });
+  const admission = new PerConnectionAdmissionController(1, {
+    healthyHeadroomPolicy: policy,
+    onShed: () => {},
+  });
+  const options = {
+    largeBodyBytes: 32,
+    hardMaxBytes: 1024 * 1024,
+    queueMs: 0,
+    heapPressureCheck: () => false,
+  };
+  const results = await Promise.all(
+    ["independent-a", "independent-b"].map((sessionId) =>
+      admitChatRequest(byteHeavyRequest(sessionId), {
+        ...options,
+        controller: admission.getController(sessionId),
+        sessionId,
+      })
+    )
+  );
+
+  try {
+    assert.equal(results[0].admit, true, "the first request takes the primary reservation");
+    assert.equal(
+      results[1].admit,
+      true,
+      "the second independent request must use healthy headroom instead of shedding"
+    );
+    const snapshot = admission.snapshot();
+    assert.equal(snapshot.activeHeavy, 1);
+    assert.equal(snapshot.activeHealthyHeadroom, 1);
+    assert.equal(snapshot.activeHeavyTotal, 2);
+    assert.equal(snapshot.calculatedTotalHeavyCapacity, 11);
+    assert.equal(snapshot.availableHeavySlots, 9);
+    assert.equal(snapshot.shedTotal, 0);
+  } finally {
+    for (const result of results) {
+      if (result.admit) {
+        result.lease?.release();
+        result.lease?.release();
+      }
+    }
+  }
+  assert.equal(admission.snapshot().activeHeavyTotal, 0, "release remains exact-once");
 });
 
 test("pressure contracts immediately without revoking existing sessions", async () => {

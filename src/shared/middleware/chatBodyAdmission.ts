@@ -144,12 +144,24 @@ export type ChatAdmissionShedReason = "queue_timeout" | "queued_bytes_budget";
 
 /**
  * One structural-shed observation, emitted to the shed sink at warn level.
- * `lane` is the opaque fairness key — the HMAC fingerprint produced by
- * `resolveSessionId` (or "anonymous"/"default"), never a raw credential.
+ * Capacity and headroom fields are event-time, aggregate scalars that can be
+ * correlated with the protected health snapshot. `lane` is the opaque fairness
+ * key — the HMAC fingerprint produced by `resolveSessionId` (or
+ * "anonymous"/"default"), never a raw credential.
  */
 export interface ChatAdmissionShedEvent {
   reason: ChatAdmissionShedReason;
   activeHeavy: number;
+  activeHealthyHeadroom: number;
+  activeHeavyTotal: number;
+  configuredHealthyHeadroom: number | null;
+  effectiveHealthyHeadroom: number;
+  calculatedTotalHeavyCapacity: number;
+  availableHeavySlots: number;
+  memorySafeTotalHeavyCapacity: number;
+  healthyHeadroomReason: RuntimeHeavyHeadroomReason;
+  healthyHeadroomLimitingBudget: RuntimeHeavyHeadroomSnapshot["limitingBudget"];
+  telemetryAvailability: RuntimeHeavyHeadroomSnapshot["telemetryAvailability"];
   waiting: number;
   queuedBytes: number;
   lane: string;
@@ -319,9 +331,22 @@ export class ChatAdmissionController {
   recordShed(reason: ChatAdmissionShedReason, lane = "default"): void {
     this.#shedTotal += 1;
     this.#shedsByReason.set(reason, (this.#shedsByReason.get(reason) ?? 0) + 1);
+    const healthyHeadroom = this.healthyHeadroomSnapshot;
+    const activeHealthyHeadroom = this.#activeHealthy;
+    const activeHeavyTotal = this.#activeHeavy + activeHealthyHeadroom;
     this.#onShed({
       reason,
       activeHeavy: this.#activeHeavy,
+      activeHealthyHeadroom,
+      activeHeavyTotal,
+      configuredHealthyHeadroom: healthyHeadroom.configuredHeadroom,
+      effectiveHealthyHeadroom: healthyHeadroom.effectiveHeadroom,
+      calculatedTotalHeavyCapacity: healthyHeadroom.calculatedTotalCapacity,
+      availableHeavySlots: Math.max(0, healthyHeadroom.calculatedTotalCapacity - activeHeavyTotal),
+      memorySafeTotalHeavyCapacity: healthyHeadroom.memorySafeTotalCapacity,
+      healthyHeadroomReason: healthyHeadroom.reason,
+      healthyHeadroomLimitingBudget: healthyHeadroom.limitingBudget,
+      telemetryAvailability: healthyHeadroom.telemetryAvailability,
       waiting: this.waitingCount,
       queuedBytes: this.#queuedBytes,
       lane,
@@ -972,6 +997,8 @@ export async function admitChatRequest(
     largeBodyBytes?: number;
     hardMaxBytes?: number;
     queueMs?: number;
+    /** Live heap-pressure probe; injectable so headroom admission is deterministic in tests. */
+    heapPressureCheck?: () => boolean;
   } = {}
 ): Promise<ChatRequestAdmission> {
   const sessionId = options.sessionId ?? resolveSessionId(request);
@@ -980,6 +1007,7 @@ export async function admitChatRequest(
   const largeBodyBytes = options.largeBodyBytes ?? CHAT_LARGE_BODY_BYTES;
   const hardMaxBytes = options.hardMaxBytes ?? CHAT_HARD_MAX_BODY_BYTES;
   const queueMs = options.queueMs ?? 0;
+  const heapPressureCheck = options.heapPressureCheck ?? defaultHeapPressureCheck;
   const internalBypass = isInternalAdmissionBypass(request);
   const contentLength = parseContentLength(request.headers.get("content-length"));
 
@@ -1026,6 +1054,18 @@ export async function admitChatRequest(
   let lease: ChatAdmissionLease | null = null;
   const reserve = async (bytes = 0): Promise<boolean> => {
     if (lease) return true;
+
+    // The byte-heavy preparation path shares the same process-global primary + healthy
+    // headroom budget as structure-only admission. Previously it attempted only the primary
+    // slot, so one active preparation could queue-timeout an independent request even while
+    // runtime telemetry reported healthy headroom.
+    lease = controller.tryAcquireHeavy();
+    if (lease) return true;
+    if (!heapPressureCheck()) {
+      lease = controller.tryAcquireHealthyHeadroom();
+      if (lease) return true;
+    }
+
     lease = await controller.acquireHeavyWithin(queueMs, request.signal, bytes, sessionId);
     return lease !== null;
   };
@@ -1077,13 +1117,19 @@ export async function admitChatRequest(
   return { admit: true, request: rebuildRequest(request, body), lease };
 }
 
-/** Release a lease if a handler rejects; otherwise bind it to the returned response lifecycle. */
+/**
+ * Hold the structural lease only through request-side preparation. Once the
+ * handler yields a response, adaptive weighted admission and #11493's
+ * hierarchical provider semaphore own the generation lifecycle.
+ */
 export async function releaseChatAdmissionAfterHandler(
   responsePromise: Promise<Response>,
   lease: ChatAdmissionLease | null
 ): Promise<Response> {
   try {
-    return releaseChatAdmissionWhenDone(await responsePromise, lease);
+    const response = await responsePromise;
+    lease?.release();
+    return response;
   } catch (error) {
     lease?.release();
     throw error;
