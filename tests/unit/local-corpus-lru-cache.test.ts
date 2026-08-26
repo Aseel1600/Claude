@@ -88,7 +88,7 @@ test("LRU cache respects access order and OMNIROUTE_CORPUS_CACHE_SIZE", async ()
   fs.mkdirSync(dir3, { recursive: true });
 
   const idx1 = getConfiguredLocalCorpusStatus(dir1);
-  const idx2 = getConfiguredLocalCorpusStatus(dir2);
+  getConfiguredLocalCorpusStatus(dir2);
 
   // Access dir1 again so its access order is updated (making dir2 the least recently used)
   getConfiguredLocalCorpusStatus(dir1);
