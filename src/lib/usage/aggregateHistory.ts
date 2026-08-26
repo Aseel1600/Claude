@@ -161,6 +161,11 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
           DATE(timestamp) as date,
           COALESCE(NULLIF(service_tier, ''), 'standard') as serviceTier,
           COUNT(*) as totalRequests,
+          COALESCE(tokens_input, 0) as requestInputTokens,
+          COALESCE(tokens_output, 0) as requestOutputTokens,
+          COALESCE(tokens_cache_read, 0) as requestCacheReadTokens,
+          COALESCE(tokens_cache_creation, 0) as requestCacheCreationTokens,
+          COALESCE(tokens_reasoning, 0) as requestReasoningTokens,
           COALESCE(SUM(tokens_input), 0) as inputTokens,
           COALESCE(SUM(tokens_output), 0) as outputTokens,
           COALESCE(SUM(tokens_cache_read), 0) as cacheReadTokens,
@@ -170,7 +175,9 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
         WHERE timestamp < ?
           AND provider IS NOT NULL AND provider != ''
           AND model IS NOT NULL AND model != ''
-        GROUP BY LOWER(provider), LOWER(model), DATE(timestamp), serviceTier`
+        GROUP BY LOWER(provider), LOWER(model), DATE(timestamp), serviceTier,
+          requestInputTokens, requestOutputTokens, requestCacheReadTokens,
+          requestCacheCreationTokens, requestReasoningTokens`
       )
       .all(beforeDate) as Array<{
       provider: string;
@@ -178,6 +185,11 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
       date: string;
       serviceTier: string;
       totalRequests: number;
+      requestInputTokens: number;
+      requestOutputTokens: number;
+      requestCacheReadTokens: number;
+      requestCacheCreationTokens: number;
+      requestReasoningTokens: number;
       inputTokens: number;
       outputTokens: number;
       cacheReadTokens: number;
@@ -188,25 +200,33 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
     const pricedRows = await Promise.all(
       rows.map(async (row) => ({
         ...row,
-        totalCost: await calculateCost(
-          row.provider,
-          row.model,
-          {
-            input: row.inputTokens,
-            output: row.outputTokens,
-            cacheRead: row.cacheReadTokens,
-            cacheCreation: row.cacheCreationTokens,
-            reasoning: row.reasoningTokens,
-          },
-          {
-            provider: row.provider,
-            model: row.model,
-            serviceTier: row.serviceTier,
-            // The archive stores API-equivalent value. Billed-cost consumers
-            // still mask flat-rate providers when they read this value.
-            flatRateAsZero: false,
-          }
-        ),
+        // Price one request of this exact token shape, then multiply by how many
+        // identical requests the group holds. Pricing is a pure function of the
+        // token shape, so this equals per-request pricing while still collapsing
+        // duplicates. Pricing the day's SUMMED tokens instead would be wrong:
+        // non-cached input is clamped at zero per request, and summing first lets
+        // one cache-heavy request's clamped surplus cancel another request's
+        // billable input.
+        totalCost:
+          (await calculateCost(
+            row.provider,
+            row.model,
+            {
+              input: row.requestInputTokens,
+              output: row.requestOutputTokens,
+              cacheRead: row.requestCacheReadTokens,
+              cacheCreation: row.requestCacheCreationTokens,
+              reasoning: row.requestReasoningTokens,
+            },
+            {
+              provider: row.provider,
+              model: row.model,
+              serviceTier: row.serviceTier,
+              // The archive stores API-equivalent value. Billed-cost consumers
+              // still mask flat-rate providers when they read this value.
+              flatRateAsZero: false,
+            }
+          )) * row.totalRequests,
       }))
     );
 

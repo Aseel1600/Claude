@@ -711,3 +711,79 @@ test("GET /api/usage/analytics does not throw Unknown named parameter with apiKe
   // confirm the endpoint returns 200 without throwing.
   assert.ok(typeof body.summary.totalRequests === "number");
 });
+
+test("rollupUsageHistoryBeforeDate prices each request, not the day's summed tokens", async () => {
+  const db = core.getDbInstance();
+  const costCalculator = await import("../../src/lib/usage/costCalculator.ts");
+
+  // Two requests, same provider/model/day/tier, so the rollup's
+  // GROUP BY provider, model, date, serviceTier collapses them into one row.
+  //
+  // The first request is cache-heavy: cache_read exceeds tokens_input. Pricing
+  // clamps non-cached input at zero per request (costCalculator "nonCachedInput"),
+  // so that surplus must NOT be allowed to absorb another request's billable
+  // input. Summing tokens first and pricing once lets exactly that happen.
+  const rows = [
+    { input: 1_000, output: 0, cacheRead: 5_000 },
+    { input: 9_000, output: 0, cacheRead: 0 },
+  ];
+
+  for (const row of rows) {
+    db.prepare(
+      `INSERT INTO usage_history
+        (provider, model, connection_id, tokens_input, tokens_output, tokens_cache_read,
+         tokens_cache_creation, tokens_reasoning, service_tier, success, latency_ms, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      "openai",
+      "gpt-4o",
+      "clamp-conn",
+      row.input,
+      row.output,
+      row.cacheRead,
+      0,
+      0,
+      "standard",
+      1,
+      200,
+      "2024-03-01T12:00:00.000Z"
+    );
+  }
+
+  // Ground truth: price every request individually, exactly as the live
+  // analytics path does for raw (non-archived) usage.
+  let expectedCost = 0;
+  for (const row of rows) {
+    expectedCost += await costCalculator.calculateCost(
+      "openai",
+      "gpt-4o",
+      {
+        input: row.input,
+        output: row.output,
+        cacheRead: row.cacheRead,
+        cacheCreation: 0,
+        reasoning: 0,
+      },
+      {
+        provider: "openai",
+        model: "gpt-4o",
+        serviceTier: "standard",
+        flatRateAsZero: false,
+      }
+    );
+  }
+
+  const result = await aggregateHistory.rollupUsageHistoryBeforeDate("2024-04-01");
+  assert.equal(result.errors, 0);
+
+  const archived = db
+    .prepare(
+      `SELECT total_cost FROM daily_usage_summary
+       WHERE provider = ? AND model = ? AND date = ?`
+    )
+    .get("openai", "gpt-4o", "2024-03-01") as { total_cost: number };
+
+  // Retention must preserve the billed value. Archiving a day may not silently
+  // discount it just because the day's requests were grouped before pricing.
+  assertClose(archived.total_cost, expectedCost);
+});
