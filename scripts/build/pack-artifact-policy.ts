@@ -207,8 +207,7 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "bin/cli/utils/parseEnvValue.mjs",
   "bin/cli/utils/storageKeyProvision.mjs",
   "bin/cli/utils/versionFastPath.mjs",
-  // #11567: bin/omniroute.mjs imports ./cli/utils/volatileEnvPath.mjs — list it
-  // REQUIRED so its absence from the tarball fails loudly (same #7065 class guard).
+  // #11437 import — `describeVolatileEnvWarning`, called on every CLI boot.
   "bin/cli/utils/volatileEnvPath.mjs",
   "bin/mcp-server.mjs",
   // #9281: stdout/stderr console guard preloaded via `node --import` by

@@ -511,18 +511,12 @@ function openaiToGeminiBase(
               name = sanitizeToolName(name);
 
               const resp = toolResponses[fid];
-              let parsedResp = tryParseJSON(resp);
-              if (parsedResp === null) {
-                parsedResp = { result: resp };
-              } else if (typeof parsedResp !== "object") {
-                parsedResp = { result: parsedResp };
-              }
 
               toolParts.push({
                 functionResponse: {
                   ...(toolNameOptions.stripFunctionCallId ? {} : { id: fid }),
                   name: name,
-                  response: { result: parsedResp },
+                  response: { result: resp },
                 },
               });
             }

@@ -48,11 +48,11 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // Constants
 // ---------------------------------------------------------------------------
 
-// 18 search-kind providers: serper, brave, perplexity, exa, tavily, firecrawl,
+// 19 search-kind providers: serper, brave, perplexity, exa, tavily, nimble-search, firecrawl,
 // google-pse, linkup, searchapi, youcom, searxng, ollama, zai, jina-search,
 // context7 (#11140), duckduckgo-free, x-search, xquik-search.
-const EXPECTED_SEARCH_COUNT = 18;
-const EXPECTED_FETCH_COUNT = 4;
+const EXPECTED_SEARCH_COUNT = 19;
+const EXPECTED_FETCH_COUNT = 5;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 
 // ---------------------------------------------------------------------------
@@ -291,6 +291,7 @@ test("search-providers-catalog: fetch providers have correct metadata", async ()
   assert.ok(ids.includes("jina-reader"), "jina-reader must be present");
   assert.ok(ids.includes("tavily-search"), "tavily-search must be present");
   assert.ok(ids.includes("tinyfish"), "tinyfish must be present");
+  assert.ok(ids.includes("nimble-search"), "nimble-search must be present");
 
   const firecrawl = fetchProviders.find((p: { id: string }) => p.id === "firecrawl");
   assert.equal(firecrawl.name, "Firecrawl");
