@@ -28,7 +28,8 @@ async function renderViewer() {
     await Promise.resolve();
   });
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    vi.advanceTimersByTime(0);
+    await Promise.resolve();
   });
 
   return container;
@@ -40,6 +41,7 @@ describe("ConsoleLogViewer accessibility", () => {
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
     copyToClipboard.mockResolvedValue(true);
+    vi.useFakeTimers();
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [
@@ -85,7 +87,6 @@ describe("ConsoleLogViewer accessibility", () => {
       "true"
     );
 
-    vi.useFakeTimers();
     await act(async () => {
       copy?.click();
       await Promise.resolve();
@@ -106,7 +107,6 @@ describe("ConsoleLogViewer accessibility", () => {
     );
     expect(buttons).toHaveLength(2);
 
-    vi.useFakeTimers();
     await act(async () => {
       buttons[0].click();
       await Promise.resolve();
@@ -129,7 +129,6 @@ describe("ConsoleLogViewer accessibility", () => {
       'button[aria-label="logs.consoleViewer.copyLogEntry"]'
     );
 
-    vi.useFakeTimers();
     await act(async () => {
       copy?.click();
       await Promise.resolve();
