@@ -23,27 +23,11 @@ const ALIAS_UPPER_MAX_CHARS = 5;
 
 // ── Auto Combo Types ─────────────────────────────────────────────────────
 
-export type AutoVariant =
-  | "coding"
-  | "fast"
-  | "cheap"
-  | "offline"
-  | "smart"
-  | "lkgp";
+export type AutoVariant = "coding" | "fast" | "cheap" | "offline" | "smart" | "lkgp";
 
-export const AUTO_VARIANTS: AutoVariant[] = [
-  "coding",
-  "fast",
-  "cheap",
-  "offline",
-  "smart",
-  "lkgp",
-];
+export const AUTO_VARIANTS: AutoVariant[] = ["coding", "fast", "cheap", "offline", "smart", "lkgp"];
 
-export const AUTO_VARIANT_DESCRIPTIONS: Record<
-  AutoVariant | "default",
-  string
-> = {
+export const AUTO_VARIANT_DESCRIPTIONS: Record<AutoVariant | "default", string> = {
   default: "Best provider via scoring",
   coding: "Quality-first for code tasks",
   fast: "Latency-optimized routing",
@@ -83,24 +67,15 @@ function titleCaseAlias(alias: string): string {
  *   3. Neither → undefined.
  */
 export function shortProviderLabel(
-  enrichment:
-    | { providerDisplayName?: string; providerAlias?: string }
-    | undefined,
+  enrichment: { providerDisplayName?: string; providerAlias?: string } | undefined
 ): string | undefined {
   if (!enrichment) return undefined;
   const raw =
-    typeof enrichment.providerDisplayName === "string"
-      ? enrichment.providerDisplayName.trim()
-      : "";
+    typeof enrichment.providerDisplayName === "string" ? enrichment.providerDisplayName.trim() : "";
   if (raw.length > 0 && raw.length <= PROVIDER_LABEL_MAX_CHARS) return raw;
-  const alias =
-    typeof enrichment.providerAlias === "string"
-      ? enrichment.providerAlias.trim()
-      : "";
+  const alias = typeof enrichment.providerAlias === "string" ? enrichment.providerAlias.trim() : "";
   if (alias.length > 0) {
-    return alias.length <= ALIAS_UPPER_MAX_CHARS
-      ? alias.toUpperCase()
-      : titleCaseAlias(alias);
+    return alias.length <= ALIAS_UPPER_MAX_CHARS ? alias.toUpperCase() : titleCaseAlias(alias);
   }
   // Long displayName with no alias to fall back on: keep the long label
   // rather than dropping the provider prefix entirely.
@@ -184,15 +159,11 @@ export function formatFreeBudget(params: {
  */
 export function formatAutoComboName(
   variant: AutoVariant | undefined,
-  candidateCount?: number,
+  candidateCount?: number
 ): string {
-  const label = variant
-    ? variant.charAt(0).toUpperCase() + variant.slice(1)
-    : "Default";
+  const label = variant ? variant.charAt(0).toUpperCase() + variant.slice(1) : "Default";
   const count =
-    typeof candidateCount === "number" && candidateCount > 0
-      ? ` (${candidateCount}p)`
-      : "";
+    typeof candidateCount === "number" && candidateCount > 0 ? ` (${candidateCount}p)` : "";
   return `Auto: ${label}${count}`;
 }
 
