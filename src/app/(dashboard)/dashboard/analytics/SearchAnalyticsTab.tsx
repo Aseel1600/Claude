@@ -40,6 +40,7 @@ function isSearchStats(value: unknown): value is SearchStats {
     isFiniteNumber(candidate.avgDurationMs) &&
     !!candidate.byProvider &&
     typeof candidate.byProvider === "object" &&
+    !Array.isArray(candidate.byProvider) &&
     Object.values(candidate.byProvider).every(
       (provider) =>
         !!provider &&

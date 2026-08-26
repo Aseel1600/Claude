@@ -106,6 +106,33 @@ describe("SearchAnalyticsTab response handling", () => {
     expect(container.textContent).not.toContain("searchAnalyticsTotalSearches");
   });
 
+  it("rejects an array in place of the provider statistics map", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          total: 1,
+          today: 1,
+          cached: 0,
+          errors: 0,
+          totalCostUsd: 0,
+          byProvider: [],
+          last24h: [],
+          cacheHitRate: 0,
+          avgDurationMs: 12,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    await renderTab();
+
+    expect(container.textContent).toContain("searchAnalyticsNoData");
+    expect(container.textContent).not.toContain("searchAnalyticsTotalSearches");
+  });
+
   it("renders a valid statistics response", async () => {
     fetchMock.mockResolvedValue(
       new Response(
@@ -117,6 +144,7 @@ describe("SearchAnalyticsTab response handling", () => {
           totalCostUsd: 0.25,
           byProvider: { brave: { count: 3, costUsd: 0.25 } },
           last24h: [{ hour: "2026-08-26T04:00:00Z", count: 3 }],
+
           cacheHitRate: 33,
           avgDurationMs: 12,
         }),
