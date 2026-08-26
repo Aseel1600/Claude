@@ -1,4 +1,5 @@
 import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
+import { assertRuntimeProviderAvailable } from "@/shared/constants/providerRetirement";
 import {
   registerLazyExecutor,
   loadRegisteredExecutor,
@@ -175,7 +176,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
     ), // Alias
   "doubao-web": () => import("./doubao-web.ts").then((m) => new m.DoubaoWebExecutor()),
   db: () => import("./doubao-web.ts").then((m) => new m.DoubaoWebExecutor()), // Alias
-  "qwen-web": () => import("./qwen-web.ts").then((m) => new m.QwenWebExecutor()),
   raycast: () => import("./raycast.ts").then((m) => new m.RaycastExecutor()),
   rc: () => import("./raycast.ts").then((m) => new m.RaycastExecutor()), // Alias
   "hailuo-web": () => import("./hailuo-web.ts").then((m) => new m.HailuoWebExecutor()),
@@ -205,7 +205,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
   xai: () => import("./xai.ts").then((m) => new m.XaiExecutor()),
   "xai-oauth": () => import("./xai.ts").then((m) => new m.XaiExecutor("xai-oauth")),
   xao: () => import("./xai.ts").then((m) => new m.XaiExecutor("xai-oauth")),
-  qw: () => import("./qwen-web.ts").then((m) => new m.QwenWebExecutor()), // Alias
   "conol-web": () => import("./conol-web.ts").then((m) => new m.ConolWebExecutor()),
   cnl: () => import("./conol-web.ts").then((m) => new m.ConolWebExecutor()), // Alias
 };
@@ -242,6 +241,8 @@ const CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS = new Set(["jules"]);
 const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS));
 
 export async function getExecutor(provider: string): Promise<BaseExecutor> {
+  assertRuntimeProviderAvailable(provider);
+
   const loaded = await loadRegisteredExecutor(provider);
   if (loaded) return loaded;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {
