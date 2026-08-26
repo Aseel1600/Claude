@@ -373,7 +373,11 @@ export function containsVideoTranscriptForLog(
   value: unknown,
   context: VideoTranscriptLogContext = {}
 ): boolean {
-  return walkContains(value, context);
+  try {
+    return walkContains(value, context);
+  } catch {
+    return true;
+  }
 }
 
 function prepareClone(
@@ -405,10 +409,9 @@ function prepareClone(
   return { frame: { directCarrier: carrier, depth, target, value }, value: target };
 }
 
-/** Remove Video Bridge source fields and trusted generated segments from a bounded log copy. */
-export function omitVideoTranscriptForLog(
+function omitVideoTranscriptForLogUnsafe(
   payload: unknown,
-  context: VideoTranscriptLogContext = {}
+  context: VideoTranscriptLogContext
 ): unknown {
   const memo = new WeakMap<object, CloneMemo>();
   const prepared = prepareClone(payload, 0, false, context, memo);
@@ -444,4 +447,16 @@ export function omitVideoTranscriptForLog(
     }
   }
   return prepared.value;
+}
+
+/** Remove Video Bridge source fields and trusted generated segments from a bounded log copy. */
+export function omitVideoTranscriptForLog(
+  payload: unknown,
+  context: VideoTranscriptLogContext = {}
+): unknown {
+  try {
+    return omitVideoTranscriptForLogUnsafe(payload, context);
+  } catch {
+    return VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER;
+  }
 }
