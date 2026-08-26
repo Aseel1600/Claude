@@ -261,7 +261,7 @@ export default function ProfilePage() {
                   className={`relative p-4 rounded-xl border transition-all text-left ${
                     isEarned
                       ? `${rarityColor} bg-surface hover:shadow-md`
-                      : "border-border/50 bg-surface/50 opacity-50 grayscale hover:opacity-70"
+                      : "border-border/50 bg-surface/50 opacity-50 grayscale enabled:hover:opacity-70 disabled:cursor-default"
                   }`}
                 >
                   <div className="text-3xl mb-2">

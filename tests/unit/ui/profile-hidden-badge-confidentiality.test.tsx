@@ -106,5 +106,9 @@ describe("Profile hidden badge confidentiality", () => {
     });
 
     expect(container.textContent).toContain("secret-category");
+    expect(container.textContent).toContain("rocket_launch");
+    expect(container.textContent).toContain("Secret Badge Name");
+    expect(container.textContent).toContain("Secret badge description");
+    expect(container.textContent).toContain("legendary");
   });
 });
