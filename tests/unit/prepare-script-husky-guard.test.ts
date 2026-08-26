@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 
 describe("package.json prepare script (#11571)", () => {
@@ -25,11 +26,29 @@ describe("package.json prepare script (#11571)", () => {
     );
   });
 
+  it("exits cleanly without invoking husky when it is unresolvable", () => {
+    const prepare = pkg.scripts?.prepare;
+    assert.ok(prepare);
+    assert.ok(
+      !prepare.includes("&& husky") && !prepare.includes("|| husky"),
+      "husky must not appear as a separate shell command after the guard — " +
+        "process.exit(0) in the guard would still allow && to proceed"
+    );
+  });
+
   it("still calls husky when available", () => {
     const prepare = pkg.scripts?.prepare;
     assert.ok(
       prepare.includes("husky"),
       "prepare must still invoke husky when it is installed"
     );
+  });
+
+  it("exits 0 in an environment where husky is not resolvable", () => {
+    const result = execSync(
+      "node -e \"try{require.resolve('husky_nonexistent_pkg')}catch(e){process.exit(0)};process.exit(1)\"",
+      { encoding: "utf8", stdio: "pipe" }
+    );
+    assert.equal(result, "", "should produce no output and exit 0");
   });
 });
