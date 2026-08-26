@@ -226,16 +226,19 @@ Three build args control what the `builder` stage costs. They are build-time onl
 | --------------------------- | ------- | ----------------------------------------------------------------------------------- |
 | `OMNIROUTE_USE_TURBOPACK`   | `1`     | `0` builds with webpack instead. Lower peak memory, slower.                         |
 | `OMNIROUTE_BUILD_MEMORY_MB` | `6144`  | V8 heap ceiling (`--max-old-space-size`) for the spawned `next build`.              |
-| `OMNIROUTE_BUILD_WORKERS`   | `3`     | Feeds `CIRCLE_NODE_TOTAL`; Next derives `workers = N - 1` for page-data collection. |
+| `OMNIROUTE_BUILD_WORKERS`   | `2`     | Feeds `CIRCLE_NODE_TOTAL`; Next derives `workers = N - 1` for page-data collection. |
 
 `OMNIROUTE_BUILD_WORKERS` is the one to raise on a big builder and the one to
 suspect when a constrained build dies **after** `✓ Compiled successfully`. Each
 page-data worker is its own process and inherits `NODE_OPTIONS`, so the heap
-ceiling is per process, not per build: the default of `3` (→ 2 workers) is sized
+ceiling is per process, not per build: the default of `2` (→ 1 worker) is sized
 for the 16 GB / 4 vCPU GitHub-hosted runners the publish pipeline uses. At `8`
 (→ 7 workers) that runner ran out of memory and buildkit failed the step with
-`ResourceExhausted: ... cannot allocate memory`. `tests/unit/docker-build-memory-budget.test.ts`
-does the arithmetic and fails if either knob outgrows the runner.
+`ResourceExhausted: ... cannot allocate memory`; even `3` (→ 2 workers) still
+hit the same error on the arm64 runner, which is why the default sits at the
+lowest value `tests/unit/docker-build-memory-budget.test.ts` allows.
+`tests/unit/docker-build-memory-budget.test.ts` does the arithmetic and fails
+if either knob outgrows the runner.
 
 Turbopack compiles in native Rust memory that lives **outside** the V8 heap, so
 `OMNIROUTE_BUILD_MEMORY_MB` does not bound it. On a host with a memory ceiling the
