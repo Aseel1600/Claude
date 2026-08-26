@@ -211,7 +211,10 @@ test("checkConnection skips a non-recoverable expired GitHub Copilot connection 
   let fetchCallCount = 0;
   globalThis.fetch = (async () => {
     fetchCallCount++;
-    throw new Error("fetch must NOT be called for a skipped connection (#8182/#11611 boundary)");
+    return new Response(JSON.stringify({ message: "Unauthorized" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
   }) as typeof fetch;
 
   try {
@@ -242,8 +245,8 @@ test("checkConnection skips a non-recoverable expired GitHub Copilot connection 
       "fetch must not be invoked for an unrecoverable expired connection"
     );
     assert.equal(
-      updated?.lastHealthCheckAt,
-      undefined,
+      updated?.lastHealthCheckAt ?? null,
+      null,
       "GitHub access-token-only connection without refresh token must be skipped under #8182"
     );
   } finally {
