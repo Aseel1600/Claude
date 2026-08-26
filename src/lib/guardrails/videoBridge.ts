@@ -18,6 +18,7 @@ import {
   type BridgeCacheStore,
 } from "./modalityBridge/bridgeCache";
 import { recordBridgeUse } from "./modalityBridge/bridgeStats";
+import { fingerprintVideoTranscriptDescription } from "./videoTranscriptLogRedaction";
 import {
   composeVideoFramePrompt,
   describeVideoPart as defaultDescribeVideoPart,
@@ -714,6 +715,16 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
     const videosProcessed = attemptedParts.length - failures;
     const videosReplaced = descriptions.filter((description) => description !== null).length;
     if (videosReplaced === 0) return { block: false };
+    const videoTranscriptDescriptionFingerprints = [
+      ...new Set(
+        descriptions
+          .filter(
+            (description): description is string =>
+              typeof description === "string" && description.includes("transcript[source=")
+          )
+          .map(fingerprintVideoTranscriptDescription)
+      ),
+    ].sort();
 
     return {
       block: false,
@@ -731,6 +742,9 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
         focusWindowsApplied,
         focusHintsApplied,
         transcriptCuesApplied,
+        ...(videoTranscriptDescriptionFingerprints.length > 0
+          ? { videoTranscriptDescriptionFingerprints }
+          : {}),
         contactSheetsUsed,
         audioFusionRuns,
         audioFusionPartials,

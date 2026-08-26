@@ -166,6 +166,7 @@ import {
   runWithCasGuard,
 } from "../services/tokenRefresh.ts";
 import { createRequestLogger } from "../utils/requestLogger.ts";
+import { redactVideoTranscriptSensitiveText } from "@/lib/guardrails/videoTranscriptLogRedaction";
 import { createPreparedRequestLogger, runWithCapture } from "../utils/providerRequestLogging.ts";
 import { summarizeToolSources } from "../utils/toolSources.ts";
 import { applyResponsesPreviousResponseIdPolicy } from "../utils/responsesStatePolicy.ts";
@@ -524,6 +525,8 @@ export async function handleChatCore({
   skipResourcePressureGuard = false,
   reasoningTransportFallback = "drop",
   managedLease = null,
+  videoTranscriptSensitive = false,
+  videoTranscriptDescriptionFingerprints = [],
 }) {
   let { provider, model, extendedContext } = modelInfo;
   const resilienceSettings = resolveResilienceSettings(cachedSettings);
@@ -902,6 +905,8 @@ export async function handleChatCore({
       stage: "registered",
       correlationId,
       sessionTag: conversationId || null,
+      videoTranscriptSensitive,
+      videoTranscriptDescriptionFingerprints,
     }) || generateRequestId();
 
   // Initialize rate limit settings from persisted DB (once, lazy)
@@ -1034,6 +1039,8 @@ export async function handleChatCore({
       noLogEnabled,
       correlationId,
       modelPinned,
+      videoTranscriptSensitive,
+      videoTranscriptDescriptionFingerprints,
       // Resolved conversationId (open-sse/services/conversationTracker.ts) wins when
       // present — it's populated for every request now, not just ones where the
       // client explicitly sent x-omniroute-session-id. The raw header remains a
@@ -1156,8 +1163,17 @@ export async function handleChatCore({
     model,
     provider: provider || undefined,
     connectionId: connectionId || credentials?.connectionId || undefined,
+    videoTranscriptSensitive,
+    videoTranscriptDescriptionFingerprints,
   });
-  const pendingScope = { id: pendingRequestId, model, provider, connectionId: pendingConnId };
+  const pendingScope = {
+    id: pendingRequestId,
+    model,
+    provider,
+    connectionId: pendingConnId,
+    videoTranscriptSensitive,
+    videoTranscriptDescriptionFingerprints,
+  };
   const providerRequestCapture = createPreparedRequestLogger(reqLogger, pendingScope);
   // 0. Log client raw request (before format conversion)
   if (clientRawRequest) {
@@ -2949,6 +2965,8 @@ export async function handleChatCore({
   let onPipelineStreamError: streamFailure.PipelineStreamErrorHandler | null = null;
   let onClientDisconnectFinalize:
     ((event: { reason: string; duration: number }) => boolean) | null = null;
+  const redactStreamDiagnosticsForLog =
+    videoTranscriptSensitive || reqLogger.isVideoTranscriptSensitive();
 
   // Create stream controller for disconnect detection
   const streamController = createStreamController({
@@ -2980,6 +2998,7 @@ export async function handleChatCore({
     clientAbortSignal: clientRawRequest?.signal,
     allowCompletedToolHandoffGrace: isCodexResponsesEcho,
     clientDisconnectGracePeriodMs: STREAM_DISCONNECT_GRACE_PERIOD_MS,
+    redactStreamDiagnosticsForLog,
   });
 
   const dedupRequestBody = { ...translatedBody, model: `${provider}/${model}`, stream };
@@ -3846,7 +3865,12 @@ export async function handleChatCore({
       failureStatus,
       upstreamErrorCode || (error instanceof Error && error.name ? error.name : "upstream_error")
     );
-    console.log(`${COLORS.red}[ERROR] ${failureMessage}${COLORS.reset}`);
+    console.log(
+      `${COLORS.red}[ERROR] ${redactVideoTranscriptSensitiveText(
+        failureMessage,
+        videoTranscriptSensitive
+      )}${COLORS.reset}`
+    );
     if (stream && upstreamErrorCode) {
       const result = createStreamingErrorResult(
         failureStatus,
@@ -4012,9 +4036,13 @@ export async function handleChatCore({
         // executor throw). Don't swallow — the operator-visible signal "the user
         // saw 401 even though auth was actually fixed" is much more confusing
         // than the original 401 alone. Surface at error level with sanitization.
+        const retainedRetryError = redactVideoTranscriptSensitiveText(
+          sanitizeErrorMessage(retryErr),
+          videoTranscriptSensitive
+        );
         log?.error?.(
           "TOKEN",
-          `${provider?.toUpperCase()} | retry after refresh failed: ${sanitizeErrorMessage(retryErr)}`
+          `${provider?.toUpperCase()} | retry after refresh failed: ${retainedRetryError}`
         );
       }
     } else {
@@ -4131,6 +4159,11 @@ export async function handleChatCore({
 
     if (signatureRecovery.succeeded) break providerFailure;
 
+    const retainedProviderMessage = redactVideoTranscriptSensitiveText(
+      message,
+      videoTranscriptSensitive
+    );
+
     // #10281 — tiny-budget reasoning probes (e.g. Claude Code's `/model` check
     // sends `max_tokens: 1`): the model burns the whole budget on thinking, and
     // some upstreams (e.g. api.cline.bot for deepseek-v4-flash) answer the empty
@@ -4153,7 +4186,7 @@ export async function handleChatCore({
       });
       log?.warn?.(
         "PROBE",
-        `Reasoning probe (max_tokens < ${REASONING_BUFFER_MIN_TRIGGER}) answered with truncated 200 — upstream reported "${message}"`
+        `Reasoning probe (max_tokens < ${REASONING_BUFFER_MIN_TRIGGER}) answered with truncated 200 — upstream reported "${retainedProviderMessage}"`
       );
       break providerFailure;
     }
@@ -4182,7 +4215,7 @@ export async function handleChatCore({
               {
                 testStatus: "banned",
                 isActive: false,
-                lastError: message,
+                lastError: retainedProviderMessage,
                 lastErrorType: errorType,
                 errorCode: String(statusCode),
               },
@@ -4213,7 +4246,7 @@ export async function handleChatCore({
           ) {
             await updateProviderConnection(errorConnectionId, {
               lastErrorType: errorType,
-              lastError: message,
+              lastError: retainedProviderMessage,
               errorCode: statusCode,
             });
             console.warn(
@@ -4226,7 +4259,7 @@ export async function handleChatCore({
               {
                 testStatus: "deactivated",
                 isActive: false,
-                lastError: message,
+                lastError: retainedProviderMessage,
                 lastErrorType: errorType,
                 errorCode: String(statusCode),
               },
@@ -4250,7 +4283,7 @@ export async function handleChatCore({
                 errorConnectionId,
                 {
                   testStatus: "credits_exhausted",
-                  lastError: message,
+                  lastError: retainedProviderMessage,
                   lastErrorType: errorType,
                   errorCode: String(statusCode),
                 },
@@ -4298,7 +4331,7 @@ export async function handleChatCore({
                   rateLimitedUntil: kimiRateLimitResetAt,
                   backoffLevel: 0,
                   lastErrorType: PROVIDER_ERROR_TYPES.RATE_LIMITED,
-                  lastError: message,
+                  lastError: retainedProviderMessage,
                   errorCode: statusCode,
                 });
                 console.warn(
@@ -4328,7 +4361,7 @@ export async function handleChatCore({
                   errorConnectionId,
                   {
                     testStatus: "credits_exhausted",
-                    lastError: message,
+                    lastError: retainedProviderMessage,
                     lastErrorType: errorType,
                     errorCode: String(statusCode),
                   },
@@ -4344,14 +4377,14 @@ export async function handleChatCore({
           // Normal 401 (token/session auth issue): keep account active for refresh/re-auth.
           await updateProviderConnection(errorConnectionId, {
             lastErrorType: errorType,
-            lastError: message,
+            lastError: retainedProviderMessage,
             errorCode: statusCode,
           });
         } else if (errorType === PROVIDER_ERROR_TYPES.OAUTH_INVALID_TOKEN) {
           // OAuth 401 with invalid credentials - token refresh can recover
           await updateProviderConnection(errorConnectionId, {
             lastErrorType: errorType,
-            lastError: message,
+            lastError: retainedProviderMessage,
             errorCode: statusCode,
           });
           console.warn(
@@ -4361,7 +4394,7 @@ export async function handleChatCore({
           // Cloud Code 403 with stale project: not a ban, keep account active.
           await updateProviderConnection(errorConnectionId, {
             lastErrorType: errorType,
-            lastError: message,
+            lastError: retainedProviderMessage,
             errorCode: statusCode,
           });
           console.warn(
@@ -4377,7 +4410,7 @@ export async function handleChatCore({
           const geoCooldownMs = COOLDOWN_MS.geoBlocked ?? 24 * 60 * 60 * 1000;
           await updateProviderConnection(errorConnectionId, {
             lastErrorType: errorType,
-            lastError: message,
+            lastError: retainedProviderMessage,
             errorCode: statusCode,
           });
           // T-PROBE: the 24h exclusion is a routing mutation — a probe must
@@ -4402,7 +4435,7 @@ export async function handleChatCore({
           const byopCooldownMs = COOLDOWN_MS.gcpProjectRequired ?? 24 * 60 * 60 * 1000;
           await updateProviderConnection(errorConnectionId, {
             lastErrorType: errorType,
-            lastError: message,
+            lastError: retainedProviderMessage,
             errorCode: statusCode,
           });
           try {
@@ -4448,7 +4481,13 @@ export async function handleChatCore({
     }).catch(() => {});
 
     const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
-    console.log(`${COLORS.red}[ERROR] ${errMsg}${COLORS.reset}`);
+    const retainedErrMsg = formatProviderError(
+      new Error(retainedProviderMessage),
+      provider,
+      model,
+      statusCode
+    );
+    console.log(`${COLORS.red}[ERROR] ${retainedErrMsg}${COLORS.reset}`);
 
     // Log Antigravity retry time if available
     if (retryAfterMs && provider === "antigravity") {
@@ -4775,12 +4814,11 @@ export async function handleChatCore({
             }
           }
         } catch (retryErr) {
-          log?.warn?.(
-            "RETRY",
-            `clinepass retry failed: ${
-              retryErr instanceof Error ? retryErr.message : String(retryErr)
-            }`
+          const retainedRetryError = redactVideoTranscriptSensitiveText(
+            retryErr instanceof Error ? retryErr.message : String(retryErr),
+            videoTranscriptSensitive
           );
+          log?.warn?.("RETRY", `clinepass retry failed: ${retainedRetryError}`);
         }
       }
       if (envError) {
@@ -5050,12 +5088,17 @@ export async function handleChatCore({
     );
 
     if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
-      const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
+      const requestMemoryText = extractMemoryTextFromRequestBody(
+        body as Record<string, unknown>,
+        videoTranscriptSensitive
+      );
       if (requestMemoryText) {
         extractFacts(requestMemoryText, memoryOwnerId, pipelineSessionId);
       }
 
-      const memoryText = extractMemoryTextFromResponse(memoryExtractionResponse);
+      const memoryText = videoTranscriptSensitive
+        ? ""
+        : extractMemoryTextFromResponse(memoryExtractionResponse);
       if (memoryText) {
         extractFacts(memoryText, memoryOwnerId, pipelineSessionId);
       }
@@ -5393,6 +5436,7 @@ export async function handleChatCore({
     provider,
     model,
     log,
+    redactUpstreamDiagnosticForLog: videoTranscriptSensitive,
   });
   if (streamReadiness.ok === false) {
     const { response: failureResponse, reason } = streamReadiness;
@@ -5678,14 +5722,19 @@ export async function handleChatCore({
       memorySettings.maxTokens > 0 &&
       streamStatus === 200
     ) {
-      const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
+      const requestMemoryText = extractMemoryTextFromRequestBody(
+        body as Record<string, unknown>,
+        videoTranscriptSensitive
+      );
       if (requestMemoryText) {
         extractFacts(requestMemoryText, memoryOwnerId, pipelineSessionId);
       }
 
-      const streamedMemoryText = extractMemoryTextFromResponse(
-        (streamResponseBody ?? null) as Record<string, unknown> | null
-      );
+      const streamedMemoryText = videoTranscriptSensitive
+        ? ""
+        : extractMemoryTextFromResponse(
+            (streamResponseBody ?? null) as Record<string, unknown> | null
+          );
       if (streamedMemoryText) {
         extractFacts(streamedMemoryText, memoryOwnerId, pipelineSessionId);
       }
@@ -5770,7 +5819,8 @@ export async function handleChatCore({
       // openai-responses → openai translation still wants the namespace identity
       // map for #7936-style round-trip closure when the client also speaks
       // Responses (Codex CLI).
-      requestToolIdentityMap
+      requestToolIdentityMap,
+      redactStreamDiagnosticsForLog
     );
   } else if (needsTranslation(targetFormat, clientResponseFormat)) {
     // Standard translation for other providers
@@ -5800,7 +5850,8 @@ export async function handleChatCore({
         clientResponseFormat,
       }),
       customToolNames,
-      requestToolIdentityMap
+      requestToolIdentityMap,
+      redactStreamDiagnosticsForLog
     );
   } else {
     log?.debug?.("STREAM", `Standard passthrough mode`);
@@ -5815,7 +5866,8 @@ export async function handleChatCore({
       apiKeyInfo,
       handleStreamFailure,
       clientResponseFormat,
-      requestToolIdentityMap
+      requestToolIdentityMap,
+      redactStreamDiagnosticsForLog
     );
   }
 
@@ -5827,6 +5879,7 @@ export async function handleChatCore({
     clientRawRequestHeaders: clientRawRequest?.headers,
     clientResponseFormat,
     echoModel,
+    redactStreamDiagnosticsForLog,
     responseHeaders,
   });
 
