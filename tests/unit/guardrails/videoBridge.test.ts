@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { VideoBridgeGuardrail } from "../../../src/lib/guardrails/videoBridge.ts";
@@ -122,6 +123,7 @@ test("preserves scene-aware sampler metadata in guardrail meta and the transpare
 });
 
 test("reports only validated transcript provenance in guardrail metadata", async () => {
+  const description = "[Video description: caption; transcript[source=client] spoken words]";
   const bridge = new VideoBridgeGuardrail({
     deps: {
       getSettings: async () => ({
@@ -134,7 +136,7 @@ test("reports only validated transcript provenance in guardrail metadata", async
           cues: [{ text: "spoken words", start: 1, end: 2, source: "client" }],
         });
         return {
-          description: "[Video description: caption; transcript[source=client] spoken words]",
+          description,
           durationSeconds: 2,
           framesRequested: 1,
           framesUsed: 1,
@@ -170,6 +172,9 @@ test("reports only validated transcript provenance in guardrail metadata", async
     {}
   );
   assert.equal(result.meta?.transcriptCuesApplied, 1);
+  assert.deepEqual(result.meta?.videoTranscriptDescriptionFingerprints, [
+    `sha256:${createHash("sha256").update(description).digest("hex")}:${description.length}`,
+  ]);
 });
 
 test("converts Responses input using input_text while preserving sibling order", async () => {
