@@ -21,6 +21,7 @@ export interface MemoryFilter {
   apiKeyId?: string;
   type?: MemoryType;
   sessionId?: string;
+  category?: string;
   query?: string;
   limit?: number;
   offset?: number;
@@ -85,9 +86,9 @@ export interface MemoryBackend {
 
   // ─── Optional lifecycle ───
 
-  /** Initialize backend (connect, create tables, etc.) - called on registration */
+  /** Initialize all registered backends */
   initialize?(): Promise<void>;
 
-  /** Shutdown backend (close connections, etc.) - called on unregister */
+  /** Shutdown all backends */
   shutdown?(): Promise<void>;
 }
