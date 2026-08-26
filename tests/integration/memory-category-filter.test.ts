@@ -126,4 +126,4 @@ test("GET /api/memory ignores malformed metadata when applying category filter",
 
   const unfiltered = await getMemories();
   assert.equal(unfiltered.total, 2);
-}
+});
