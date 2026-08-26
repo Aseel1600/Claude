@@ -201,8 +201,28 @@ export async function executeWebSearch(
     }
 
     if (!credentials) {
-      // No configured non-fallback provider: use a fallback-only free provider
-      // as the last resort so out-of-the-box search still works.
+      // 1. Try credentialed providers first, sorted by cost. Fallback-only
+      // providers are reached only if no configured provider is available.
+      const sortedIds = Object.values(SEARCH_PROVIDERS)
+        .filter((provider) => !provider.fallbackOnly && supportsSearchType(provider, searchType))
+        .sort((a, b) => a.costPerQuery - b.costPerQuery)
+        .map((provider) => provider.id);
+
+      for (const providerId of sortedIds) {
+        if (providerId === providerConfig.id) continue;
+        const altConfig = getSearchProvider(providerId);
+        const altCreds = await resolveSearchCredentials(providerId);
+        if (altConfig && altCreds) {
+          providerConfig = altConfig;
+          credentials = altCreds;
+          break;
+        }
+      }
+    }
+
+    if (!credentials) {
+      // 2. Last resort: fallback-only providers so out-of-the-box search
+      // still works when no credentialed provider is configured.
       const fallbackProviders = Object.values(SEARCH_PROVIDERS)
         .filter((provider) => provider.fallbackOnly && supportsSearchType(provider, searchType))
         .sort((a, b) => a.costPerQuery - b.costPerQuery);
@@ -230,8 +250,8 @@ export async function executeWebSearch(
       );
     }
 
-    // Find alternate for failover -- must bind credentials to the matched provider.
-    // Exclude fallback-only providers; they are only used by the last-resort step.
+    // Exclude fallback-only providers from execution-time alternates.
+    // They are reserved for last-resort primary selection.
     const otherIds = Object.values(SEARCH_PROVIDERS)
       .filter((provider) => !provider.fallbackOnly && supportsSearchType(provider, searchType))
       .sort((a, b) => a.costPerQuery - b.costPerQuery)

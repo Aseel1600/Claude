@@ -30,6 +30,10 @@ import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 import { refreshGithubCopilotSubTokenIfNeeded } from "@/lib/tokenHealthCheckCopilot";
 import { checkCursorConnectionIfNeeded } from "@/lib/tokenHealthCheckCursor";
 import { checkKimiWebConnectionIfNeeded } from "@/lib/tokenHealthCheckKimi";
+import {
+  checkWebCookieConnectionIfNeeded,
+  isWebCookieHealthProbeCandidate,
+} from "@/lib/tokenHealthCheckWebCookie";
 
 const LOG_PREFIX = "[HealthCheck]";
 const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
@@ -128,9 +132,7 @@ function withExpiredRetry(
   return { ...psd, expiredRetry: { count, at } };
 }
 
-function withClearedExpiredRetry(
-  psd: Record<string, unknown>
-): Record<string, unknown> {
+function withClearedExpiredRetry(psd: Record<string, unknown>): Record<string, unknown> {
   const next = { ...psd };
   delete next.expiredRetry;
   return next;
@@ -481,7 +483,12 @@ export async function sweep(): Promise<number> {
   }
   state.sweeping = true;
   try {
-    const connections = await getProviderConnections({ authType: "oauth" });
+    const connections = [
+      ...(await getProviderConnections({ authType: "oauth" })),
+      // #11488: web-cookie rows (auth_type 'cookie') were never swept — a dead
+      // cookie stayed "active" until a live request failed against it.
+      ...(await getProviderConnections({ authType: "cookie" })),
+    ];
 
     if (!connections || connections.length === 0) return 0;
 
@@ -592,6 +599,13 @@ export async function checkConnection(conn) {
   const isRecoverableExpiredWithRetryBudget =
     conn.testStatus === "expired" &&
     conn.lastErrorType !== "account_deactivated" &&
+    // GitHub access-token-only connections have their own dedicated exemption
+    // (isRecoverableGithubCopilotNoRefresh above): ONLY the exact
+    // "no_refresh_token" shape self-heals. An "expired" GitHub connection for a
+    // different reason (e.g. invalid_grant) is genuinely terminal and must stay
+    // skipped, otherwise the generic retry-budget exemption below reopens #8182's
+    // wasted-probe fix for every "expired" GitHub connection.
+    !isGitHubAccessTokenOnlyConnection(conn) &&
     getExpiredRetryCount(conn) < EXPIRED_RETRY_MAX;
   const terminalStatuses = new Set(["credits_exhausted", "banned", "expired"]);
   if (
@@ -665,6 +679,22 @@ export async function checkConnection(conn) {
       log,
       logWarn,
       logError,
+      getConnectionLogLabel,
+      logPrefix: LOG_PREFIX,
+    });
+    return;
+  }
+
+  // Generic web-cookie verify-only probe (#11488): every catalogued cookie
+  // provider without its own bespoke leaf above. Kimi-web already returned.
+  if (isWebCookieHealthProbeCandidate(conn.provider)) {
+    const now = new Date().toISOString();
+    await checkWebCookieConnectionIfNeeded({
+      conn,
+      now,
+      intervalMin,
+      log,
+      logWarn,
       getConnectionLogLabel,
       logPrefix: LOG_PREFIX,
     });

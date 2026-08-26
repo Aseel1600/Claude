@@ -116,6 +116,27 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     cacheTTLMs: 5 * 60 * 1000,
   },
 
+  // Nimble also serves POST /v1/web/fetch through the same credential — see
+  // open-sse/executors/nimble-fetch.ts.
+  "nimble-search": {
+    id: "nimble-search",
+    name: "Nimble Search",
+    baseUrl: "https://sdk.nimbleway.com/v1/search",
+    method: "POST",
+    authType: "apikey",
+    authHeader: "bearer",
+    costPerQuery: 0.005,
+    freeMonthlyQuota: 0,
+    searchTypes: ["web", "news"],
+    defaultMaxResults: 5,
+    maxMaxResults: 100,
+    // Kept below GLOBAL_TIMEOUT_MS (handlers/search.ts) so a stalled Nimble call
+    // still leaves budget for the failover provider instead of burning the whole
+    // request window.
+    timeoutMs: 10_000,
+    cacheTTLMs: 5 * 60 * 1000,
+  },
+
   firecrawl: {
     id: "firecrawl",
     name: "Firecrawl",
