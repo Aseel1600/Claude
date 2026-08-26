@@ -205,6 +205,10 @@ test("checkConnection clears stale no_refresh_token state for usable GitHub Copi
 // self-heal from a non-`no_refresh_token` error (such as operator invalidation or invalid_grant).
 // Therefore, they must NOT be un-skipped by the retry budget — they stay skipped during
 // health checks to avoid wasting probes against unrecoverable accounts and clobbering meaningful errors.
+//
+// The skip is structural, not a policy choice: for any connection without a refresh token,
+// the `!conn.refreshToken` branch returns unconditionally before the EXPIRED_RETRY_MAX
+// backoff block is ever reached, so the retry budget cannot apply to this class at all.
 test("checkConnection skips a non-recoverable expired GitHub Copilot connection even if retry budget is remaining (#11611 #8182)", async () => {
   await resetStorage();
   const originalFetch = globalThis.fetch;
