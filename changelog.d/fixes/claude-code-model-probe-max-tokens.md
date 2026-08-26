@@ -1,1 +1,1 @@
-- Stop treating Claude `content:[]` + `stop_reason: max_tokens` (and `tool_use`) as `empty_choices` in `detectMalformedNonStream`, matching `isEmptyContentResponse`. Fixes Claude Code `/model` probes that spend a 1-token budget on thinking and previously got a false 502.
+- fix(sse): accept Claude `content:[]` + `stop_reason: max_tokens`/`tool_use` in `detectMalformedNonStream` (match `isEmptyContentResponse`) so Claude Code `/model` probes with `max_tokens: 1` no longer become a false 502
