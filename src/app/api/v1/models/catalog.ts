@@ -1072,10 +1072,19 @@ async function buildUnifiedModelsResponseCore(
       const alias = providerIdToAlias.codex || "cx";
       const aliasId = `${alias}/${modelId}`;
       const providerIdModel = `codex/${modelId}`;
-      const entries = [
-        { id: aliasId, parent: null },
-        { id: providerIdModel, parent: aliasId },
-        { id: modelId, parent: providerIdModel },
+      // #11632: honour the prefix-mode gates resolved at :303-307, like every
+      // other emission loop (static :1022/:1036, synced :1203/:1236, custom
+      // :1628/:1654, alias-backed :1746/:1758). Re-root the canonical row when
+      // the alias row is suppressed, using the same `includeAlias ? aliasId :
+      // null` idiom (:1052, :1246, :1667, :1776), so no surviving row points at
+      // a suppressed predecessor. The bare id is the tail of the alias ->
+      // canonical -> bare chain and only exists when both halves are emitted.
+      const entries: Array<{ id: string; parent: string | null }> = [
+        ...(includeAlias ? [{ id: aliasId, parent: null }] : []),
+        ...(includeCanonical
+          ? [{ id: providerIdModel, parent: includeAlias ? aliasId : null }]
+          : []),
+        ...(includeAlias && includeCanonical ? [{ id: modelId, parent: providerIdModel }] : []),
       ];
 
       for (const entry of entries) {
