@@ -29,7 +29,7 @@ import {
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
 import { shouldUseApiKeyConnectionTest } from "./webSessionTestDispatch";
 import { testCodexAppServerConnection, makeDiagnosis } from "./codexAppServerHealth";
-import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
+import { recoverKeyHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import { shouldClearErrorStateOnValidProbe } from "@/lib/usage/providerLimits";
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { classifyAmbiguousOrAuthError, type ClassifyFailureArgs } from "./mistralAmbiguousAuth";
@@ -1125,7 +1125,11 @@ export async function testSingleConnection(connectionId: string, validationModel
     lastError: clearErrorState ? null : result.valid ? connection.lastError : result.error,
     lastErrorAt: clearErrorState ? null : result.valid ? connection.lastErrorAt : now,
     lastTested: now,
-    lastErrorType: clearErrorState ? null : result.valid ? connection.lastErrorType : diagnosis.type,
+    lastErrorType: clearErrorState
+      ? null
+      : result.valid
+        ? connection.lastErrorType
+        : diagnosis.type,
     lastErrorSource: clearErrorState
       ? null
       : result.valid
@@ -1147,16 +1151,11 @@ export async function testSingleConnection(connectionId: string, validationModel
 
   if (clearErrorState) {
     updateData.backoffLevel = 0;
+  }
 
-    const psd = connection?.providerSpecificData as Record<string, unknown> | undefined;
-    updateData.providerSpecificData = {
-      ...(psd || {}),
-      apiKeyHealth: {},
-    };
-
-    try {
-      removeConnectionHealth(connectionId);
-    } catch {}
+  if (result.valid && (connection.apiKey || connection.accessToken)) {
+    const recovered = recoverKeyHealth(connectionId, "primary", connection.providerSpecificData);
+    if (recovered) updateData.providerSpecificData = recovered;
   }
 
   // If token was refreshed, update tokens in DB
