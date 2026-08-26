@@ -86,9 +86,9 @@ export interface MemoryBackend {
 
   // ─── Optional lifecycle ───
 
-  /** Initialize all registered backends */
+  /** Initialize backend (connect, create tables, etc.) - called on registration */
   initialize?(): Promise<void>;
 
-  /** Shutdown all backends */
+  /** Shutdown backend (close connections, etc.) - called on unregister */
   shutdown?(): Promise<void>;
 }
