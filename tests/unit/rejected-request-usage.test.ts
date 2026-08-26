@@ -171,7 +171,6 @@ test("transcript-sensitive rejection omits retained error echoes and request cue
     apiKeyId: "key-transcript-sensitive-rejection",
     apiKeyName: "transcript-sensitive-rejection",
     requestBody,
-    videoTranscriptSensitive: true,
   });
 
   let detail: Awaited<ReturnType<typeof callLogs.getCallLogById>> = null;

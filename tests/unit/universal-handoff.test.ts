@@ -160,6 +160,34 @@ test("providerAllowlist: empty allowlist allows all providers", async () => {
   assert.ok(calls.length > 0, "handleSingleModel MUST be called when allowlist is empty");
 });
 
+test("transcript-sensitive model switches never generate a persistent universal handoff", async () => {
+  const calls: unknown[] = [];
+  maybeGenerateUniversalHandoff({
+    sessionId: "ses_private_video",
+    comboName: "private-video-combo",
+    messages: [{ role: "user", content: "guardrail-produced video description" }],
+    prevModel: "openai/gpt-4o",
+    currModel: "anthropic/claude-3-5-sonnet",
+    videoTranscriptSensitive: true,
+    universalConfig: {
+      ...DEFAULT_UNIVERSAL_HANDOFF_CONFIG,
+      enabled: true,
+      providerAllowlist: [],
+      handoffModel: "anthropic/claude-3-5-sonnet",
+    },
+    handleSingleModel: async (body, modelStr) => {
+      calls.push({ body, modelStr });
+      return new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+
+  await waitImmediate();
+  assert.strictEqual(calls.length, 0);
+});
+
 test("providerAllowlist: handoffModel takes precedence over currModel for allowlist check", async () => {
   const calls: unknown[] = [];
   await maybeGenerateUniversalHandoff({

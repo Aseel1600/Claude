@@ -48,14 +48,24 @@ function healthy200(model: string) {
       id: "ok",
       object: "chat.completion",
       model,
-      choices: [{ index: 0, message: { role: "assistant", content: "hello from " + model }, finish_reason: "stop" }],
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "hello from " + model },
+          finish_reason: "stop",
+        },
+      ],
     }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 }
 
 function makeCombo(models: string[]) {
-  return { name: "test-combo-10597", strategy: "priority", models: models.map((m) => ({ model: m })) };
+  return {
+    name: "test-combo-10597",
+    strategy: "priority",
+    models: models.map((m) => ({ model: m })),
+  };
 }
 
 test("#10597 COMBO failure log must surface the upstream error body, not just the status code", async () => {
@@ -79,7 +89,10 @@ test("#10597 COMBO failure log must surface the upstream error body, not just th
   assert.equal(modelsCalled.length, 2);
 
   const failureLog = warnCalls.find(
-    (c) => typeof c.msg === "string" && c.msg.includes("claude/claude-opus-4-8") && c.msg.includes("failed")
+    (c) =>
+      typeof c.msg === "string" &&
+      c.msg.includes("claude/claude-opus-4-8") &&
+      c.msg.includes("failed")
   );
   assert.ok(failureLog, "expected a COMBO warn log for the failing leg");
 
@@ -88,4 +101,43 @@ test("#10597 COMBO failure log must surface the upstream error body, not just th
     serialized.includes("tool_use") || serialized.includes(DISTINCTIVE_ERROR_TEXT),
     `expected the upstream error body to appear in the COMBO failure log, but got: ${serialized}`
   );
+});
+
+test("transcript-sensitive combo failures omit echoed transcript only from retained logs", async () => {
+  const transcriptSentinel = "PRIVATE_COMBO_ERROR_TRANSCRIPT_SENTINEL";
+  const localWarnCalls: WarnCall[] = [];
+  const modelsCalled: string[] = [];
+  const result = await handleComboChat({
+    body: { model: "test", messages: [{ role: "user", content: "processed video request" }] },
+    combo: makeCombo(["claude/private-video", "openai/private-video-fallback"]),
+    handleSingleModel: async (_body: unknown, modelStr: string) => {
+      modelsCalled.push(modelStr);
+      if (modelsCalled.length === 1) {
+        return new Response(JSON.stringify({ error: { message: transcriptSentinel } }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return healthy200(modelStr);
+    },
+    log: {
+      info: () => {},
+      debug: () => {},
+      error: () => {},
+      warn: (tag: string, msg: string, meta?: unknown) => {
+        localWarnCalls.push({ tag, msg, meta });
+      },
+    },
+    settings: {},
+    allCombos: [],
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(modelsCalled.length, 2);
+  const retainedFailure = localWarnCalls.find((call) => call.msg.includes("failed, trying next"));
+  assert.ok(retainedFailure);
+  const serialized = JSON.stringify(retainedFailure);
+  assert.equal(serialized.includes(transcriptSentinel), false);
+  assert.match(serialized, /omitted: video transcript/);
 });

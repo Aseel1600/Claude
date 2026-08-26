@@ -282,6 +282,52 @@ test("handleComboChat context-relay persists a handoff when codex quota reaches 
   assert.equal(saved.fromAccount, connectionId);
 });
 
+test("handleComboChat does not persist a transcript-sensitive context-relay handoff", async () => {
+  const sessionId = "sess-private-video";
+  const connectionId = "conn-private-video";
+  touchSession(sessionId, connectionId);
+  registerCodexConnection(connectionId, {
+    accessToken: "token-private-video",
+    workspaceId: "ws-private-video",
+  });
+
+  let summaryCalls = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/backend-api/wham/usage")) return buildQuotaResponse(90);
+    throw new Error(`Unexpected fetch: ${String(url)}`);
+  };
+
+  const result = await handleComboChat({
+    body: {
+      messages: [{ role: "user", content: "guardrail-produced video description" }],
+    },
+    combo: {
+      name: "relay-private-video",
+      strategy: "context-relay",
+      models: ["codex/gpt-5.6-sol"],
+      config: { maxRetries: 0, handoffThreshold: 0.85, handoffProviders: ["codex"] },
+    },
+    handleSingleModel: async (body) => {
+      if (body._omnirouteInternalRequest === "context-handoff") summaryCalls += 1;
+      return okResponse();
+    },
+    isModelAvailable: async () => true,
+    log: createLog(),
+    settings: null,
+    allCombos: null,
+    relayOptions: {
+      sessionId,
+      config: { handoffThreshold: 0.85, handoffProviders: ["codex"] },
+    },
+    videoTranscriptSensitive: true,
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 75));
+  assert.equal(result.ok, true);
+  assert.equal(summaryCalls, 0);
+  assert.equal(handoffDb.getHandoff(sessionId, "relay-private-video"), null);
+});
+
 test("handleComboChat context-relay respects handoffProviders and skips generation when codex is disabled", async () => {
   const sessionId = "sess-disabled-provider";
   const connectionId = "conn-disabled-provider";

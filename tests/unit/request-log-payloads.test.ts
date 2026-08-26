@@ -22,6 +22,7 @@ const {
   extractVideoTranscriptDescriptionFingerprints,
   fingerprintVideoTranscriptDescription,
   omitVideoTranscriptForLog,
+  resolveVideoTranscriptLogSensitivity,
   VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER,
 } = await import("../../src/lib/guardrails/videoTranscriptLogRedaction.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
@@ -594,6 +595,97 @@ test("fails closed when enumerable getters or proxies throw during transcript in
     assert.equal(containsVideoTranscriptForLog(payload), true);
     assert.equal(omitVideoTranscriptForLog(payload), VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER);
   }
+});
+
+test("fails closed when an enumerable function can replace the retained JSON representation", () => {
+  const privateTranscript = "PRIVATE_TOJSON_VIDEO_TRANSCRIPT_SENTINEL";
+  const payload = {
+    safe: "retained diagnostic",
+    toJSON() {
+      return {
+        transcript: privateTranscript,
+        type: "input_video",
+        video_url: "data:video/mp4;base64,AA==",
+      };
+    },
+  };
+
+  assert.equal(containsVideoTranscriptForLog(payload), true);
+  const omitted = omitVideoTranscriptForLog(payload) as Record<string, unknown>;
+  const serialized = JSON.stringify(omitted);
+
+  assert.equal(serialized.includes(privateTranscript), false);
+  assert.equal(omitted.safe, "retained diagnostic");
+  assert.notEqual(typeof omitted.toJSON, "function");
+});
+
+test("treats explicit malformed and nested video carriers as transcript-sensitive", () => {
+  const privateTranscript = "PRIVATE_MALFORMED_VIDEO_TRANSCRIPT_SENTINEL";
+  const payloads = [
+    {
+      transcript: privateTranscript,
+      type: "input_video",
+    },
+    {
+      transcript: privateTranscript,
+      type: "video_url",
+      video_url: "",
+    },
+    {
+      input_video: {
+        transcript: privateTranscript,
+        url: "data:video/mp4;base64,AA==",
+      },
+      type: "input_video",
+    },
+    {
+      source: { transcript: privateTranscript },
+      type: "video_source",
+    },
+    {
+      source: {
+        media_type: "video/mp4",
+        transcript: privateTranscript,
+      },
+      type: "video",
+    },
+  ];
+
+  for (const payload of payloads) {
+    assert.equal(containsVideoTranscriptForLog(payload), true, JSON.stringify(payload));
+    const serialized = JSON.stringify(omitVideoTranscriptForLog(payload));
+    assert.equal(serialized.includes(privateTranscript), false, serialized);
+    assert.match(serialized, /omitted: video transcript/);
+  }
+});
+
+test("keeps raw request sensitivity after a guardrail removes the original carrier", () => {
+  const rawRequestBody = {
+    messages: [
+      {
+        content: [
+          {
+            transcript: "PRIVATE_RAW_REQUEST_TRANSCRIPT_SENTINEL",
+            type: "input_video",
+            video_url: "data:video/mp4;base64,AA==",
+          },
+        ],
+        role: "user",
+      },
+    ],
+  };
+  const processedBody = {
+    messages: [{ content: "guardrail replaced the media", role: "user" }],
+  };
+
+  assert.equal(resolveVideoTranscriptLogSensitivity({ processedBody, rawRequestBody }), true);
+  assert.equal(
+    resolveVideoTranscriptLogSensitivity({
+      processedBody: { metadata: { transcript: "ordinary audit label" } },
+      rawRequestBody: { metadata: { transcript: "ordinary caller label" } },
+    }),
+    false
+  );
 });
 
 test("fails closed at the aggregate traversal budget before a tail video transcript can leak", () => {

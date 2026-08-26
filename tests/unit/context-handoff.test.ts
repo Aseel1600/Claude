@@ -152,6 +152,40 @@ test("maybeGenerateHandoff skips below the warning threshold", async () => {
   assert.equal(handoffDb.getHandoff("sess-low", "relay-combo"), null);
 });
 
+test("maybeGenerateHandoff never summarizes a structurally transcript-sensitive history", async () => {
+  let called = false;
+
+  contextHandoff.maybeGenerateHandoff({
+    sessionId: "sess-private-video",
+    comboName: "relay-private-video",
+    connectionId: "conn-private-video",
+    percentUsed: 0.9,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            transcript: "PRIVATE_CONTEXT_HANDOFF_TRANSCRIPT_SENTINEL",
+            type: "input_video",
+            video_url: "data:video/mp4;base64,AA==",
+          },
+        ],
+      },
+    ],
+    model: "codex/gpt-5.6-sol",
+    expiresAt: null,
+    config: { handoffProviders: ["codex"] },
+    handleSingleModel: async () => {
+      called = true;
+      return new Response("{}", { status: 200 });
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(called, false);
+  assert.equal(handoffDb.getHandoff("sess-private-video", "relay-private-video"), null);
+});
+
 test("maybeGenerateHandoff persists a structured handoff once the threshold is reached", async () => {
   const calls = [];
 
