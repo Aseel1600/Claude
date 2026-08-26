@@ -1,4 +1,4 @@
-import { describe, it, before } from "node:test";
+import { describe, it, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 
 import { getDbInstance } from "../../../src/lib/db/core.ts";
@@ -51,7 +51,7 @@ function seed(provider: string, modelId: string, caps: {
   ).run(provider, modelId, caps.tool_call ?? null, caps.reasoning ?? null, caps.limit_context ?? null);
 }
 
-before(() => {
+beforeAll(() => {
   ensureTable();
   // Force both module caches to re-read after our seeds.
   invalidateCapabilitiesCache();
