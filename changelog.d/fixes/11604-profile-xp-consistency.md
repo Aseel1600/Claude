@@ -1,0 +1,1 @@
+- fix(gamification): keep the profile level and progress aligned with aggregate XP
