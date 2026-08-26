@@ -11,9 +11,10 @@
 //
 // The reserved set is shared between the runtime guard and the validation
 // schemas via src/shared/constants/reservedProviderPrefixes.ts (single source of
-// truth). Set semantics mirror the old inline guard exactly:
-//   - REGISTRY entry ids + aliases only;
-//   - case-sensitive (mixed-case "TokenRouter" does NOT collide at runtime);
+// truth). Live set semantics mirror the old inline guard exactly; exact retired
+// ids remain reserved after registry removal and use trim + lowercase matching:
+//   - REGISTRY entry ids + aliases, plus retired ids;
+//   - live ids remain case-sensitive (mixed-case "TokenRouter" does NOT collide);
 //   - manual alias ids that live outside REGISTRY (xiaomi/llamacpp/aq) are NOT
 //     included — verified they do not intercept nodes at runtime.
 import test from "node:test";
@@ -106,13 +107,15 @@ test("shared set excludes manual aliases that never intercept nodes at runtime",
   assert.equal(RESERVED_PROVIDER_PREFIXES.has("aq"), false);
 });
 
-test("shared set size matches full REGISTRY scan (398 unique prefixes)", () => {
-  // Count measured against release/v3.8.51 tip after #11629 (opper) and
-  // #11631 (1min.ai) boarded — 398 unique ids/aliases walked from the
-  // provider REGISTRY on top of the 395 pinned post-#11333.
-  // the assertion pins that the set is a full REGISTRY walk, not a
-  // hand-maintained list.
-  assert.equal(RESERVED_PREFIX_COUNT, 398);
+test("shared set size includes live REGISTRY and 2 retired Designer prefixes", () => {
+  // Count measured against release/v3.8.51 tip (398 pinned post-#11333,
+  // #11629, #11631 — a deduplicated Set, not a raw id+alias sum) after the
+  // Microsoft Designer Web retirement drops its 2 ids/aliases from the live
+  // REGISTRY walk and re-adds them explicitly via
+  // RETIRED_MICROSOFT_DESIGNER_WEB_PROVIDER_IDS so they remain unavailable
+  // for compatible-node shadowing. The assertion pins the actual computed
+  // set size, not a hand-derived sum.
+  assert.equal(RESERVED_PREFIX_COUNT, 400);
 });
 
 test("isReservedProviderPrefix rejects non-string input", () => {

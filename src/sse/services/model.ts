@@ -21,6 +21,7 @@ import { getLearnedReasoningEffortForModel } from "@omniroute/open-sse/services/
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { getRegisteredProviderEffortBaseModelId } from "@omniroute/open-sse/utils/registeredEffortVariants.ts";
 import { getReservedProviderPrefixes } from "@/shared/constants/reservedProviderPrefixes";
+import { assertMicrosoftDesignerWebProviderAvailable } from "@/shared/constants/designerWebRetirement";
 
 export { parseModel, stripContextWindowSuffix };
 
@@ -424,6 +425,10 @@ function stripRedundantNodeRoutingSegments(model: string, routingIds: unknown[])
 export async function getModelInfo(modelStr) {
   const parsed = parseModel(modelStr);
   const { extendedContext } = parsed;
+
+  // Fail closed before a custom compatible node or stripModelPrefix can reinterpret
+  // an exact retired provider id/alias as an unrelated live provider.
+  assertMicrosoftDesignerWebProviderAvailable(parsed.providerAlias || parsed.provider);
 
   const attachRuntimeModelMeta = async (info: any) => {
     if (!info?.provider || !info?.model) return info;

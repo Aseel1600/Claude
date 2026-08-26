@@ -34,6 +34,7 @@ import {
   isMatchingOauthIdentity,
 } from "./webSessionDedup";
 import { pickCodexConnectionForUser } from "@/lib/oauth/utils/codexConnectionSelection";
+import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
 import { reconcileCodexUsageHistory } from "./providers/usageIdentityReconciliation";
 
 /**
@@ -595,6 +596,10 @@ export async function createProviderConnection(data: JsonRecord) {
       _updateConnectionRow(db, existingId, encryptConnectionFields(persistence));
     })();
     backupDbFile("pre-write");
+    if (isMicrosoftDesignerWebRetiredProviderId(merged.provider)) {
+      invalidateDbCache("connections");
+      return getProviderConnectionById(existingId);
+    }
     return withNullableRateLimitOverrides(
       withNullableQuotaWindowThresholds(
         withNullableMaxConcurrent(cleanNulls(merged), merged),
@@ -721,6 +726,10 @@ export async function createProviderConnection(data: JsonRecord) {
   }
   backupDbFile("pre-write");
   invalidateDbCache("connections"); // Bust connections read cache
+
+  if (isMicrosoftDesignerWebRetiredProviderId(data.provider)) {
+    return getProviderConnectionById(String(connection.id));
+  }
 
   return withNullableRateLimitOverrides(
     withNullableQuotaWindowThresholds(
@@ -965,6 +974,10 @@ export async function updateProviderConnection(id: string, data: JsonRecord) {
         ? existingRecord.provider
         : String(existingRecord.provider || "");
     reorderConnections(db, providerId);
+  }
+
+  if (isMicrosoftDesignerWebRetiredProviderId(merged.provider)) {
+    return getProviderConnectionById(id);
   }
 
   return withNullableRateLimitOverrides(
