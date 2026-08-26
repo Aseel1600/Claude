@@ -119,10 +119,41 @@ def delete_job(job_id: str) -> bool:
     return cursor.rowcount > 0
 
 
+def claim_next_queued() -> dict | None:
+    """Atomically claim the oldest queued job and record its start event."""
+    c = conn()
+    try:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute(
+            "SELECT * FROM jobs WHERE status='queued' ORDER BY created_at, id LIMIT 1"
+        ).fetchone()
+        if row is None:
+            c.commit()
+            return None
+        started_at = now_ts()
+        cursor = c.execute(
+            "UPDATE jobs SET status='running', started_at=? WHERE id=? AND status='queued'",
+            (started_at, row["id"]),
+        )
+        if cursor.rowcount != 1:
+            c.rollback()
+            return None
+        c.execute(
+            "INSERT INTO job_events (job_id, event_type, status, message, payload, created_at) VALUES (?,?,?,?,?,?)",
+            (row["id"], "job.started", "running", "Worker started", "{}", started_at),
+        )
+        c.commit()
+        claimed = c.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone()
+        return dict(claimed)
+    finally:
+        c.close()
+
+
 def next_queued() -> dict | None:
+    """Compatibility read-only lookup for callers that only inspect the queue."""
     c = conn()
     row = c.execute(
-        "SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT 1"
+        "SELECT * FROM jobs WHERE status='queued' ORDER BY created_at, id LIMIT 1"
     ).fetchone()
     c.close()
     return dict(row) if row else None
@@ -131,11 +162,11 @@ def next_queued() -> dict | None:
 def set_status(job_id: str, status: str, result: dict | None = None, error: str | None = None) -> None:
     c = conn()
     if status == "running":
-        c.execute("UPDATE jobs SET status=?, started_at=? WHERE id=?", (status, now_ts(), job_id))
+        c.execute("UPDATE jobs SET status=?, started_at=COALESCE(started_at, ?) WHERE id=?", (status, now_ts(), job_id))
     else:
         c.execute(
             "UPDATE jobs SET status=?, finished_at=?, result=?, error=? WHERE id=?",
-            (status, now_ts(), json.dumps(result, ensure_ascii=False) if result else None, error, job_id),
+            (status, now_ts(), json.dumps(result, ensure_ascii=False) if result is not None else None, error, job_id),
         )
     c.commit()
     c.close()

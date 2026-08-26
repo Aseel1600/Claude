@@ -42,10 +42,11 @@ def _summary(result) -> str:
     return "\n".join(parts) if parts else str(result)[:200]
 
 
-def process_one(job: dict, base_url: str, api_key: str, model: str) -> None:
+def process_one(job: dict, base_url: str, api_key: str, model: str, claimed: bool = False) -> None:
     job_id = job["id"]
-    q.set_status(job_id, "running")
-    _safe_event(job_id, "job.started", status="running", message="Worker started")
+    if not claimed:
+        q.set_status(job_id, "running")
+        _safe_event(job_id, "job.started", status="running", message="Worker started")
     title = f"Job {job['skill']} ({job_id})"
 
     def progress(event):
@@ -74,7 +75,7 @@ def process_one(job: dict, base_url: str, api_key: str, model: str) -> None:
 async def worker_loop(base_url: str, api_key: str, model: str, poll_seconds: float = 1.0) -> None:
     loop = asyncio.get_event_loop()
     while True:
-        job = q.next_queued()
+        job = q.claim_next_queued()
         if job:
-            await loop.run_in_executor(None, process_one, job, base_url, api_key, model)
+            await loop.run_in_executor(None, process_one, job, base_url, api_key, model, True)
         await asyncio.sleep(poll_seconds)

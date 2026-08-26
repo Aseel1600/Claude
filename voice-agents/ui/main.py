@@ -219,7 +219,7 @@ async def health():
         "sessionCount": len(cards),
         "graphBackend": "omniroute-local",
         "jobQueue": {
-            "pending": counts.get("pending", 0),
+            "pending": counts.get("queued", 0),
             "processing": counts.get("running", 0),
             "failed": counts.get("failed", 0),
             "deadLettered": 0,
@@ -509,10 +509,13 @@ async def upload_to_inbox(
 
 
 @app.get("/orca/status")
-async def orca_status():
+async def orca_status(request: Request):
+    require_token(request)
+    counts = queue.counts()
+    queue_state = {**counts, "pending": counts.get("queued", 0)}
     return no_cache({
         "status": "running",
-        "queue": queue.counts(),
+        "queue": queue_state,
         "running": [j for j in queue.list_jobs(20) if j["status"] == "running"],
         "recent": [j for j in queue.list_jobs(20) if j["status"] != "running"],
     })
@@ -591,7 +594,8 @@ async def orca_create_job(request: Request, skill: str = Form(...), text: str = 
 
 
 @app.get("/orca/jobs/{job_id}")
-async def orca_job_detail(job_id: str):
+async def orca_job_detail(job_id: str, request: Request):
+    require_token(request)
     job = queue.job_by_id(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="job not found")

@@ -17,7 +17,7 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr /i "ABH"
   echo [ui-test] Verwaisten Prozess %%p auf Port %PORT% beenden ...
   taskkill /F /PID %%p >nul 2>&1
 )
-timeout /t 1 /nobreak >nul
+"%SystemRoot%\System32\timeout.exe" /t 1 /nobreak >nul
 
 echo [ui-test] Server auf Port %PORT% starten ...
 "%PY%" "%SKILL%\scripts\with_server.py" ^

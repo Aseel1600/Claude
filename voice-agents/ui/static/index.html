@@ -1010,6 +1010,9 @@ const state = {
   isExpanded: false,
   activeSideTab: 'facts',
   mainTab: 'graph',
+  activeJobId: null,
+  activeJobController: null,
+  lastEventId: 0,
 };
 
 /* ── Force simulation (vanilla, d3-inspired) ──────────────── */
@@ -1971,35 +1974,73 @@ function wireCommandBar() {
 }
 
 async function connectJobEvents(jobId) {
+  state.activeJobController?.abort();
   const controller = new AbortController();
   state.activeJobController = controller;
+  state.activeJobId = jobId;
+  state.lastEventId = 0;
   const bar = document.getElementById('job-status-bar');
   bar.hidden = false;
-  try {
-    const response = await fetch(API + '/orca/events?job_id=' + encodeURIComponent(jobId), { headers: { ...AUTH.headers, Accept: 'text/event-stream', 'Last-Event-ID': String(state.lastEventId || 0) }, signal: controller.signal });
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      buffer += decoder.decode(chunk.value, { stream: true });
-      const frames = buffer.split(/\\n\\n/);
-      buffer = frames.pop();
-      for (const frame of frames) {
-        if (!frame.trim() || frame.startsWith(':')) continue;
-        const lines = frame.split(/\\n/);
-        const eventName = (lines.find(line => line.startsWith('event:')) || '').slice(6).trim();
-        const idLine = lines.find(line => line.startsWith('id:'));
-        if (idLine) state.lastEventId = Number(idLine.slice(3).trim()) || state.lastEventId;
-        const dataLine = lines.find(line => line.startsWith('data:'));
-        if (dataLine) applyJobEvent(eventName, JSON.parse(dataLine.slice(5).trim()));
+  const maxRetries = 3;
+  let retries = 0;
+  let terminal = false;
+
+  const retry = async () => {
+    if (retries >= maxRetries) return false;
+    retries += 1;
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 500 * (2 ** (retries - 1)));
+      controller.signal.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+    });
+    return true;
+  };
+
+  while (!terminal && !controller.signal.aborted) {
+    try {
+      const response = await fetch(API + '/orca/events?job_id=' + encodeURIComponent(jobId), { headers: { ...AUTH.headers, Accept: 'text/event-stream', 'Last-Event-ID': String(state.lastEventId || 0) }, signal: controller.signal });
+      if (!response.ok) {
+        const error = new Error('HTTP ' + response.status);
+        error.permanent = response.status === 401 || response.status === 404;
+        throw error;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        const frames = buffer.split(/\r?\n\r?\n/);
+        buffer = frames.pop();
+        for (const frame of frames) {
+          if (!frame.trim() || frame.startsWith(':')) continue;
+          const lines = frame.split(/\r?\n/);
+          const eventName = (lines.find(line => line.startsWith('event:')) || '').slice(6).trim();
+          const idLine = lines.find(line => line.startsWith('id:'));
+          if (idLine) state.lastEventId = Number(idLine.slice(3).trim()) || state.lastEventId;
+          const dataLine = lines.find(line => line.startsWith('data:'));
+          if (dataLine) {
+            const event = JSON.parse(dataLine.slice(5).trim());
+            applyJobEvent(eventName, event);
+            if (eventName === 'job.completed' || eventName === 'job.failed') terminal = true;
+          }
+        }
+      }
+      if (terminal || controller.signal.aborted) break;
+      if (!(await retry())) {
+        showError('Job-Stream fehlgeschlagen: SSE stream ended after retries');
+        break;
+      }
+    } catch (error) {
+      if (error.name === 'AbortError' || controller.signal.aborted) break;
+      if (error.permanent || !(await retry())) {
+        showError('Job-Stream fehlgeschlagen: ' + error.message);
+        break;
       }
     }
-  } catch (error) {
-    if (error.name !== 'AbortError') showError('Job-Stream fehlgeschlagen: ' + error.message);
-  } finally {
+  }
+  if (state.activeJobController === controller) {
+    state.activeJobController = null;
     document.getElementById('command-submit').disabled = false;
   }
 }
