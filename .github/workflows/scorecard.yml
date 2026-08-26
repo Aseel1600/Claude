@@ -4,13 +4,20 @@ on:
   schedule:
     - cron: "27 7 * * 1"
   push:
-    branches: ["main"]
 
 permissions: read-all
 
 jobs:
   analysis:
     name: Scorecard analysis
+    # ossf/scorecard-action refuses to run on non-default branches
+    # ("Only the default branch <X> is supported"), so the trigger must not
+    # hardcode a branch name that becomes stale when the release cycle renames
+    # the default branch (release/v3.8.51 as of v3.8.50). Previous hardcode on
+    # `main` reded every push to main with that error. Guard by the repository
+    # default instead; schedule/branch_protection_rule events carry the same
+    # repository context, so the weekly default-branch run still works.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     permissions:
       # security-events: write removed — Scorecard findings are advisory and no longer
