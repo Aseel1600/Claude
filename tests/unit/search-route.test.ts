@@ -73,6 +73,7 @@ test("v1 search GET lists all search providers", async () => {
     "duckduckgo-free",
     "x-search",
     "xquik-search",
+    "anysearch-search",
   ]);
 });
 

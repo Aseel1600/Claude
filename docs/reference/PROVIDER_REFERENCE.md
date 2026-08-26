@@ -397,6 +397,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `searxng-search` | `searxng` | SearXNG Search | Search | [link](https://docs.searxng.org) | API key is optional. Set your SearXNG base URL. Some instances may require a bearer token for access. |
 | `serper-search` | `serper-search` | Serper Search | Search | [link](https://serper.dev) | API key from serper.dev dashboard |
 | `tavily-search` | `tavily-search` | Tavily Search | Search | [link](https://tavily.com) | API key from app.tavily.com (format: tvly-...) |
+| `anysearch-search` | `anysearch` | AnySearch | Search | [link](https://anysearch.com/docs) | Optional API key (as_sk_...). Free public web search for agents; 1000 req/day per key, shared with extract. Fallback-only. |
 | `x-search` | `x_search` | X Search (Grok) | Search | [link](https://docs.x.ai/developers/tools/x-search) | SuperGrok OAuth (xai-oauth) or xAI API key. This is Grok X Search, not the X Developer MCP. |
 | `xquik-search` | `xquik` | Xquik X Search | Search | [link](https://docs.xquik.com) | Xquik API key (xq_...). Search is metered per returned post; the catalog estimate uses 5 results. |
 | `youcom-search` | `youcom-search` | You.com Search | Search | [link](https://you.com/business/api/) | X-API-Key from the You.com platform dashboard |
