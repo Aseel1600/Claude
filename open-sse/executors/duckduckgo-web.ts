@@ -6,6 +6,7 @@ import {
   DUCKDUCKGO_DEFAULT_MODEL,
   DUCKDUCKGO_MODEL_ALIASES,
   FE_VERSION_PATTERN,
+  extractFreeDuckDuckGoModelIds,
   normalizeDuckDuckGoModel,
   pickDuckDuckGoModel,
 } from "./duckduckgo-web/models.ts";
@@ -256,7 +257,12 @@ function mergeHeadersCaseInsensitive(
  * validation against the token-free /duckchat/v1/models handles future churn
  * without shipping a new catalog snapshot every time.
  */
-export { DUCKDUCKGO_DEFAULT_MODEL, DUCKDUCKGO_MODEL_ALIASES, normalizeDuckDuckGoModel };
+export {
+  DUCKDUCKGO_DEFAULT_MODEL,
+  DUCKDUCKGO_MODEL_ALIASES,
+  extractFreeDuckDuckGoModelIds,
+  normalizeDuckDuckGoModel,
+};
 
 function getDuckDuckGoModelCapabilities(model: string): DuckDuckGoModelCapabilities {
   // `reasoningEffort` is REQUIRED on every duckchat/v1/chat request. Omitting it
@@ -695,10 +701,7 @@ export class DuckDuckGoWebExecutor extends BaseExecutor {
         signal,
       });
       if (!resp.ok) return null;
-      const data = (await resp.json()) as { models?: Array<{ id?: unknown }> };
-      const ids = new Set<string>(
-        (data.models ?? []).map((m) => String(m?.id ?? "")).filter(Boolean)
-      );
+      const ids = extractFreeDuckDuckGoModelIds(await resp.json());
       if (ids.size === 0) return null;
       this.modelsCache = { ids, fetchedAt: now };
       return ids;

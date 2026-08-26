@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
+  extractFreeDuckDuckGoModelIds,
   pickDuckDuckGoModel,
   normalizeDuckDuckGoModel,
 } from "../../open-sse/executors/duckduckgo-web/models.ts";
@@ -32,6 +33,20 @@ test("live validation: current wire ids pass through untouched", () => {
   for (const id of ["gpt-5.4-mini", "gpt-5.6-luna", "claude-haiku-4-5"]) {
     assert.equal(pickDuckDuckGoModel(id, LIVE_IDS), id);
   }
+});
+
+test("live catalog: only models with free access are routable", () => {
+  assert.deepEqual(
+    extractFreeDuckDuckGoModelIds({
+      models: [
+        { id: "gpt-5.6-luna", accessTier: ["free", "pro"] },
+        { id: "gpt-5.4", accessTier: ["internal", "pro"] },
+        { id: "claude-haiku-4-5", accessTier: ["free"] },
+        { id: "missing-tier" },
+      ],
+    }),
+    new Set(["gpt-5.6-luna", "claude-haiku-4-5"])
+  );
 });
 
 test("live validation: retired ids resolve through aliases when still live elsewhere", () => {

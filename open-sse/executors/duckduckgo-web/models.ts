@@ -44,3 +44,19 @@ export function pickDuckDuckGoModel(requested: string, liveIds: ReadonlySet<stri
   const aliased = DUCKDUCKGO_MODEL_ALIASES[requested] ?? requested;
   return liveIds.has(aliased) ? aliased : DUCKDUCKGO_DEFAULT_MODEL;
 }
+
+export function extractFreeDuckDuckGoModelIds(value: unknown): Set<string> {
+  if (!value || typeof value !== "object") return new Set();
+  const models = (value as { models?: unknown }).models;
+  if (!Array.isArray(models)) return new Set();
+  return new Set(
+    models
+      .filter((model) => {
+        if (!model || typeof model !== "object") return false;
+        const tiers = (model as { accessTier?: unknown }).accessTier;
+        return Array.isArray(tiers) && tiers.some((tier) => tier === "free");
+      })
+      .map((model) => String((model as { id?: unknown }).id ?? ""))
+      .filter(Boolean)
+  );
+}
