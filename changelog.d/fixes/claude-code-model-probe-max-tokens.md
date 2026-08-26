@@ -1,0 +1,1 @@
+- Stop treating Claude `content:[]` + `stop_reason: max_tokens` (and `tool_use`) as `empty_choices` in `detectMalformedNonStream`, matching `isEmptyContentResponse`. Fixes Claude Code `/model` probes that spend a 1-token budget on thinking and previously got a false 502.
