@@ -70,6 +70,7 @@ import { resolveProviderId } from "../../src/shared/constants/providers.ts";
 import * as semaphore from "./rateLimitSemaphore.ts";
 import { getCircuitBreaker } from "../../src/shared/utils/circuitBreaker";
 import { parseModel } from "./model.ts";
+import { rejectRetiredAutoComboCandidates } from "./modelLifecycle.ts";
 import { createComboContext } from "./combo/context.ts";
 import { phaseComboSetup } from "./combo/comboSetup.ts";
 import { checkCredentialGate, logCredentialSkip } from "./credentialGate.ts";
@@ -627,11 +628,14 @@ export async function buildAutoCandidates(
     })
   );
 
-  // Filter out candidates whose model is hidden by the user in the dashboard
-  return candidates.filter((c) => {
-    const hiddenModels = hiddenModelsMap.get(c.provider);
-    return !hiddenModels?.has(c.model);
-  });
+  // Filter out candidates whose model is hidden by the user in the dashboard,
+  // then drop vendor-retired ids so auto-combo cannot pick them (#11625).
+  return rejectRetiredAutoComboCandidates(
+    candidates.filter((c) => {
+      const hiddenModels = hiddenModelsMap.get(c.provider);
+      return !hiddenModels?.has(c.model);
+    })
+  );
 }
 
 // Context-cache pin health gate — moved to combo/dispatchPrelude.ts alongside the

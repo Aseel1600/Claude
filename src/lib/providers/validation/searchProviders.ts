@@ -5,6 +5,10 @@ import { SAFE_OUTBOUND_FETCH_PRESETS, safeOutboundFetch } from "@/shared/network
 import { getProviderOutboundGuard } from "@/shared/network/outboundUrlGuardPolicy";
 import { withCustomUserAgent } from "./headers";
 import { toValidationErrorResult, validationWrite } from "./transport";
+import {
+  NIMBLE_CLIENT_SOURCE,
+  NIMBLE_CLIENT_SOURCE_HEADER,
+} from "@omniroute/open-sse/config/nimble.ts";
 
 export async function validateSearchProvider(
   url: string,
@@ -99,6 +103,22 @@ export const SEARCH_VALIDATOR_CONFIGS: Record<
       },
     };
   },
+  "nimble-search": (apiKey) => ({
+    url: "https://sdk.nimbleway.com/v1/search",
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        [NIMBLE_CLIENT_SOURCE_HEADER]: NIMBLE_CLIENT_SOURCE,
+      },
+      body: JSON.stringify({
+        query: "test",
+        max_results: 1,
+        search_depth: "lite",
+      }),
+    },
+  }),
   "linkup-search": (apiKey) => ({
     url: "https://api.linkup.so/v1/search",
     init: {
