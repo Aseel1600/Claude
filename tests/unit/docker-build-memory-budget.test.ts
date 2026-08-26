@@ -15,17 +15,28 @@ import { fileURLToPath } from "node:url";
 // This pins the budget so raising either knob has to be a deliberate change
 // that re-does the arithmetic, not a one-line bump that silently reds the
 // publish pipeline again.
+//
+// 2026-08-26 update: the 7→2-worker fix this test originally modeled as safe
+// (6144 + 2×2560 = 11264 MB, under budget) did NOT hold in practice — 60+
+// consecutive arm64 "Build Docker" runs from 2026-08-24 23:xx UTC through
+// 2026-08-26 14:xx UTC still died with the identical `ResourceExhausted`
+// right after "Collecting page data using 2 workers". WORKER_PEAK_MB=2560
+// undercounted the real per-worker RSS, so this test passed a config that
+// was actually red on every real run. Raised to 4096 below and the Dockerfile
+// dropped to 1 worker — re-lower WORKER_PEAK_MB only with a real measurement
+// (e.g. a memory-profiled build log), never a guess tuned to make a
+// preferred worker count pass.
 
 const RUNNER_MEMORY_MB = 16 * 1024;
 // Leave room for buildkit, the snapshotter and page cache.
 const HEADROOM_FRACTION = 0.75;
 // Planning figure for one page-data worker's peak RSS. It is an INFERENCE, not
-// a measurement: 7 workers did not fit in 16 GB alongside the parent, which
-// puts the per-worker peak somewhere north of ~1.8 GB. 2.5 GB is that bound
-// rounded up, so the budget below stays conservative. If a future build OOMs
-// again with a worker count this test accepts, raise this number — do not
-// weaken the budget.
-const WORKER_PEAK_MB = 2560;
+// a measurement. Originally 2560 MB (inferred from 7 workers not fitting in
+// 16 GB); raised to 4096 MB on 2026-08-26 after 2 workers at 2560 MB still
+// OOM'd on every real run (see file header) — the model was wrong, not just
+// tight. If a future build OOMs again with a worker count this test accepts,
+// raise this number — do not weaken the budget.
+const WORKER_PEAK_MB = 4096;
 
 const dockerfile = readFileSync(
   fileURLToPath(new URL("../../Dockerfile", import.meta.url)),

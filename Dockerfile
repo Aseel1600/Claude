@@ -184,19 +184,35 @@ ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 # silently leaving no standalone bundle. Next derives the worker count from
 # CIRCLE_NODE_TOTAL (workers = N-1). (#10060)
 #
-# Lowered 8 → 3 (7 workers → 2). Every page-data worker inherits NODE_OPTIONS
-# above, so the ceiling is per PROCESS, not per build: 7 workers on a 16 GB
-# GitHub runner (ubuntu-24.04 / ubuntu-24.04-arm, 4 vCPU) exhausted the host and
-# buildkit failed the whole step with `ResourceExhausted: ... cannot allocate
-# memory`. The compile phase always finished ("✓ Compiled successfully in
-# 4.2min"); the kernel killed the build right after "Collecting page data using
-# 7 workers". It was intermittent for a while and went 100% on 2026-08-22, which
-# is what a threshold being crossed by ordinary codebase growth looks like.
-# tests/unit/docker-build-memory-budget.test.ts does the arithmetic and fails if
-# either knob is raised past what a 16 GB runner holds. 2 workers also stops
-# oversubscribing the runner's 4 vCPU, which 7 did. Override for a big builder:
+# Lowered 8 → 3 (7 workers → 2) on 2026-08-25 (#10060), then 3 → 2 (2 workers →
+# 1) on 2026-08-26. Every page-data worker inherits NODE_OPTIONS above, so the
+# ceiling is per PROCESS, not per build: 7 workers on a 16 GB GitHub runner
+# (ubuntu-24.04 / ubuntu-24.04-arm, 4 vCPU) exhausted the host and buildkit
+# failed the whole step with `ResourceExhausted: ... cannot allocate memory`.
+# The compile phase always finished ("✓ Compiled successfully in 4.2min"); the
+# kernel killed the build right after "Collecting page data using N workers".
+# It was intermittent for a while and went 100% on 2026-08-22, which is what a
+# threshold being crossed by ordinary codebase growth looks like.
+#
+# The 7→2 fix (worked-out on paper as 6144 + 2×2560 = 11264 MB, under the
+# 12288 MB budget) did NOT hold: every arm64 "Build Docker" run from
+# 2026-08-24 23:xx UTC through 2026-08-26 14:xx UTC (60+ consecutive pushes on
+# release/v3.8.51/v3.8.50, PR #11442) still died with the identical
+# `ResourceExhausted: ... cannot allocate memory`, always right after
+# "Collecting page data using 2 workers" — same failure signature, smaller
+# worker count. That means the WORKER_PEAK_MB=2560 inference in
+# tests/unit/docker-build-memory-budget.test.ts undercounted the real
+# per-worker RSS (plausible: the parent `next build` process does not release
+# its own heap back to the OS the instant workers spawn, so parent + workers
+# overlap for a window instead of the model's clean handoff). Rather than
+# re-guess a second inflated per-worker figure, drop to the floor the test
+# still allows (CIRCLE_NODE_TOTAL=2 → 1 worker) and raise WORKER_PEAK_MB to a
+# value with real margin, so the arithmetic stops sitting one bad guess away
+# from red again. tests/unit/docker-build-memory-budget.test.ts fails if
+# either knob is raised past what a 16 GB runner holds. 1 worker also stops
+# oversubscribing the runner's 4 vCPU. Override for a big builder:
 # `--build-arg OMNIROUTE_BUILD_WORKERS=8`.
-ARG OMNIROUTE_BUILD_WORKERS=3
+ARG OMNIROUTE_BUILD_WORKERS=2
 ENV CIRCLE_NODE_TOTAL=${OMNIROUTE_BUILD_WORKERS}
 
 COPY . ./
