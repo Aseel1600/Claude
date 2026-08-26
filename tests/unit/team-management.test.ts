@@ -32,7 +32,7 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("migration 163 creates team cost-center schema and immutable usage attribution", () => {
+test("migration 164 creates team cost-center schema and immutable usage attribution", () => {
   const db = core.getDbInstance();
   const tables = new Set(
     (
@@ -146,6 +146,27 @@ test("retention rollup preserves the team dimension and all billable token class
   assert.equal(row.total_cache_creation_tokens, 10);
   assert.equal(row.total_reasoning_tokens, 5);
   assert.equal(row.service_tier, "priority");
+  assert.match(
+    String(
+      (
+        core
+          .getDbInstance()
+          .prepare("SELECT team_rollup_processed_at FROM usage_history WHERE billing_team_id = ?")
+          .get(team.id) as { team_rollup_processed_at: string }
+      ).team_rollup_processed_at
+    ),
+    /^\d{4}-\d{2}-\d{2}/
+  );
+
+  const replay = await aggregateHistory.rollupUsageHistoryBeforeDate("2026-01-02");
+  assert.equal(replay.errors, 0);
+  const replayedRow = core
+    .getDbInstance()
+    .prepare(
+      "SELECT total_requests, total_input_tokens FROM daily_team_usage_summary WHERE team_id = ?"
+    )
+    .get(team.id) as { total_requests: number; total_input_tokens: number };
+  assert.deepEqual(replayedRow, { total_requests: 1, total_input_tokens: 100 });
 });
 
 test("team shared budget uses committed estimated list cost and is explicit about soft enforcement", async () => {
@@ -177,6 +198,8 @@ test("team shared budget uses committed estimated list cost and is explicit abou
   assert.equal(status?.enforcementMode, "soft_committed_usage");
   assert.equal(status?.estimatedListCostUsd, 1);
   assert.equal(status?.actualProviderCostUsd, null);
+  assert.equal(status?.subscriptionQuotaUsed, null);
+  assert.equal(status?.compressionSavingsUsd, null);
   assert.equal(status?.exceeded, true);
 
   const rejection = await teamBudgets.buildTeamUsageLimitPolicyRejection(
@@ -327,6 +350,30 @@ test("JSON export/import preserves teams, temporal billing bindings, and usage s
     .prepare("SELECT service_tier, total_requests FROM daily_team_usage_summary WHERE team_id = ?")
     .get(team.id) as { service_tier: string; total_requests: number };
   assert.deepEqual(summary, { service_tier: "priority", total_requests: 2 });
+});
+
+test("usage reset removes retained Team rollups together with raw usage", async () => {
+  const key = await apiKeys.createApiKey("agent-reset", "machine-team-reset");
+  const team = teams.createTeam({ name: "Reset Team" });
+  teams.assignApiKeyBillingTeam(key.id, team.id);
+  const db = core.getDbInstance();
+  db.prepare(
+    `INSERT INTO daily_team_usage_summary (
+      team_id, api_key_id, provider, model, service_tier, date, total_requests
+    ) VALUES (?, ?, 'openai', 'gpt-reset', 'standard', '2026-08-10', 1)`
+  ).run(team.id, key.id);
+
+  const { resetUsageHistory } = await import("../../src/lib/db/cleanup.ts");
+  const result = await resetUsageHistory("all");
+  assert.equal(result.deletedDailyTeamSummary, 1);
+  assert.equal(
+    (
+      db.prepare("SELECT COUNT(*) AS count FROM daily_team_usage_summary").get() as {
+        count: number;
+      }
+    ).count,
+    0
+  );
 });
 
 test("archiving a team closes active assignments but preserves historical usage", async () => {

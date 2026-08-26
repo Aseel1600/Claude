@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OmniRoute API
-  version: 3.8.50
+  version: 3.8.51
   description: |
     OmniRoute is a local-first AI API proxy router. It provides an OpenAI-compatible
     endpoint that routes requests to multiple AI providers with load balancing,
@@ -43,6 +43,8 @@ tags:
     description: Content moderation
   - name: Rerank
     description: Document reranking
+  - name: Search
+    description: Unified web, news, and X search
   - name: Models
     description: Available model listing
   - name: Providers
@@ -1154,6 +1156,199 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
   # ─── Proxy Endpoints ──────────────────────────────────────────
+
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: List search providers
+      description: Lists configured search providers and their supported search types.
+      responses:
+        "200":
+          description: Search provider catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, data]
+                properties:
+                  object:
+                    type: string
+                    const: list
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, object, created, name, search_types]
+                      properties:
+                        id:
+                          type: string
+                        object:
+                          type: string
+                          const: search_provider
+                        created:
+                          type: integer
+                        name:
+                          type: string
+                        search_types:
+                          type: array
+                          items:
+                            type: string
+                            enum: [web, news, x]
+    post:
+      tags: [Search]
+      summary: Run a unified search
+      description: >-
+        Searches the web, news, or X through a configured provider. Set `provider`
+        to `xquik-search` to use Xquik for X search. The aliases `xquik` and
+        `xquik_search` resolve to the same provider.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                provider:
+                  type: string
+                  minLength: 1
+                  description: A search provider id or registered alias.
+                  examples: [xquik-search]
+                max_results:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 5
+                search_type:
+                  type: string
+                  enum: [web, news, x]
+                  default: web
+                offset:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                country:
+                  type: string
+                  maxLength: 2
+                language:
+                  type: string
+                  minLength: 2
+                  maxLength: 5
+                time_range:
+                  type: string
+                  enum: [any, hour, day, week, month, year]
+                content:
+                  type: object
+                  properties:
+                    snippet: { type: boolean, default: true }
+                    full_page: { type: boolean, default: false }
+                    format: { type: string, enum: [text, markdown], default: text }
+                    max_characters: { type: integer, minimum: 100, maximum: 100000 }
+                filters:
+                  type: object
+                  properties:
+                    include_domains:
+                      type: array
+                      maxItems: 20
+                      items: { type: string, maxLength: 253 }
+                    exclude_domains:
+                      type: array
+                      maxItems: 20
+                      items: { type: string, maxLength: 253 }
+                    safe_search: { type: string, enum: [off, moderate, strict] }
+                provider_options:
+                  type: object
+                  additionalProperties: true
+                strict_filters:
+                  type: boolean
+                  default: false
+              additionalProperties: true
+      responses:
+        "200":
+          description: Normalized search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, provider, query, results, answer, usage, metrics, errors, cached]
+                properties:
+                  id:
+                    type: string
+                    pattern: ^search-
+                  provider:
+                    type: string
+                  query:
+                    type: string
+                  cached:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [title, url, snippet, position, citation]
+                      properties:
+                        title: { type: string }
+                        url: { type: string, format: uri }
+                        display_url: { type: string }
+                        snippet: { type: string }
+                        position: { type: integer, minimum: 1 }
+                        score:
+                          type: [number, "null"]
+                          minimum: 0
+                          maximum: 1
+                        published_at: { type: [string, "null"] }
+                        favicon_url: { type: [string, "null"], format: uri }
+                        citation:
+                          type: object
+                          required: [provider, retrieved_at, rank]
+                          properties:
+                            provider: { type: string }
+                            retrieved_at: { type: string, format: date-time }
+                            rank: { type: integer, minimum: 1 }
+                  answer:
+                    type: [object, "null"]
+                  usage:
+                    type: object
+                    required: [queries_used, search_cost_usd]
+                    properties:
+                      queries_used: { type: integer, minimum: 0 }
+                      search_cost_usd: { type: number, minimum: 0 }
+                      llm_tokens: { type: integer, minimum: 0 }
+                  metrics:
+                    type: object
+                    required: [response_time_ms, upstream_latency_ms, total_results_available]
+                    properties:
+                      response_time_ms: { type: number, minimum: 0 }
+                      upstream_latency_ms: { type: number, minimum: 0 }
+                      gateway_latency_ms: { type: number, minimum: 0 }
+                      total_results_available: { type: [integer, "null"], minimum: 0 }
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required: [provider, code, message]
+                      properties:
+                        provider: { type: string }
+                        code: { type: string }
+                        message: { type: string }
+        "400":
+          description: Invalid request, provider, credentials, or search type
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Search provider blocked by API key or security policy
+        "429":
+          description: Every eligible provider credential is rate limited
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "502":
+          description: Search provider failed
 
   /api/v1/chat/completions:
     post:
@@ -5721,17 +5916,28 @@ paths:
       x-loopback-only: true
       tags: [System]
       summary: Read a bounded Video Bridge drill-down slice
-      description: Internal loopback/token-authenticated lookup into a short-lived per-session frame cache. It never downloads media or starts a subprocess; start/end and frame count only select already materialized frames.
+      description: Internal loopback/token-authenticated lookup into a short-lived cache isolated by an opaque principal, session, and media reference. It never downloads media or starts a subprocess; start/end and frame count only select already materialized, canonicalized JPEG frames whose dimensions were derived from their bytes. This cache substrate is not yet wired to the transparent Video Bridge request path and does not yet expose multi-resolution selection.
       security: []
       parameters:
+        - in: header
+          name: x-omniroute-video-bridge-principal
+          required: true
+          description: Canonical visible-ASCII, opaque non-secret principal ID; production tenant derivation is required before enabling a caller
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+            pattern: "^[!-~]{1,256}$"
         - in: query
           name: sessionId
           required: true
-          schema: { type: string, maxLength: 128 }
+          description: Canonical opaque ID without surrounding whitespace
+          schema: { type: string, minLength: 1, maxLength: 128 }
         - in: query
           name: videoRef
           required: true
-          schema: { type: string, maxLength: 4096 }
+          description: Canonical opaque reference without surrounding whitespace
+          schema: { type: string, minLength: 1, maxLength: 4096 }
         - in: query
           name: start
           required: false
@@ -5745,25 +5951,58 @@ paths:
           required: false
           schema: { type: integer, minimum: 1, maximum: 16 }
       responses:
-        "200": { description: Bounded cached frame slice }
-        "403": { description: Trusted loopback/token identity required }
+        "200": { description: Bounded cached frame slice with derivation audit metadata }
+        "403": { description: Trusted loopback/token identity and principal required }
         "404": { description: Drill-down session or media key was not found }
     post:
       x-loopback-only: true
       tags: [System]
       summary: Store a bounded Video Bridge drill-down result
-      description: Internal lifecycle operation for explicitly authorized callers. The short-lived session cache is isolated by session and media reference and does not alter the primary request cost.
+      description: Internal lifecycle operation for explicitly authorized callers. The short-lived cache is isolated by principal, session, and media reference; enforces independent per-principal and global retained-byte quotas; accepts canonical Base64 only after a warning-sensitive bounded full JPEG decode/re-encode; strips trailing polyglot bytes; retains and charges only the canonical JPEG output; derives resolution from decoded bytes; and does not alter the primary request cost. The JSON wire budget includes Base64 overhead for the 32 MiB decoded-input ceiling.
       security: []
+      parameters:
+        - in: header
+          name: x-omniroute-video-bridge-principal
+          required: true
+          description: Canonical visible-ASCII, opaque non-secret principal ID; production tenant derivation is required before enabling a caller
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+            pattern: "^[!-~]{1,256}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [sessionId, videoRef, durationSeconds, frames]
+              additionalProperties: false
+              required: [sessionId, videoRef, derivation, durationSeconds, frames]
               properties:
-                sessionId: { type: string, maxLength: 128 }
-                videoRef: { type: string, maxLength: 4096 }
+                sessionId:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Canonical opaque ID without surrounding whitespace
+                videoRef:
+                  type: string
+                  minLength: 1
+                  maxLength: 4096
+                  description: Canonical opaque reference without surrounding whitespace
+                derivation:
+                  type: object
+                  additionalProperties: false
+                  required: [parentContentHash, policy, version]
+                  properties:
+                    parentContentHash:
+                      type: string
+                      pattern: "^sha256:[a-f0-9]{64}$"
+                    policy:
+                      type: string
+                      pattern: "^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$"
+                    version:
+                      type: string
+                      pattern: "^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$"
                 durationSeconds: { type: number, exclusiveMinimum: 0, maximum: 600 }
                 frames:
                   type: array
@@ -5771,27 +6010,43 @@ paths:
                   maxItems: 16
                   items:
                     type: object
+                    additionalProperties: false
                     required: [timestampSeconds, dataUri]
                     properties:
                       timestampSeconds: { type: number, minimum: 0 }
-                      dataUri: { type: string, pattern: "^data:image/jpeg;base64," }
+                      dataUri:
+                        type: string
+                        minLength: 27
+                        maxLength: 5592431
+                        description: Canonical Base64 data URI whose decoded bytes pass a warning-sensitive bounded full JPEG decode/re-encode; trailing bytes are discarded and width and height are derived server-side
       responses:
         "201": { description: Drill-down result stored }
-        "403": { description: Trusted loopback/token identity required }
+        "403": { description: Trusted loopback/token identity and principal required }
         "413": { description: Payload exceeds the bounded session budget }
+        "499": { description: Caller cancelled before the derivation was committed }
     delete:
       x-loopback-only: true
       tags: [System]
       summary: Delete a Video Bridge drill-down session
       security: []
       parameters:
+        - in: header
+          name: x-omniroute-video-bridge-principal
+          required: true
+          description: Canonical visible-ASCII, opaque non-secret principal ID; production tenant derivation is required before enabling a caller
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 256
+            pattern: "^[!-~]{1,256}$"
         - in: query
           name: sessionId
           required: true
-          schema: { type: string, maxLength: 128 }
+          description: Canonical opaque ID without surrounding whitespace
+          schema: { type: string, minLength: 1, maxLength: 128 }
       responses:
         "200": { description: Session entries removed }
-        "403": { description: Trusted loopback/token identity required }
+        "403": { description: Trusted loopback/token identity and principal required }
 
   /api/cache/stats:
     get:
@@ -6932,6 +7187,104 @@ paths:
           $ref: "#/components/responses/ManagementInvalidToken"
         "500":
           description: Failed to parse OpenAPI spec
+
+  /api/openapi/try:
+    post:
+      tags: [System]
+      summary: Proxy an API Explorer request to an OmniRoute endpoint
+      description: >-
+        Executes an API Explorer request through a server-side, same-origin proxy. The target
+        must start with `/api/`, `/v1/`, `/v1beta/`, `/a2a`, or
+        `/.well-known/agent.json`; protocol-relative and cross-origin targets are rejected.
+        Hop-by-hop, proxy, host, cookie, and forwarding headers supplied in `headers` are
+        stripped, while any dashboard cookie on the original request is forwarded separately.
+        When `requireLogin` is disabled, the management-auth bypass mirrors the runtime setting;
+        otherwise a management Bearer credential or dashboard session is required. Failures
+        caught after authentication, including request JSON parsing, fetch, and response-body
+        parsing failures, are returned in the normal HTTP 200 result envelope so the Explorer
+        can display them; `status: 0` identifies that caught-failure path.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                method:
+                  type: string
+                  enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+                  default: GET
+                path:
+                  type: string
+                  minLength: 1
+                  pattern: "^/(?:api/|v1/|v1beta/|a2a|\\.well-known/agent\\.json)"
+                  description: Same-origin OmniRoute API path, optionally including a query string.
+                headers:
+                  type: object
+                  default: {}
+                  additionalProperties:
+                    type: string
+                  description: >-
+                    Headers to forward after removing connection, content-length, cookie, host,
+                    keep-alive, proxy-authenticate, proxy-authorization, te, trailer,
+                    transfer-encoding, upgrade, x-forwarded-for, x-forwarded-host, and
+                    x-forwarded-proto headers.
+                body:
+                  description: >-
+                    Optional JSON value. A truthy value is serialized unless it is already a
+                    string, and is not forwarded when `method` is `GET`.
+      responses:
+        "200":
+          description: Upstream response or displayable caught-failure envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, statusText, headers, body, latencyMs, contentType]
+                properties:
+                  status:
+                    type: integer
+                    minimum: 0
+                    description: Upstream HTTP status, or 0 when request processing throws.
+                  statusText:
+                    type: string
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  body:
+                    description: >-
+                      Parsed JSON, response text truncated after 10,000 characters, or a sanitized
+                      caught-error object.
+                  latencyMs:
+                    type: integer
+                    minimum: 0
+                  contentType:
+                    type: string
+        "400":
+          description: Invalid request body or non-same-origin path
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
+                  - type: object
+                    required: [error]
+                    properties:
+                      error:
+                        type: string
+                        example: Path must be same-origin
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "503":
+          $ref: "#/components/responses/InternalError"
 
   # ─── Agent Skills Catalog ────────────────────────────────────────────────────
 

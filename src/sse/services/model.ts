@@ -20,28 +20,9 @@ import {
 import { getLearnedReasoningEffortForModel } from "@omniroute/open-sse/services/learnedReasoningEffortCaps.ts";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { getRegisteredProviderEffortBaseModelId } from "@omniroute/open-sse/utils/registeredEffortVariants.ts";
+import { getReservedProviderPrefixes } from "@/shared/constants/reservedProviderPrefixes";
 
 export { parseModel, stripContextWindowSuffix };
-
-/**
- * Reserved provider prefixes — built-in provider ids + aliases. User-defined
- * compatible-node prefixes must not be allowed to shadow these, otherwise a
- * node with prefix="cf" would hijack cloudflare-ai requests (and similar for
- * every built-in provider). Ported from upstream 9router 047fdc89.
- *
- * Built lazily so the registry is only walked once per process.
- */
-let _reservedProviderPrefixes: Set<string> | null = null;
-function getReservedProviderPrefixes(): Set<string> {
-  if (_reservedProviderPrefixes) return _reservedProviderPrefixes;
-  const reserved = new Set<string>();
-  for (const entry of Object.values(REGISTRY)) {
-    if (entry?.id) reserved.add(entry.id);
-    if (entry?.alias) reserved.add(entry.alias);
-  }
-  _reservedProviderPrefixes = reserved;
-  return reserved;
-}
 
 /**
  * Fold `settings.wildcardAliases` ({pattern,target}[]) — the store the Settings
@@ -407,17 +388,34 @@ async function lookupModelMeta(
 /**
  * When a custom provider node is matched by its raw internal `node.id` (e.g. a combo
  * step addressing `<connId>/...` — see #2778), `parsed.model` was never split on the
- * node's own `prefix`, unlike the alias-addressing path where `parseModel` already
- * strips it. If the caller naively concatenates `owned_by` (the node's prefix, as
- * listed by /api/models) with the raw model id, the resulting model string carries a
- * redundant leading `${node.prefix}/` segment that the upstream provider does not
- * recognize, causing a 400. Strip it so `<connId>/<prefix>/<rawModelId>` normalizes to
- * the same `<rawModelId>` the bare alias form resolves to (#6772).
+ * node's own identifiers, unlike the alias-addressing path where `parseModel` already
+ * strips the prefix. If the caller naively concatenates routing segments with the raw
+ * model id, the resulting model string carries redundant leading segments that the
+ * upstream provider does not recognize, causing deterministic 404s (retried).
+ *
+ * Observed in production traffic: `<connId>/<connId>/<model>` — requests addressed
+ * by the node's internal id (#2778) left a second `<connId>/` segment in parsed.model
+ * that the historical strip (prefix alone, #6772) never saw, and the composite went
+ * upstream verbatim. We now shed ANY of the matched node's routing identifiers (prefix AND internal id), repeatedly, until stable.
+ * A legitimate namespace different from these identifiers is untouched (#493);
+ * an operator naming their prefix identically to one of their catalog namespaces
+ * sees that namespace shed — accepted limitation, precedent #6772.
  */
-function stripRedundantNodePrefix(model: string, nodePrefix: unknown): string {
-  if (typeof nodePrefix !== "string" || !nodePrefix) return model;
-  const redundant = `${nodePrefix}/`;
-  return model.startsWith(redundant) ? model.slice(redundant.length) : model;
+function stripRedundantNodeRoutingSegments(model: string, routingIds: unknown[]): string {
+  let out = model;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const seg of routingIds) {
+      if (typeof seg !== "string" || !seg) continue;
+      const redundant = `${seg}/`;
+      if (out.startsWith(redundant)) {
+        out = out.slice(redundant.length);
+        changed = true;
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -460,9 +458,11 @@ export async function getModelInfo(modelStr) {
     // node prefix lookup so the request still routes to the built-in provider.
     // Internal UUID-prefixed node ids (e.g. "openai-compatible-responses-...")
     // are never in the reserved set, so the #2778 combo path still works.
-    // Ported from upstream 9router 047fdc89.
-    const reserved = getReservedProviderPrefixes();
-    const isReservedPrefix = typeof prefixToCheck === "string" && reserved.has(prefixToCheck);
+    // Ported from upstream 9router 047fdc89. Set shared with the write-path
+    // validation guard (src/shared/constants/reservedProviderPrefixes.ts) so
+    // both sides can never drift apart.
+    const isReservedPrefix =
+      typeof prefixToCheck === "string" && getReservedProviderPrefixes().has(prefixToCheck);
 
     if (!isReservedPrefix) {
       // Check OpenAI Compatible nodes
@@ -474,10 +474,10 @@ export async function getModelInfo(modelStr) {
         (node) => node.prefix === prefixToCheck || node.id === prefixToCheck
       );
       if (matchedOpenAI) {
-        const normalizedModel = stripRedundantNodePrefix(
-          parsed.model as string,
-          matchedOpenAI.prefix
-        );
+        const normalizedModel = stripRedundantNodeRoutingSegments(parsed.model as string, [
+          matchedOpenAI.prefix,
+          matchedOpenAI.id,
+        ]);
         const { modelId, metadata } = await lookupModelMeta(
           matchedOpenAI.id as string,
           normalizedModel
@@ -496,10 +496,10 @@ export async function getModelInfo(modelStr) {
         (node) => node.prefix === prefixToCheck || node.id === prefixToCheck
       );
       if (matchedAnthropic) {
-        const normalizedModel = stripRedundantNodePrefix(
-          parsed.model as string,
-          matchedAnthropic.prefix
-        );
+        const normalizedModel = stripRedundantNodeRoutingSegments(parsed.model as string, [
+          matchedAnthropic.prefix,
+          matchedAnthropic.id,
+        ]);
         const { modelId, metadata } = await lookupModelMeta(
           matchedAnthropic.id as string,
           normalizedModel

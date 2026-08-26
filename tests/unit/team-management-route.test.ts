@@ -54,4 +54,7 @@ test("JSON export uses the same Management Session Auth gate as Team APIs", () =
   const source = readFileSync(join(ROOT, "src/app/api/settings/export-json/route.ts"), "utf8");
   assert.match(source, /requireManagementAuth/);
   assert.match(source, /if \(authError\) return authError/);
+  assert.match(source, /teams: listTeams\(\{ includeArchived: true \}\)/);
+  assert.match(source, /apiKeyBillingTeamHistory: listAllApiKeyBillingHistory\(\)/);
+  assert.match(source, /exportData\.dailyTeamUsageSummary = getAllDailyTeamUsageSummary\(\)/);
 });

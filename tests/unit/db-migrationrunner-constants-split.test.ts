@@ -70,8 +70,8 @@ describe("migrationRunner/constants — exact small-table snapshots", () => {
 // ── large tables — count + shape + spot-checks (corruption guard) ─────────────
 
 describe("migrationRunner/constants — large-table integrity", () => {
-  it("RENAMED_MIGRATION_COMPATIBILITY has 31 well-formed entries", () => {
-    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 31);
+  it("RENAMED_MIGRATION_COMPATIBILITY has 32 well-formed entries", () => {
+    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 32);
     for (const e of RENAMED_MIGRATION_COMPATIBILITY) {
       assert.equal(typeof e.fromVersion, "string");
       assert.equal(typeof e.fromName, "string");
@@ -115,35 +115,35 @@ describe("migrationRunner/constants — large-table integrity", () => {
     );
     // 147 collided with 147_api_keys_model_access_mode — renumbered to 151 in #8228
     assert.ok(devin.every((e) => e.toVersion === "151"));
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-7), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-8), {
       fromVersion: "134",
       fromName: "ccr_blocks",
       toVersion: "139",
       toName: "ccr_blocks",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-6), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-7), {
       fromVersion: "139",
       fromName: "job_registry",
       toVersion: "146",
       toName: "job_registry",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-5), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-6), {
       fromVersion: "143",
       fromName: "radar_local_model_state",
       toVersion: "153",
       toName: "radar_local_model_state",
     });
     assert.deepEqual(
-      RENAMED_MIGRATION_COMPATIBILITY.slice(-4).map((entry) => ({
+      RENAMED_MIGRATION_COMPATIBILITY.slice(-5).map((entry) => ({
         fromVersion: entry.fromVersion,
         fromName: entry.fromName,
         toVersion: entry.toVersion,
         toName: entry.toName,
       })),
-      ["153", "154", "155", "161"].map((fromVersion) => ({
+      ["153", "154", "155", "161", "163"].map((fromVersion) => ({
         fromVersion,
         fromName: "team_cost_centers",
-        toVersion: "163",
+        toVersion: "164",
         toName: "team_cost_centers",
       }))
     );
