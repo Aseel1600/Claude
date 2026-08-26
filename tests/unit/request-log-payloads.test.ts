@@ -573,6 +573,29 @@ test("bounds cyclic objects and fails closed when the transcript-security depth 
   assert.equal(omittedDeep, VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER);
 });
 
+test("fails closed when enumerable getters or proxies throw during transcript inspection", () => {
+  const throwingGetter: Record<string, unknown> = {};
+  Object.defineProperty(throwingGetter, "nested", {
+    enumerable: true,
+    get() {
+      throw new Error("PRIVATE_GETTER_TRANSCRIPT_SENTINEL");
+    },
+  });
+  const throwingProxy = new Proxy<Record<string, unknown>>(
+    {},
+    {
+      ownKeys() {
+        throw new Error("PRIVATE_PROXY_TRANSCRIPT_SENTINEL");
+      },
+    }
+  );
+
+  for (const payload of [throwingGetter, throwingProxy]) {
+    assert.equal(containsVideoTranscriptForLog(payload), true);
+    assert.equal(omitVideoTranscriptForLog(payload), VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER);
+  }
+});
+
 test("fails closed at the aggregate traversal budget before a tail video transcript can leak", () => {
   const privateTranscript = "private over-budget video transcript sentinel";
   const payload: unknown[] = Array.from(
