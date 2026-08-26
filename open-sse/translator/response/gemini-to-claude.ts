@@ -6,6 +6,7 @@ import {
   buildGeminiThoughtSignatureKey,
   storeGeminiThoughtSignature,
 } from "../../services/geminiThoughtSignatureStore.ts";
+import { splitMarkdownBoundary } from "../helpers/markdownBoundary.ts";
 
 function normalizeToolName(name: string, toolNameMap?: Map<string, string> | null): string {
   return restoreClaudeToolName(name, toolNameMap);
@@ -95,6 +96,27 @@ function extractXmlInvokeBlocks(
   return { cleaned, toolCalls };
 }
 
+// Helper: flush any buffered Markdown boundary text before closing the open text block
+function flushMarkdownBuffer(state, results) {
+  const buffered = state._markdownBuffer;
+  if (!buffered) return;
+  state._markdownBuffer = "";
+  if (state.openTextBlockIdx === null) {
+    const idx = state.contentBlockIndex++;
+    state.openTextBlockIdx = idx;
+    results.push({
+      type: "content_block_start",
+      index: idx,
+      content_block: { type: "text", text: "" },
+    });
+  }
+  results.push({
+    type: "content_block_delta",
+    index: state.openTextBlockIdx,
+    delta: { type: "text_delta", text: buffered },
+  });
+}
+
 /**
  * Direct Gemini → Claude response translator.
  * Converts Gemini streaming chunks directly to Claude Messages API
@@ -122,6 +144,7 @@ export function geminiToClaudeResponse(chunk, state) {
     state.contentBlockIndex = 0;
     // Track open text block so we can keep it open across chunks
     state.openTextBlockIdx = null;
+    state._markdownBuffer = "";
 
     results.push({
       type: "message_start",
@@ -153,6 +176,7 @@ export function geminiToClaudeResponse(chunk, state) {
       // Thinking content → thinking block (always open+close per chunk)
       if (isThought && part.text) {
         // Close any open text block first
+        flushMarkdownBuffer(state, results);
         if (state.openTextBlockIdx !== null) {
           results.push({ type: "content_block_stop", index: state.openTextBlockIdx });
           state.openTextBlockIdx = null;
@@ -186,6 +210,7 @@ export function geminiToClaudeResponse(chunk, state) {
       // Function call → tool_use block
       if (part.functionCall) {
         // Close any open text block first
+        flushMarkdownBuffer(state, results);
         if (state.openTextBlockIdx !== null) {
           results.push({ type: "content_block_stop", index: state.openTextBlockIdx });
           state.openTextBlockIdx = null;
@@ -250,6 +275,7 @@ export function geminiToClaudeResponse(chunk, state) {
 
         // Process any extracted text-format tool calls (<tool_call>, TOOL_CALL, <invoke>)
         if (textToolCalls.length > 0) {
+          flushMarkdownBuffer(state, results);
           if (state.openTextBlockIdx !== null) {
             results.push({ type: "content_block_stop", index: state.openTextBlockIdx });
             state.openTextBlockIdx = null;
@@ -290,6 +316,13 @@ export function geminiToClaudeResponse(chunk, state) {
         }
 
         if (cleaned) {
+          // Rehydrate buffered Markdown boundary prefix before emitting.
+          const bufferedPrefix = state._markdownBuffer || "";
+          state._markdownBuffer = "";
+          const combinedText = bufferedPrefix + cleaned;
+          const { emit: textToEmit, hold: textToHold } = splitMarkdownBoundary(combinedText);
+          state._markdownBuffer = textToHold;
+
           // Open a new text block only if none is open yet
           if (state.openTextBlockIdx === null) {
             const idx = state.contentBlockIndex++;
@@ -303,7 +336,7 @@ export function geminiToClaudeResponse(chunk, state) {
           results.push({
             type: "content_block_delta",
             index: state.openTextBlockIdx,
-            delta: { type: "text_delta", text: cleaned },
+            delta: { type: "text_delta", text: textToEmit },
           });
         }
       }
@@ -334,6 +367,7 @@ export function geminiToClaudeResponse(chunk, state) {
   // ── Finish reason → close open blocks + message_delta + message_stop ──
   if (candidate.finishReason) {
     // Close any still-open text block before finishing
+    flushMarkdownBuffer(state, results);
     if (state.openTextBlockIdx !== null) {
       results.push({ type: "content_block_stop", index: state.openTextBlockIdx });
       state.openTextBlockIdx = null;

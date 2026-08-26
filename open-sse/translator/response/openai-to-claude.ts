@@ -10,6 +10,7 @@ import {
 } from "../../utils/reasoningPlaceholder.ts";
 import { REVERSE_MAP, restoreClaudeToolName } from "../../services/claudeCodeToolRemapper.ts";
 import { sanitizeToolId } from "../helpers/schemaCoercion.ts";
+import { splitMarkdownBoundary } from "../helpers/markdownBoundary.ts";
 
 function normalizeToolName(name: string): string {
   return REVERSE_MAP[name] ?? name;
@@ -151,9 +152,34 @@ function stopThinkingBlock(state, results) {
   state.thinkingBlockStarted = false;
 }
 
+// Helper: flush any buffered Markdown boundary text before closing a text block
+function flushMarkdownBuffer(state, results) {
+  const buffered = state._markdownBuffer;
+  if (!buffered) return;
+  state._markdownBuffer = "";
+  if (!state.textBlockStarted) {
+    state.textBlockIndex = state.nextBlockIndex++;
+    state.textBlockStarted = true;
+    state.textBlockClosed = false;
+    results.push({
+      type: "content_block_start",
+      index: state.textBlockIndex,
+      content_block: { type: "text", text: "" },
+    });
+  }
+  if (!state.textBlockClosed) {
+    results.push({
+      type: "content_block_delta",
+      index: state.textBlockIndex,
+      delta: { type: "text_delta", text: buffered },
+    });
+  }
+}
+
 // Helper: stop text block if started
 function stopTextBlock(state, results) {
   if (!state.textBlockStarted || state.textBlockClosed) return;
+  flushMarkdownBuffer(state, results);
   state.textBlockClosed = true;
   results.push({
     type: "content_block_stop",
@@ -218,6 +244,7 @@ export function openaiToClaudeResponse(chunk, state) {
     state.nextBlockIndex = 0;
     state._pendingXmlToolCalls = [];
     state._xmlInvokeBuffer = "";
+    state._markdownBuffer = "";
     results.push({
       type: "message_start",
       message: {
@@ -279,8 +306,16 @@ export function openaiToClaudeResponse(chunk, state) {
     if (strippedContent) {
       stopThinkingBlock(state, results);
 
+      // Rehydrate any Markdown boundary suffix buffered from the previous chunk
+      // before searching for XML tool calls, so the prefix is not lost.
+      const bufferedPrefix = state._markdownBuffer || "";
+      state._markdownBuffer = "";
+
       // Check for XML <invoke> blocks that some models emit instead of JSON tool_calls
-      const { cleaned, toolCalls: xmlToolCalls } = extractXmlInvokeBlocks(strippedContent, state);
+      const { cleaned, toolCalls: xmlToolCalls } = extractXmlInvokeBlocks(
+        bufferedPrefix + strippedContent,
+        state
+      );
 
       // Accumulate extracted tool calls for emission at finish
       if (xmlToolCalls.length > 0) {
@@ -289,9 +324,13 @@ export function openaiToClaudeResponse(chunk, state) {
         state._pendingXmlToolCalls.push(...xmlToolCalls);
       }
 
+      // Defer any trailing incomplete Markdown boundary token to the next chunk.
+      const { emit: textToEmit, hold: textToHold } = splitMarkdownBoundary(cleaned);
+      state._markdownBuffer = textToHold;
+
       // Emit remaining non-XML text content
-      if (!cleaned) {
-        // All content was XML invoke blocks — skip text block entirely
+      if (!textToEmit) {
+        // All content was XML invoke blocks or is being held: skip text block
         // (tool calls will be emitted at finish)
       } else if (xmlToolCalls.length > 0) {
         // Text before/between/after XML blocks — (re)start a text block
@@ -308,7 +347,7 @@ export function openaiToClaudeResponse(chunk, state) {
         results.push({
           type: "content_block_delta",
           index: state.textBlockIndex,
-          delta: { type: "text_delta", text: cleaned },
+          delta: { type: "text_delta", text: textToEmit },
         });
       } else {
         // No XML — emit as regular text (original behaviour)
@@ -325,7 +364,7 @@ export function openaiToClaudeResponse(chunk, state) {
         results.push({
           type: "content_block_delta",
           index: state.textBlockIndex,
-          delta: { type: "text_delta", text: cleaned },
+          delta: { type: "text_delta", text: textToEmit },
         });
       }
     }
