@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { formatFreeBudget } from "../src/naming.js";
+import { formatFreeBudget, type FreeModelFreeType } from "../src/naming.js";
 
 test("formatFreeBudget: recurring-daily formats tokens/day", () => {
   assert.equal(
@@ -49,5 +49,33 @@ test("formatFreeBudget: missing token/credit counts default to 0", () => {
   assert.equal(
     formatFreeBudget({ freeType: "recurring-daily" }),
     "0 tokens/day"
+  );
+});
+
+test("formatFreeBudget: unrecognised freeType falls through to the default branch", () => {
+  // `freeType` is populated from catalog data at runtime, so a value the
+  // build doesn't know about is reachable even though TypeScript treats the
+  // `default:` arm as dead code for a well-typed caller.
+  assert.equal(
+    formatFreeBudget({ freeType: "some-future-type" as FreeModelFreeType }),
+    ""
+  );
+});
+
+test("formatFreeBudget: sub-1K token count is not abbreviated", () => {
+  assert.equal(
+    formatFreeBudget({ freeType: "recurring-daily", monthlyTokens: 500 }),
+    "500 tokens/day"
+  );
+});
+
+test("formatFreeBudget: characterises the 999_999 rounding wart (rounds past its own magnitude)", () => {
+  // `toFixed(1)` rounds 999999/1e3 up to "1000.0" before the `>= 1e6`
+  // threshold check has a chance to apply, so this reads "1000K" instead of
+  // the intended "1M". Not this PR's bug to fix — pinned here as the
+  // documented current behaviour so a future fix has a test to flip.
+  assert.equal(
+    formatFreeBudget({ freeType: "recurring-daily", monthlyTokens: 999_999 }),
+    "1000K tokens/day"
   );
 });
