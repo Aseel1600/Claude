@@ -79,16 +79,17 @@ const RECOVERY_HINT =
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { isTestContext, resolveDataDir } from "../dataPaths.ts";
 
 function ensureSecretLoaded(): string | undefined {
-  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+  if (isTestContext()) {
     return process.env.STORAGE_ENCRYPTION_KEY;
   }
   if (process.env.STORAGE_ENCRYPTION_KEY) {
     return process.env.STORAGE_ENCRYPTION_KEY;
   }
   const candidates = [
-    path.join(os.homedir(), ".omniroute", ".env"),
+    path.join(resolveDataDir(), ".env"),
     path.join(process.cwd(), ".env"),
     path.join(os.homedir(), ".hermes", ".env"),
   ];
