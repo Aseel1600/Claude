@@ -106,10 +106,33 @@ export function normaliseFreeLabel(name: string): string {
 
 // ── Free Budget Formatting ────────────────────────────────────────────────
 
+/** Scales, largest first, so the unit is chosen by descending magnitude. */
+const TOKEN_UNITS = [
+  [1e9, "B"],
+  [1e6, "M"],
+  [1e3, "K"],
+] as const;
+
+/**
+ * Format a token count as a short magnitude string: `25M`, `1.5K`, `999`.
+ *
+ * The unit has to be picked from the value that will actually be *printed*,
+ * not from the raw input. `toFixed(1)` rounds to the nearest tenth, so at the
+ * K scale 999_950 and above render as `1000.0` — and by then the M branch has
+ * already been skipped, producing `1000K` for a number that is `1M`. The same
+ * carry turns just under a billion into `1000M`. When the rounded value reaches
+ * the next scale, re-render at that scale instead.
+ */
 function fmtTokens(n: number): string {
-  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, "") + "B";
-  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+  for (let i = 0; i < TOKEN_UNITS.length; i++) {
+    const [scale, suffix] = TOKEN_UNITS[i]!;
+    if (n < scale) continue;
+    const value = Number((n / scale).toFixed(1));
+    // `Number()` also drops a trailing `.0`, which the previous regex did.
+    if (value < 1000 || i === 0) return `${value}${suffix}`;
+    const [nextScale, nextSuffix] = TOKEN_UNITS[i - 1]!;
+    return `${Number((n / nextScale).toFixed(1))}${nextSuffix}`;
+  }
   return String(n);
 }
 
