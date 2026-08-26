@@ -1,4 +1,5 @@
 import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
+import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
 import {
   registerLazyExecutor,
   loadRegisteredExecutor,
@@ -135,8 +136,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
   "duckduckgo-web": () =>
     import("./duckduckgo-web.ts").then((m) => new m.DuckDuckGoWebExecutor()),
   ddgw: () => import("./duckduckgo-web.ts").then((m) => new m.DuckDuckGoWebExecutor()), // Alias
-  "felo-web": () => import("./felo-web.ts").then((m) => new m.FeloWebExecutor()),
-  felo: () => import("./felo-web.ts").then((m) => new m.FeloWebExecutor()), // Alias
   "t3-web": () => import("./t3-chat-web.ts").then((m) => new m.T3ChatWebExecutor()),
   t3chat: () => import("./t3-chat-web.ts").then((m) => new m.T3ChatWebExecutor()), // Alias
   "inner-ai": () => import("./inner-ai.ts").then((m) => new m.InnerAiExecutor()),
@@ -242,6 +241,11 @@ const CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS = new Set(["jules"]);
 const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS));
 
 export async function getExecutor(provider: string): Promise<BaseExecutor> {
+  if (isRuntimeRetiredProviderId(provider)) {
+    const err = new Error("Provider is retired and unavailable.");
+    (err as Error & { status?: number }).status = 410;
+    throw err;
+  }
   const loaded = await loadRegisteredExecutor(provider);
   if (loaded) return loaded;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {
