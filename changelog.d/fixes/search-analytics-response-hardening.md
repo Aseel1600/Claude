@@ -1,0 +1,1 @@
+- fix(dashboard): show a stable error state when search analytics returns an HTTP error or malformed data
