@@ -15,7 +15,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const { saveModelsDevCapabilities, clearModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
-const { filterTargetsByRequestCompatibility, getKnownContextOverflow, handleComboChat } =
+const { filterTargetsByRequestCompatibility, handleComboChat } =
   await import("../../open-sse/services/combo.ts");
 const { setModelContextOverride, removeModelContextOverride } =
   await import("../../src/lib/db/modelContextOverrides.ts");
@@ -192,62 +192,27 @@ test("all known-too-small context targets still fall back to strategy order", ()
   );
 });
 
-test("known context overflow reports the largest target limit", () => {
+test("output-token limits remain a hard compatibility requirement", () => {
   saveModelsDevCapabilities({
-    "unit-known-context": {
-      tiny: capabilityEntry(8_000),
-      small: capabilityEntry(16_000),
+    "unit-output-limit": {
+      insufficient: capabilityEntryWithLimits(128_000, 128_000, 128),
+      sufficient: capabilityEntryWithLimits(128_000, 128_000, 4_096),
     },
   });
 
-  const overflow = getKnownContextOverflow(
-    [target("unit-known-context/tiny"), target("unit-known-context/small")],
-    largeContextBody()
+  const out = filterTargetsByRequestCompatibility(
+    [target("unit-output-limit/insufficient"), target("unit-output-limit/sufficient")],
+    { messages: [{ role: "user", content: "hello" }], max_tokens: 512 },
+    noopLog
   );
 
-  assert.ok(overflow);
-  assert.ok(overflow.requiredContextTokens > overflow.maxKnownContextTokens);
-  assert.equal(overflow.maxKnownContextTokens, 16_000);
-  assert.equal(overflow.targetCount, 2);
-});
-
-test("#7177 an empty messages array is not counted as real content at an exact-boundary limit", () => {
-  // Regression: some combo entrypoints default a caller-omitted `messages` to `[]`. The
-  // estimator used to JSON.stringify whatever keys were merely *present* on the body,
-  // so an empty array still contributed a few phantom "structural" tokens (JSON braces/
-  // brackets), which was enough to trip a false-positive overflow when max_tokens exactly
-  // equals the target's context window (a common config where limit_input === limit_output
-  // === limit_context) even though there is no real input to account for.
-  saveModelsDevCapabilities({
-    "unit-known-context": {
-      exact: capabilityEntry(4_096),
-    },
-  });
-
-  const overflow = getKnownContextOverflow([target("unit-known-context/exact")], {
-    messages: [],
-    max_tokens: 4_096,
-  });
-
-  assert.equal(overflow, null);
-});
-
-test("unknown context metadata keeps overflow detection fail-open", () => {
-  saveModelsDevCapabilities({
-    "unit-known-context": {
-      tiny: capabilityEntry(8_000),
-    },
-  });
-
-  const overflow = getKnownContextOverflow(
-    [target("unit-known-context/tiny"), target("unit-unknown-context/mystery")],
-    largeContextBody()
+  assert.deepEqual(
+    out.map((entry) => entry.modelStr),
+    ["unit-output-limit/sufficient"]
   );
-
-  assert.equal(overflow, null);
 });
 
-test("combo rejects a known oversized request before upstream dispatch", async () => {
+test("combo dispatches requests that only an approximate estimate marks oversized", async () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
@@ -265,17 +230,74 @@ test("combo rejects a known oversized request before upstream dispatch", async (
     },
     handleSingleModel: async () => {
       dispatches += 1;
-      return new Response("unexpected", { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     },
     log: noopLog,
   });
 
-  assert.equal(response.status, 400);
-  assert.equal(dispatches, 0);
-  const body = await response.json();
-  assert.equal(body.error.code, "context_length_exceeded");
-  assert.equal(body.diagnostics.terminalReason, "context_length_exceeded");
-  assert.equal(body.diagnostics.attempted, 0);
+  assert.equal(response.status, 200);
+  assert.equal(dispatches, 1);
+});
+
+test("round-robin dispatches requests that only an approximate estimate marks oversized", async () => {
+  saveModelsDevCapabilities({
+    "unit-known-context": {
+      tiny: capabilityEntry(8_000),
+      small: capabilityEntry(16_000),
+    },
+  });
+  let dispatches = 0;
+
+  const response = await handleComboChat({
+    body: largeContextBody(),
+    combo: {
+      name: "known-context-overflow-round-robin",
+      strategy: "round-robin",
+      models: ["unit-known-context/tiny", "unit-known-context/small"],
+    },
+    handleSingleModel: async () => {
+      dispatches += 1;
+      return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    log: noopLog,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(dispatches, 1);
+});
+
+test("native Responses context reaches an all-Codex target beyond its catalog hint (#8932)", async () => {
+  saveModelsDevCapabilities({
+    codex: {
+      large: capabilityEntry(272_000),
+    },
+  });
+  let dispatches = 0;
+
+  const response = await handleComboChat({
+    body: bigContextBody(275_000),
+    combo: {
+      name: "native-codex-overflow",
+      strategy: "priority",
+      models: ["codex/large"],
+    },
+    clientManagedResponsesContext: true,
+    isModelAvailable: async () => true,
+    handleSingleModel: async () => {
+      dispatches += 1;
+      return new Response("ok", { status: 200 });
+    },
+    log: noopLog,
+  });
+
+  assert.notEqual(response.status, 400);
+  assert.equal(dispatches, 1);
 });
 
 test("input-only maxInputTokens is not double-counted against the output reserve (#7039)", () => {
@@ -415,8 +437,8 @@ test("without an override the small-catalog target is ordered last for the large
       capped: capabilityEntry(8_000),
     },
   });
-  // No override: capped (8K) is genuinely too small and must be filtered out,
-  // guarding the override read-path from masking a real too-small target.
+  // No override: capped (8K) is catalog-too-small, so it stays behind the
+  // known-compatible target while remaining available as a runtime fallback.
   const out = filterTargetsByRequestCompatibility(
     [target("unit-override/capped"), target("unit-override/big")],
     largeContextBody(),

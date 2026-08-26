@@ -81,6 +81,7 @@ test("#9140 VS Code listing must accept built-in auto routing entries", () => {
 
 // ── #9160 model discovery: capabilities.effort_tiers ────────────────────────
 
+// #9160: model discovery must ingest capabilities.effort_tiers
 test("#9160 model discovery must ingest capabilities.effort_tiers", () => {
   assert.deepEqual(
     detectSupportedThinkingEfforts({

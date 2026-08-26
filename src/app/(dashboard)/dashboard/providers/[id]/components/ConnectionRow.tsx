@@ -4,6 +4,7 @@
 // ConnectionRow (and its local helpers CooldownTimer, inferErrorType,
 // getStatusPresentation) moved out of ProviderDetailPageClient.tsx.
 
+import { readCookieExpiresAt } from "@/shared/utils/webCookieExpiry";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, Toggle } from "@/shared/components";
@@ -17,6 +18,8 @@ import {
 } from "@/lib/providers/codexFastTier";
 import { normalizeCodexLimitPolicy, providerText, ERROR_TYPE_LABELS } from "../providerPageHelpers";
 import { getCodexPlanLabel } from "../codexPlanLabel";
+import type { CodexAccountPoolProjection } from "@omniroute/open-sse/services/codexAccount/index.ts";
+import CodexAccountDetails from "./CodexAccountDetails";
 import ProviderQuotaVisibilityToggle from "./ProviderQuotaVisibilityToggle";
 
 // ---------------------------------------------------------------------------
@@ -40,6 +43,7 @@ export interface ConnectionRowConnection {
   errorCode?: string | number;
   globalPriority?: number;
   providerSpecificData?: Record<string, unknown>;
+  defaultModel?: string | null;
   expiresAt?: string;
   tokenExpiresAt?: string;
   maxConcurrent?: number | null;
@@ -47,6 +51,7 @@ export interface ConnectionRowConnection {
   proxyEnabled?: boolean;
   perKeyProxyEnabled?: boolean;
   quotaVisible?: boolean;
+  codexAccountPool?: CodexAccountPoolProjection;
 }
 
 export interface ConnectionRowProps {
@@ -249,7 +254,7 @@ function getStatusPresentation(
   if (errorType === "account_deactivated") {
     return {
       statusVariant: "error",
-      statusLabel: t("statusDeactivated", "Deactivated"),
+      statusLabel: providerText(t, "statusDeactivated", "Deactivated"),
       errorType,
       errorBadge,
       errorTextClass: "text-red-600 font-bold",
@@ -304,7 +309,7 @@ function getStatusPresentation(
   if (errorType === "banned") {
     return {
       statusVariant: "error",
-      statusLabel: t("statusBanned", "Banned (403)"),
+      statusLabel: providerText(t, "statusBanned", "Banned (403)"),
       errorType,
       errorBadge,
       errorTextClass: "text-red-600 font-bold",
@@ -314,7 +319,7 @@ function getStatusPresentation(
   if (errorType === "credits_exhausted") {
     return {
       statusVariant: "warning",
-      statusLabel: t("statusCreditsExhausted", "Out of Credits"),
+      statusLabel: providerText(t, "statusCreditsExhausted", "Out of Credits"),
       errorType,
       errorBadge,
       errorTextClass: "text-amber-500",
@@ -399,37 +404,30 @@ export default function ConnectionRow({
         t("oauthAccount")
       )
     : connection.name;
-  const applyCodexAuthLabel =
-    typeof t.has === "function" && t.has("applyCodexAuthLocal")
-      ? t("applyCodexAuthLocal")
-      : "Apply auth";
-  const exportCodexAuthLabel =
-    typeof t.has === "function" && t.has("exportCodexAuthFile")
-      ? t("exportCodexAuthFile")
-      : "Export auth";
-  const applyClaudeAuthLabel =
-    typeof t.has === "function" && t.has("applyClaudeAuthLocal")
-      ? t("applyClaudeAuthLocal")
-      : "Apply auth";
-  const exportClaudeAuthLabel =
-    typeof t.has === "function" && t.has("exportClaudeAuthFile")
-      ? t("exportClaudeAuthFile")
-      : "Export auth";
+  const applyCodexAuthLabel = providerText(t, "applyCodexAuthLocal", "Apply auth");
+  const exportCodexAuthLabel = providerText(t, "exportCodexAuthFile", "Export auth");
+  const applyClaudeAuthLabel = providerText(t, "applyClaudeAuthLocal", "Apply auth");
+  const exportClaudeAuthLabel = providerText(t, "exportClaudeAuthFile", "Export auth");
   // Use useState + useEffect for impure Date.now() to avoid calling during render
   const [isCooldown, setIsCooldown] = useState(false);
   // T12: token expiry status — lazy init avoids calling Date.now() during render;
   // updates every 30s via interval only (no sync setState in effect body).
   // Prefer tokenExpiresAt (updated on each refresh) over expiresAt (original grant date).
-  const effectiveExpiresAt = connection.tokenExpiresAt || connection.expiresAt;
+  // #11497: cookie rows with a decodable JWT credential carry a persisted
+  // cookieExpiresAt — feed it into the same countdown badge OAuth rows use.
+  const cookieExpiresAt = readCookieExpiresAt(connection.providerSpecificData);
+  const effectiveExpiresAt =
+    connection.tokenExpiresAt || connection.expiresAt || cookieExpiresAt;
+  const hasExpirySource = isOAuth || Boolean(cookieExpiresAt);
   const getTokenMinsLeft = () => {
-    if (!isOAuth || !effectiveExpiresAt) return null;
+    if (!hasExpirySource || !effectiveExpiresAt) return null;
     const expiresMs = new Date(effectiveExpiresAt).getTime();
     return Math.floor((expiresMs - Date.now()) / 60000);
   };
   const [tokenMinsLeft, setTokenMinsLeft] = useState<number | null>(getTokenMinsLeft);
 
   useEffect(() => {
-    if (!isOAuth || !effectiveExpiresAt) return;
+    if (!hasExpirySource || !effectiveExpiresAt) return;
     const update = () => {
       const expiresMs = new Date(effectiveExpiresAt).getTime();
       setTokenMinsLeft(Math.floor((expiresMs - Date.now()) / 60000));
@@ -437,7 +435,7 @@ export default function ConnectionRow({
     update();
     const iv = setInterval(update, 30000);
     return () => clearInterval(iv);
-  }, [isOAuth, effectiveExpiresAt]);
+  }, [hasExpirySource, effectiveExpiresAt]);
 
   useEffect(() => {
     const checkCooldown = () => {
@@ -974,6 +972,9 @@ export default function ConnectionRow({
           </button>
         </div>
       </div>
+      {isCodex && connection.codexAccountPool ? (
+        <CodexAccountDetails pool={connection.codexAccountPool} />
+      ) : null}
     </div>
   );
 }

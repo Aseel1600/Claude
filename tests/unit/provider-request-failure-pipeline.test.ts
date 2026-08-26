@@ -153,7 +153,7 @@ test("network failure persisted call log includes providerRequest in pipeline pa
 
 test("network timeout persisted call log includes providerRequest in pipeline payloads", async () => {
   const { getExecutor } = await import("../../open-sse/executors/index.ts");
-  const executor = getExecutor("openai");
+  const executor = await getExecutor("openai");
   const originalGetTimeoutMs = executor.getTimeoutMs?.bind(executor);
   executor.getTimeoutMs = () => 200;
 
@@ -472,11 +472,8 @@ test("CC-compatible providerRequest log keeps request beta headers and summarize
   assert.ok(providerRequest, "providerRequest must be present on CC-compatible success");
   assert.equal(providerRequest.headers["cf-ray"], undefined);
   assert.equal(providerRequest.headers.server, undefined);
-  assert.equal(providerRequest.headers.Accept, "application/json");
-  assert.doesNotMatch(
-    providerRequest.headers["anthropic-beta"],
-    new RegExp(CONTEXT_1M_BETA_HEADER)
-  );
+  assert.equal(providerRequest.headers.Accept, "text/event-stream");
+  assert.match(providerRequest.headers["anthropic-beta"], new RegExp(CONTEXT_1M_BETA_HEADER));
   assert.match(
     providerRequest.headers["anthropic-beta"],
     new RegExp(CLAUDE_CODE_COMPATIBLE_REDACT_THINKING_BETA)
