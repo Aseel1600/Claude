@@ -1,12 +1,12 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance } from "../../../src/lib/db/core.ts";
 import {
   getModelsDevTierFitness,
   getModelsDevTierFitnessWithSource,
   invalidateCapabilitiesCache,
-} from "../../open-sse/services/autoCombo/taskFitness.ts";
+} from "../../../open-sse/services/autoCombo/taskFitness.ts";
 
 // Regression guard for #11508 (layer 3: models_dev_tier).
 //
