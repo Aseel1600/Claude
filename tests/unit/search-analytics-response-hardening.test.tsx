@@ -13,6 +13,7 @@ vi.mock("next-intl", () => ({
   },
 }));
 
+let mounted: boolean;
 describe("SearchAnalyticsTab response handling", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -25,11 +26,12 @@ describe("SearchAnalyticsTab response handling", () => {
     fetchMock.mockReset();
     container = document.createElement("div");
     document.body.appendChild(container);
+    mounted = true;
     root = createRoot(container);
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    if (mounted) await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -131,6 +133,26 @@ describe("SearchAnalyticsTab response handling", () => {
 
     expect(container.textContent).toContain("searchAnalyticsNoData");
     expect(container.textContent).not.toContain("searchAnalyticsTotalSearches");
+  });
+
+  it("aborts the analytics request when unmounted", async () => {
+    let requestSignal: AbortSignal | undefined;
+    fetchMock.mockImplementation(
+      (_input, init) =>
+        new Promise<Response>(() => {
+          requestSignal = init?.signal ?? undefined;
+        })
+    );
+
+    await renderTab();
+    expect(requestSignal?.aborted).toBe(false);
+
+    await act(async () => {
+      root.unmount();
+    });
+    mounted = false;
+
+    expect(requestSignal?.aborted).toBe(true);
   });
 
   it("renders a valid statistics response", async () => {

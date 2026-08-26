@@ -132,9 +132,10 @@ export default function SearchAnalyticsTab() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function loadStats() {
       try {
-        const response = await fetch("/api/v1/search/analytics");
+        const response = await fetch("/api/v1/search/analytics", { signal: controller.signal });
         const nextStats = await readSearchStats(response);
         if (!cancelled) setStats(nextStats);
       } catch (cause) {
@@ -147,6 +148,7 @@ export default function SearchAnalyticsTab() {
     void loadStats();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
