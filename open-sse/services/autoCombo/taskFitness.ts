@@ -10,6 +10,9 @@
  * 2b. Layers 1-2 retried against the base model this id inherits quality scores
  *     from, when `resolveScoresAs` resolves one (#11489). Reported as
  *     `<source>:inherited`.
+ * 2c. If the request id or its scoresAs base is vendor-retired (#11625), layers
+ *     1–3 are skipped so a leftover arena row cannot short-circuit the layer-3
+ *     veto, and a dead *codex id cannot keep the coding wildcard boost.
  * 3. Models.dev tier — derived from `model_capabilities` table capability data
  * 4. Static FITNESS_TABLE — small hand-maintained table of VERSIONED model ids
  * 5. Wildcard boosts — pattern matching boosts over a neutral 0.5 baseline
@@ -39,6 +42,7 @@ import {
   deleteUserFitnessOverrideEntry,
 } from "../../../src/lib/db/modelIntelligence.ts";
 import { resolveScoresAs } from "./scoresAs.ts";
+import { isVendorRetiredId } from "../modelLifecycle.ts";
 
 const FITNESS_TABLE: Record<string, Record<string, number>> = {
   coding: {
@@ -344,48 +348,60 @@ export function getTaskFitness(model: string, taskType: string): number {
   return getTaskFitnessWithSource(model, taskType).score;
 }
 
+function isFitnessRetired(modelId: string): boolean {
+  if (isVendorRetiredId(modelId)) return true;
+  const { base, via } = resolveScoresAs(modelId);
+  return via !== null && isVendorRetiredId(base);
+}
+
 export function getTaskFitnessWithSource(
   model: string,
   taskType: string
 ): { score: number; source: string } {
   const normalizedModel = model.toLowerCase();
   const normalizedTask = taskType.toLowerCase();
+  const fitnessRetired = isFitnessRetired(normalizedModel);
 
-  const userOverride = queryModelIntelligence(normalizedModel, normalizedTask, "user_override");
-  if (userOverride !== null) {
-    return { score: userOverride, source: "user_override" };
+  if (!fitnessRetired) {
+    const userOverride = queryModelIntelligence(normalizedModel, normalizedTask, "user_override");
+    if (userOverride !== null) {
+      return { score: userOverride, source: "user_override" };
+    }
+
+    const arenaElo = queryModelIntelligence(normalizedModel, normalizedTask, "arena_elo");
+    if (arenaElo !== null) {
+      return { score: arenaElo, source: "arena_elo" };
+    }
+
+    // Layers 1-2, retried against the base model this id inherits quality from
+    // (#11489). Every DB-backed source publishes scores for BASE models only, so
+    // a variant id — an effort suffix (`gpt-5.6-sol-xhigh`), a vendor alias
+    // (`gpt-5.6`), a `-free` tier marker (`mimo-v2.5-free`, #4517) — misses both
+    // literal lookups and used to fall all the way to the wildcard 0.5, losing
+    // every comparison against a base model that happens to be benchmarked.
+    // The score is inherited VERBATIM: the 12-factor scoring already prices cost
+    // and latency per variant, so there is no basis for inventing an effort
+    // delta. `:inherited` keeps the indirection visible to callers.
+    const inherited = lookupInheritedFitness(normalizedModel, normalizedTask);
+    if (inherited !== null) {
+      return inherited;
+    }
+
+    const tierScore = getModelsDevTierFitness(normalizedModel, normalizedTask);
+    if (tierScore !== null) {
+      return { score: tierScore, source: "models_dev_tier" };
+    }
+
+    const staticScore = lookupStaticFitnessTable(normalizedModel, normalizedTask);
+    if (staticScore !== null) {
+      return { score: staticScore, source: "fitness_table" };
+    }
+
+    return { score: lookupWildcardBoosts(normalizedModel, normalizedTask), source: "wildcard_boost" };
   }
 
-  const arenaElo = queryModelIntelligence(normalizedModel, normalizedTask, "arena_elo");
-  if (arenaElo !== null) {
-    return { score: arenaElo, source: "arena_elo" };
-  }
-
-  // Layers 1-2, retried against the base model this id inherits quality from
-  // (#11489). Every DB-backed source publishes scores for BASE models only, so
-  // a variant id — an effort suffix (`gpt-5.6-sol-xhigh`), a vendor alias
-  // (`gpt-5.6`), a `-free` tier marker (`mimo-v2.5-free`, #4517) — misses both
-  // literal lookups and used to fall all the way to the wildcard 0.5, losing
-  // every comparison against a base model that happens to be benchmarked.
-  // The score is inherited VERBATIM: the 12-factor scoring already prices cost
-  // and latency per variant, so there is no basis for inventing an effort
-  // delta. `:inherited` keeps the indirection visible to callers.
-  const inherited = lookupInheritedFitness(normalizedModel, normalizedTask);
-  if (inherited !== null) {
-    return inherited;
-  }
-
-  const tierScore = getModelsDevTierFitness(normalizedModel, normalizedTask);
-  if (tierScore !== null) {
-    return { score: tierScore, source: "models_dev_tier" };
-  }
-
-  const staticScore = lookupStaticFitnessTable(normalizedModel, normalizedTask);
-  if (staticScore !== null) {
-    return { score: staticScore, source: "fitness_table" };
-  }
-
-  return { score: lookupWildcardBoosts(normalizedModel, normalizedTask), source: "wildcard_boost" };
+  // Retired: 0.5 is "no evidence", never a quality claim and never a *codex boost.
+  return { score: 0.5, source: "wildcard_boost" };
 }
 
 /**
@@ -405,6 +421,7 @@ function lookupInheritedFitness(
   const { base, via } = resolveScoresAs(normalizedModel);
   if (via === null || base === normalizedModel) return null;
   const normalizedBase = base.toLowerCase();
+  if (isVendorRetiredId(normalizedBase)) return null;
 
   for (const source of ["user_override", "arena_elo"] as const) {
     const score = queryModelIntelligence(normalizedBase, normalizedTask, source);
