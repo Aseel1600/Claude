@@ -1,0 +1,31 @@
+name: API typecheck baseline probe
+
+on:
+  push:
+    branches: ["ci/api-route-typecheck-gate"]
+
+permissions:
+  contents: write
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: ./.github/actions/npm-ci-retry
+      - name: Generate and commit API typecheck baseline
+        run: |
+          node scripts/check/check-api-typecheck.mjs --update
+          if [ -z "$(git status --porcelain -- config/quality/api-typecheck-baseline.json)" ]; then
+            echo "Baseline already committed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/quality/api-typecheck-baseline.json
+          git commit -m "ci: freeze API typecheck baseline"
+          git push
