@@ -12,6 +12,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 // @ts-expect-error — .mjs helper has no type declarations; runtime shape is known.
 import {
   getLockfileLintConfig,
@@ -189,7 +192,7 @@ test("buildLockfileLintArgs: --allowed-hosts values follow immediately after the
 
 test("getWorkspaceDependencyCheckCommand: checks every workspace at direct depth", () => {
   const command = getWorkspaceDependencyCheckCommand("linux");
-  assert.deepEqual(command.args, ["ls", "--workspaces", "--depth=0"]);
+  assert.deepEqual(command.args, ["ls", "--workspaces", "--depth=0", "--package-lock-only"]);
 });
 
 test("getWorkspaceDependencyCheckCommand: invokes npm directly outside Windows", () => {
@@ -200,7 +203,16 @@ test("getWorkspaceDependencyCheckCommand: invokes npm directly outside Windows",
 test("getWorkspaceDependencyCheckCommand: invokes npm.cmd through cmd.exe on Windows", () => {
   const command = getWorkspaceDependencyCheckCommand("win32", "C:\\Windows\\System32\\cmd.exe");
   assert.equal(command.command, "C:\\Windows\\System32\\cmd.exe");
-  assert.deepEqual(command.args, ["/d", "/s", "/c", "npm.cmd", "ls", "--workspaces", "--depth=0"]);
+  assert.deepEqual(command.args, [
+    "/d",
+    "/s",
+    "/c",
+    "npm.cmd",
+    "ls",
+    "--workspaces",
+    "--depth=0",
+    "--package-lock-only",
+  ]);
 });
 
 test("runWorkspaceDependencyCheck: executes the selected command and returns success", () => {
@@ -216,7 +228,7 @@ test("runWorkspaceDependencyCheck: executes the selected command and returns suc
   assert.deepEqual(result, { ok: true });
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.[0], "npm");
-  assert.deepEqual(calls[0]?.[1], ["ls", "--workspaces", "--depth=0"]);
+  assert.deepEqual(calls[0]?.[1], ["ls", "--workspaces", "--depth=0", "--package-lock-only"]);
 });
 
 test("runWorkspaceDependencyCheck: reports npm ls failures without masking diagnostics", () => {
@@ -237,4 +249,67 @@ test("runWorkspaceDependencyCheck: reports npm ls failures without masking diagn
     stdout: "invalid playwright",
     stderr: "npm error code ELSPROBLEMS",
   });
+});
+
+test("workspace check validates lock entries independently of node_modules", (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "omniroute-lockfile-check-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(path.join(root, "packages", "example"), { recursive: true });
+  writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ name: "root", version: "1.0.0", private: true, workspaces: ["packages/*"] })
+  );
+  writeFileSync(
+    path.join(root, "packages", "example", "package.json"),
+    JSON.stringify({ name: "example", version: "1.0.0", dependencies: { semver: "7.7.4" } })
+  );
+  const lock = {
+    name: "root",
+    version: "1.0.0",
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+      "": { name: "root", version: "1.0.0", workspaces: ["packages/*"] },
+      "node_modules/example": { resolved: "packages/example", link: true },
+      "node_modules/semver": { version: "7.6.0" },
+      "packages/example": {
+        name: "example",
+        version: "1.0.0",
+        dependencies: { semver: "7.7.4" },
+      },
+    },
+  };
+  const lockPath = path.join(root, "package-lock.json");
+  writeFileSync(lockPath, JSON.stringify(lock));
+
+  const command = getWorkspaceDependencyCheckCommand(process.platform, process.env.ComSpec);
+  assert.throws(
+    () =>
+      execFileSync(command.command, command.args, {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    (error: unknown) => {
+      const diagnostics = `${String((error as { stdout?: string }).stdout ?? "")}\n${String(
+        (error as { stderr?: string }).stderr ?? ""
+      )}`;
+      return /ELSPROBLEMS|invalid/i.test(diagnostics);
+    }
+  );
+
+  lock.packages["node_modules/semver"].version = "7.7.4";
+  writeFileSync(lockPath, JSON.stringify(lock));
+  mkdirSync(path.join(root, "node_modules", "semver"), { recursive: true });
+  writeFileSync(
+    path.join(root, "node_modules", "semver", "package.json"),
+    JSON.stringify({ name: "semver", version: "7.6.0" })
+  );
+  assert.doesNotThrow(() =>
+    execFileSync(command.command, command.args, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+  );
 });

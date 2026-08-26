@@ -7,7 +7,7 @@
 //   --validate-https       → toda URL "resolved" deve usar HTTPS (bloqueia http://)
 //   --validate-integrity   → todo pacote deve ter hash de integridade sha512
 //   --allowed-hosts npm    → apenas registry.npmjs.org é host permitido
-//   npm ls --workspaces    → dependências instaladas satisfazem cada workspace
+//   npm ls --workspaces    → entradas do lockfile satisfazem cada workspace
 //
 // Complementa check-deps (Fase 2 / allowlist de nomes): aquele garante que só
 // nomes aprovados entram; este garante que os pacotes instalados vieram do registry
@@ -69,7 +69,7 @@ export function buildLockfileLintArgs(cfg) {
 
 /**
  * Returns the cross-platform npm command that verifies direct workspace
- * dependencies after installation.
+ * dependencies from package-lock.json, independent of the installed tree.
  *
  * @param {NodeJS.Platform} [platform]
  * @param {string | undefined} [comSpec]
@@ -79,7 +79,7 @@ export function getWorkspaceDependencyCheckCommand(
   platform = process.platform,
   comSpec = process.env.ComSpec
 ) {
-  const npmArgs = ["ls", "--workspaces", "--depth=0"];
+  const npmArgs = ["ls", "--workspaces", "--depth=0", "--package-lock-only"];
   if (platform === "win32") {
     return {
       command: comSpec || "cmd.exe",
@@ -173,9 +173,9 @@ function main() {
 
   const workspaceResult = runWorkspaceDependencyCheck();
   if (workspaceResult.ok) {
-    console.log("[check-lockfile] OK — workspace dependencies match their manifests");
+    console.log("[check-lockfile] OK — workspace lock entries match their manifests");
   } else {
-    console.error("[check-lockfile] FAIL — workspace dependency tree is inconsistent:");
+    console.error("[check-lockfile] FAIL — workspace lock entries are inconsistent:");
     if (workspaceResult.stdout) console.error(workspaceResult.stdout);
     if (workspaceResult.stderr) console.error(workspaceResult.stderr);
     console.error("\n  → Regenerate the affected lock entries and verify with a clean `npm ci`");
