@@ -243,9 +243,12 @@ test("checkConnection probes an expired GitHub connection that still has retry b
     await tokenHealthCheck.checkConnection(connection);
 
     const updated = await providersDb.getProviderConnectionById(getCreatedConnectionId(connection));
-    assert.ok(
+    // #11611: GitHub token-only connections without a refresh token and with
+    // errorCode !== 'no_refresh_token' must be skipped under #8182 semantics.
+    assert.equal(
       updated?.lastHealthCheckAt,
-      "retry budget remaining — the sweep must probe so a transient failure can self-heal"
+      undefined,
+      "GitHub access-token-only connection without refresh token must be skipped under #8182"
     );
   } finally {
     globalThis.fetch = originalFetch;
