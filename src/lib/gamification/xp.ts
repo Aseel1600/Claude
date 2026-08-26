@@ -57,15 +57,16 @@ export function cumulativeXpForLevel(level: number): number {
  * calculateLevel(cumulativeXpForLevel(10)) // 10
  */
 export function calculateLevel(totalXp: number): number {
-  if (totalXp <= 0) return 1;
+  if (!Number.isFinite(totalXp) || totalXp <= 0) return 1;
+  const boundedXp = Math.min(totalXp, Number.MAX_SAFE_INTEGER);
 
   // Use the inverse curve only as a fast starting point, then reconcile it
   // against the exact floored cumulative thresholds used by the XP engine.
-  let level = Math.max(1, Math.floor(Math.pow((totalXp * 2.5) / 100, 0.4)));
-  while (level > 1 && cumulativeXpForLevel(level) > totalXp) {
+  let level = Math.max(1, Math.floor(Math.pow((boundedXp * 2.5) / 100, 0.4)));
+  while (level > 1 && cumulativeXpForLevel(level) > boundedXp) {
     level -= 1;
   }
-  while (cumulativeXpForLevel(level + 1) <= totalXp) {
+  while (cumulativeXpForLevel(level + 1) <= boundedXp) {
     level += 1;
   }
   return level;

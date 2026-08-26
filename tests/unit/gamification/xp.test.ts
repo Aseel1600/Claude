@@ -20,6 +20,16 @@ describe("XP/Level Engine", () => {
       assert.equal(calculateLevel(-100), 1);
     });
 
+    it("falls back to level 1 for non-finite XP", () => {
+      assert.equal(calculateLevel(Number.NaN), 1);
+      assert.equal(calculateLevel(Number.POSITIVE_INFINITY), 1);
+      assert.equal(calculateLevel(Number.NEGATIVE_INFINITY), 1);
+    });
+
+    it("bounds finite XP above the safe integer range", () => {
+      assert.equal(calculateLevel(Number.MAX_VALUE), calculateLevel(Number.MAX_SAFE_INTEGER));
+    });
+
     it("returns level 1 for small XP", () => {
       assert.equal(calculateLevel(50), 1);
     });
