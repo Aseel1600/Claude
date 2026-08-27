@@ -33,3 +33,30 @@ test("crc32 is deterministic and ByteQueue buffers bytes", async () => {
   const q = new ByteQueue();
   assert.equal(typeof q, "object");
 });
+
+test("malformed Kiro EventStream payload diagnostics never retain upstream content", async () => {
+  const { crc32, parseEventFrame } = await import("../../open-sse/executors/kiro/eventstream.ts");
+  const transcriptSentinel = "PRIVATE_KIRO_UPSTREAM_TRANSCRIPT_SENTINEL";
+  const payload = new TextEncoder().encode(transcriptSentinel);
+  const frame = new Uint8Array(16 + payload.length);
+  const view = new DataView(frame.buffer);
+  view.setUint32(0, frame.length, false);
+  view.setUint32(4, 0, false);
+  view.setUint32(8, crc32(frame.subarray(0, 8)), false);
+  frame.set(payload, 12);
+  view.setUint32(frame.length - 4, 0, false);
+
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(" "));
+  try {
+    assert.deepEqual(parseEventFrame(frame)?.payload, { raw: transcriptSentinel });
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Failed to parse payload/);
+  assert.match(warnings[0], new RegExp(`${payload.byteLength} bytes`));
+  assert.equal(warnings[0].includes(transcriptSentinel), false);
+});
