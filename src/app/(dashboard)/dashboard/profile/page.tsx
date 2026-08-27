@@ -177,7 +177,7 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="sr-only">{t("profile")}</h1>
+      <h1 className="sr-only lg:hidden">{t("profile")}</h1>
       {error && (
         <div role="alert" className="p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
           {error}

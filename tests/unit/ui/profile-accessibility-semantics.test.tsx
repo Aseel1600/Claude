@@ -74,14 +74,37 @@ describe("Profile accessibility semantics", () => {
     const container = mountProfile();
     await waitForLoad(container);
 
-    expect(container.querySelector("h1")?.textContent).toBe("profile");
+    const heading = container.querySelector("h1");
+    expect(heading?.textContent).toBe("profile");
+    expect(heading?.classList.contains("lg:hidden")).toBe(true);
     const progress = container.querySelector('[role="progressbar"]');
+    expect(progress?.getAttribute("aria-label")).toBe("levelProgress");
     expect(progress?.getAttribute("aria-valuemin")).toBe("0");
-    const max = Number(progress?.getAttribute("aria-valuemax"));
-    const now = Number(progress?.getAttribute("aria-valuenow"));
-    expect(max).toBeGreaterThan(0);
-    expect(now).toBeGreaterThanOrEqual(0);
-    expect(now).toBeLessThanOrEqual(max);
+    expect(progress?.getAttribute("aria-valuemax")).toBe("519");
+    expect(progress?.getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("clamps XP progress above the current level range", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/level")) {
+          return {
+            ok: true,
+            json: async () => ({ level: { totalXp: 10_000, currentLevel: 2 } }),
+          };
+        }
+        return { ok: true, json: async () => ({ badges: [] }) };
+      })
+    );
+
+    const container = mountProfile();
+    await waitForLoad(container);
+
+    const progress = container.querySelector('[role="progressbar"]');
+    expect(progress?.getAttribute("aria-valuemax")).toBe("519");
+    expect(progress?.getAttribute("aria-valuenow")).toBe("519");
   });
 
   it("announces a complete load failure as an alert", async () => {
