@@ -26,6 +26,7 @@
  * check wrapping `evaluateQuotaLimitPolicy` — are injected as callbacks.
  */
 
+import { createHash } from "crypto";
 import {
   getSessionAccountAffinity,
   upsertSessionAccountAffinity,
@@ -42,6 +43,176 @@ import {
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isComboPerModelTimeoutAbort } from "@omniroute/open-sse/services/combo/comboAbortReasons.ts";
 import * as log from "../utils/logger";
+import { readHeaderValue } from "./headerReader.ts";
+
+export { readHeaderValue } from "./headerReader.ts";
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+/** Maximum accepted session-key input length. Longer identifiers are rejected before processing. */
+const SESSION_KEY_MAX_INPUT_LEN = 4096;
+
+function normalizeSessionKey(value: unknown, prefix: string): string | null {
+  if (typeof value !== "string" || value.length > SESSION_KEY_MAX_INPUT_LEN) return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length <= 180 && /^[A-Za-z0-9._:-]+$/.test(trimmed)) {
+    return `${prefix}:${trimmed}`;
+  }
+  return `${prefix}:sha256:${createHash("sha256").update(trimmed).digest("hex")}`;
+}
+
+/** Upper bound on text extracted for session hashing (matches the slice in extractSessionAffinityKey). */
+const SESSION_HASH_TEXT_LIMIT = 4096;
+
+/**
+ * Extracts human-readable text from a value for session-affinity hashing.
+ *
+ * Design constraints (post-adversarial-review):
+ * - NEVER calls `JSON.stringify` on arbitrary objects — avoids synchronous
+ *   Event Loop blocking on huge payloads (e.g. 50MB multimodal base64).
+ * - NEVER returns structural tokens like `"[]"` or `"{}"` — avoids global
+ *   session-key collisions across unrelated users with empty payloads.
+ * - Only extracts values from known text fields (`.text`, `.content`) or
+ *   raw strings.  Payloads without recognisable text content get `null`,
+ *   which correctly signals "no input-based session affinity" — callers
+ *   should use explicit session IDs instead.
+ */
+function extractTextForSessionHash(value: unknown): string | null {
+  if (typeof value === "string") return value;
+
+  if (Array.isArray(value)) {
+    const parts: string[] = [];
+    let totalLen = 0;
+    for (const item of value) {
+      if (totalLen >= SESSION_HASH_TEXT_LIMIT) break;
+      let text: string | null = null;
+      if (typeof item === "string") {
+        text = item;
+      } else {
+        const record = asRecord(item);
+        if (typeof record.text === "string") text = record.text;
+        else if (typeof record.content === "string") text = record.content;
+      }
+      if (text) {
+        parts.push(text);
+        totalLen += text.length;
+      }
+    }
+    return parts.length > 0 ? parts.join("\n").slice(0, SESSION_HASH_TEXT_LIMIT) : null;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    // Known text fields — covers OpenAI, Anthropic, and most providers
+    if (typeof record.text === "string" && record.text.trim().length > 0) {
+      return record.text.slice(0, SESSION_HASH_TEXT_LIMIT);
+    }
+    if (typeof record.content === "string" && record.content.trim().length > 0) {
+      return record.content.slice(0, SESSION_HASH_TEXT_LIMIT);
+    }
+    if (typeof record.prompt === "string" && record.prompt.trim().length > 0) {
+      return record.prompt.slice(0, SESSION_HASH_TEXT_LIMIT);
+    }
+    // Gemini format: { parts: [{ text: "..." }, ...] }
+    if (Array.isArray(record.parts)) {
+      const partsText = extractTextForSessionHash(record.parts);
+      if (partsText) return partsText;
+    }
+    // No recognisable text field — return null rather than risking a
+    // potentially huge JSON.stringify on arbitrary payload shapes.
+    return null;
+  }
+
+  return null;
+}
+
+function getFirstInputText(body: unknown): string | null {
+  const record = asRecord(body);
+
+  // Codex / Responses API: { input: "..." | [...] }
+  if (record.input !== undefined) {
+    if (typeof record.input === "string") return record.input;
+    if (Array.isArray(record.input)) {
+      for (const item of record.input) {
+        const itemRecord = asRecord(item);
+        const text = extractTextForSessionHash(itemRecord.content ?? item);
+        if (text && text.trim().length > 0) return text;
+      }
+    }
+    const text = extractTextForSessionHash(record.input);
+    if (text && text.trim().length > 0) return text;
+  }
+
+  // OpenAI Chat / Anthropic Messages: { messages: [...] }
+  if (Array.isArray(record.messages)) {
+    const userMessage = record.messages.find((message) => asRecord(message).role === "user");
+    const firstMessage = userMessage ?? record.messages[0];
+    const text = extractTextForSessionHash(asRecord(firstMessage).content ?? firstMessage);
+    if (text && text.trim().length > 0) return text;
+  }
+
+  // Google Gemini: { contents: [{ role: "user", parts: [{ text: "..." }] }] }
+  if (Array.isArray(record.contents)) {
+    const userContent = record.contents.find((c) => asRecord(c).role === "user");
+    const firstContent = userContent ?? record.contents[0];
+    const text = extractTextForSessionHash(asRecord(firstContent).parts ?? firstContent);
+    if (text && text.trim().length > 0) return text;
+  }
+
+  // OpenAI Legacy Completions / Anthropic /v1/complete / Ollama: { prompt: "..." }
+  if (typeof record.prompt === "string" && record.prompt.trim().length > 0) {
+    return record.prompt;
+  }
+
+  // Other common root-level text fields
+  if (typeof record.query === "string" && record.query.trim().length > 0) {
+    return record.query;
+  }
+  if (typeof record.instruction === "string" && record.instruction.trim().length > 0) {
+    return record.instruction;
+  }
+
+  return null;
+}
+
+/**
+ * Derives the stable connection-affinity key for a request.
+ *
+ * @param body - Parsed request body containing explicit session identifiers or recognized text.
+ * @param headers - Optional request headers that may carry an explicit session identifier.
+ * @returns A namespaced affinity key, or `null` when no safe key can be derived.
+ */
+export function extractSessionAffinityKey(
+  body: unknown,
+  headers?: Headers | { get?: (name: string) => string | null } | null
+): string | null {
+  const headerKey = normalizeSessionKey(
+    readHeaderValue(headers, "x-codex-session-id") ??
+      readHeaderValue(headers, "x-session-id") ??
+      readHeaderValue(headers, "x-omniroute-session"),
+    "header"
+  );
+  if (headerKey) return headerKey;
+
+  const record = asRecord(body);
+  const metadata = asRecord(record.metadata);
+  const explicitKey =
+    normalizeSessionKey(metadata.session_id, "metadata") ??
+    normalizeSessionKey(metadata.sessionId, "metadata") ??
+    normalizeSessionKey(record.conversation_id, "conversation") ??
+    normalizeSessionKey(record.session_id, "session") ??
+    normalizeSessionKey(record.prompt_cache_key, "prompt-cache");
+  if (explicitKey) return explicitKey;
+
+  const inputText = getFirstInputText(body);
+  if (!inputText || inputText.trim().length === 0) return null;
+  return `input:sha256:${createHash("sha256").update(inputText.slice(0, 4096)).digest("hex")}`;
+}
 
 /** Minimal structural view of a provider connection this module reads. */
 export interface AffinityPinConnection {
