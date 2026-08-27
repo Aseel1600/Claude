@@ -131,7 +131,7 @@ test("resolvePreviousResponseState reads output from a wrapped (streaming) clien
   });
 });
 
-test("resolvePreviousResponseState fails closed on a log-redacted Video Bridge transcript", () => {
+test("resolvePreviousResponseState continues from a safely redacted Video Bridge transcript", () => {
   insertCallLog({
     id: "log-video-redacted",
     responseId: "resp_video_redacted",
@@ -160,10 +160,13 @@ test("resolvePreviousResponseState fails closed on a log-redacted Video Bridge t
     },
   });
 
-  assert.equal(store.resolvePreviousResponseState("resp_video_redacted", "key-1"), null);
+  assert.deepEqual(store.resolvePreviousResponseState("resp_video_redacted", "key-1"), {
+    input: request.body.input,
+    output: [{ type: "message", role: "assistant", content: "summary" }],
+  });
 });
 
-test("resolvePreviousResponseState fails closed when redaction reached prior output", () => {
+test("resolvePreviousResponseState continues when the prior output was safely redacted", () => {
   insertCallLog({
     id: "log-video-output-redacted",
     responseId: "resp_video_output_redacted",
@@ -190,10 +193,19 @@ test("resolvePreviousResponseState fails closed when redaction reached prior out
     },
   });
 
-  assert.equal(store.resolvePreviousResponseState("resp_video_output_redacted", "key-1"), null);
+  assert.deepEqual(store.resolvePreviousResponseState("resp_video_output_redacted", "key-1"), {
+    input: request.body.input,
+    output: [
+      {
+        type: "message",
+        role: "assistant",
+        content: '[Video description: text="[omitted: video transcript]"]',
+      },
+    ],
+  });
 });
 
-test("resolvePreviousResponseState fails closed for an empty-base64 video transcript omission", () => {
+test("resolvePreviousResponseState continues from an empty-base64 transcript omission", () => {
   insertCallLog({
     id: "log-empty-base64-video-redacted",
     responseId: "resp_empty_base64_video_redacted",
@@ -226,9 +238,12 @@ test("resolvePreviousResponseState fails closed for an empty-base64 video transc
     },
   });
 
-  assert.equal(
+  assert.deepEqual(
     store.resolvePreviousResponseState("resp_empty_base64_video_redacted", "key-1"),
-    null
+    {
+      input: request.body.input,
+      output: [{ type: "message", role: "assistant", content: "summary" }],
+    }
   );
 });
 

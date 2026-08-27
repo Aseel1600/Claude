@@ -10,6 +10,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const handoffDb = await import("../../src/lib/db/contextHandoffs.ts");
 const contextHandoff = await import("../../open-sse/services/contextHandoff.ts");
+const { fingerprintVideoTranscriptDescription } =
+  await import("../../src/lib/guardrails/videoTranscriptLogRedaction.ts");
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -152,8 +154,8 @@ test("maybeGenerateHandoff skips below the warning threshold", async () => {
   assert.equal(handoffDb.getHandoff("sess-low", "relay-combo"), null);
 });
 
-test("maybeGenerateHandoff never summarizes a structurally transcript-sensitive history", async () => {
-  let called = false;
+test("maybeGenerateHandoff preserves adjacent text while excluding a raw video carrier", async () => {
+  let retainedPrompt = "";
 
   contextHandoff.maybeGenerateHandoff({
     sessionId: "sess-private-video",
@@ -164,6 +166,7 @@ test("maybeGenerateHandoff never summarizes a structurally transcript-sensitive 
       {
         role: "user",
         content: [
+          { type: "input_text", text: "Keep this genuine handoff context" },
           {
             transcript: "PRIVATE_CONTEXT_HANDOFF_TRANSCRIPT_SENTINEL",
             type: "input_video",
@@ -175,15 +178,90 @@ test("maybeGenerateHandoff never summarizes a structurally transcript-sensitive 
     model: "codex/gpt-5.6-sol",
     expiresAt: null,
     config: { handoffProviders: ["codex"] },
-    handleSingleModel: async () => {
-      called = true;
-      return new Response("{}", { status: 200 });
+    handleSingleModel: async (body) => {
+      retainedPrompt = JSON.stringify(body);
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "Safe raw-carrier handoff",
+                  keyDecisions: [],
+                  taskProgress: "continue",
+                  activeEntities: [],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
     },
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  assert.equal(called, false);
-  assert.equal(handoffDb.getHandoff("sess-private-video", "relay-private-video"), null);
+  const saved = await waitFor(() =>
+    handoffDb.getHandoff("sess-private-video", "relay-private-video")
+  );
+  assert.ok(saved);
+  assert.match(retainedPrompt, /Keep this genuine handoff context/);
+  assert.doesNotMatch(retainedPrompt, /PRIVATE_CONTEXT_HANDOFF_TRANSCRIPT_SENTINEL/);
+  assert.doesNotMatch(retainedPrompt, /data:video/);
+});
+
+test("maybeGenerateHandoff redacts a trusted serialized description before summarizing", async () => {
+  const sentinel = "PRIVATE_SERIALIZED_CONTEXT_HANDOFF_SENTINEL";
+  const description = `[Video description: stable scene; transcript[source=embedded;confidence=1.00;interval=00:01.000-00:02.000] text="${sentinel}"]`;
+  let retainedPrompt = "";
+
+  contextHandoff.maybeGenerateHandoff({
+    sessionId: "sess-private-description",
+    comboName: "relay-private-description",
+    connectionId: "conn-private-description",
+    percentUsed: 0.9,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "Keep this adjacent request" },
+          { type: "input_text", text: description },
+        ],
+      },
+    ],
+    model: "codex/gpt-5.6-sol",
+    expiresAt: null,
+    config: { handoffProviders: ["codex"] },
+    videoTranscriptSensitive: true,
+    trustedDescriptionFingerprints: [fingerprintVideoTranscriptDescription(description)],
+    handleSingleModel: async (body) => {
+      retainedPrompt = JSON.stringify(body);
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "Safe serialized-description handoff",
+                  keyDecisions: [],
+                  taskProgress: "continue",
+                  activeEntities: [],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    },
+  });
+
+  const saved = await waitFor(() =>
+    handoffDb.getHandoff("sess-private-description", "relay-private-description")
+  );
+  assert.ok(saved);
+  assert.match(retainedPrompt, /Keep this adjacent request/);
+  assert.match(retainedPrompt, /omitted: video transcript/);
+  assert.doesNotMatch(retainedPrompt, new RegExp(sentinel));
 });
 
 test("maybeGenerateHandoff persists a structured handoff once the threshold is reached", async () => {

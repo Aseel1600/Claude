@@ -8,6 +8,7 @@ import {
   DEFAULT_UNIVERSAL_HANDOFF_CONFIG,
   type HandoffPayload,
 } from "../../open-sse/services/contextHandoff.ts";
+import { fingerprintVideoTranscriptDescription } from "../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 
 // ── resolveUniversalHandoffConfig ────────────────────────────────────────────
 
@@ -160,15 +161,26 @@ test("providerAllowlist: empty allowlist allows all providers", async () => {
   assert.ok(calls.length > 0, "handleSingleModel MUST be called when allowlist is empty");
 });
 
-test("transcript-sensitive model switches never generate a persistent universal handoff", async () => {
-  const calls: unknown[] = [];
+test("transcript-sensitive model switches generate from a safely redacted history", async () => {
+  const sentinel = "PRIVATE_UNIVERSAL_HANDOFF_TRANSCRIPT_SENTINEL";
+  const description = `[Video description: stable scene; transcript[source=embedded;confidence=1.00;interval=00:01.000-00:02.000] text="${sentinel}"]`;
+  const calls: Array<{ body: Record<string, unknown>; modelStr: string }> = [];
   maybeGenerateUniversalHandoff({
     sessionId: "ses_private_video",
     comboName: "private-video-combo",
-    messages: [{ role: "user", content: "guardrail-produced video description" }],
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "Keep this universal handoff context" },
+          { type: "input_text", text: description },
+        ],
+      },
+    ],
     prevModel: "openai/gpt-4o",
     currModel: "anthropic/claude-3-5-sonnet",
     videoTranscriptSensitive: true,
+    trustedDescriptionFingerprints: [fingerprintVideoTranscriptDescription(description)],
     universalConfig: {
       ...DEFAULT_UNIVERSAL_HANDOFF_CONFIG,
       enabled: true,
@@ -185,7 +197,11 @@ test("transcript-sensitive model switches never generate a persistent universal 
   });
 
   await waitImmediate();
-  assert.strictEqual(calls.length, 0);
+  assert.strictEqual(calls.length, 1);
+  const retainedPrompt = JSON.stringify(calls[0].body);
+  assert.match(retainedPrompt, /Keep this universal handoff context/);
+  assert.match(retainedPrompt, /omitted: video transcript/);
+  assert.doesNotMatch(retainedPrompt, new RegExp(sentinel));
 });
 
 test("providerAllowlist: handoffModel takes precedence over currModel for allowlist check", async () => {
