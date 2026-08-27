@@ -189,6 +189,22 @@ test("#6848 cleanupCompressionRunTelemetry: missing lazy table is an empty no-op
   assert.deepStrictEqual(result, { deleted: 0, errors: 0 });
 });
 
+test("#6848 cleanupCompressionRunTelemetry: contains table lookup failures", async (t) => {
+  const db = getDbInstance()!;
+  const prepare = db.prepare.bind(db);
+  t.mock.method(db, "prepare", (sql: string) => {
+    if (sql.includes("sqlite_master")) {
+      throw new Error("injected table lookup failure");
+    }
+    return prepare(sql);
+  });
+  t.mock.method(console, "error", () => {});
+
+  const result = await cleanupCompressionRunTelemetry();
+
+  assert.deepStrictEqual(result, { deleted: 0, errors: 1 });
+});
+
 test("#6848 no rows deleted when all data is within retention window (calls all 4 real functions)", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;

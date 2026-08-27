@@ -386,9 +386,10 @@ export async function cleanupCompressionRunTelemetry(): Promise<CleanupResult> {
   const cutoffEpoch = Date.now() - retentionDays * 86_400_000;
 
   const result: CleanupResult = { deleted: 0, errors: 0 };
-  if (!tableExists("compression_run_telemetry")) return result;
 
   try {
+    if (!tableExists("compression_run_telemetry")) return result;
+
     const stmt = db.prepare("DELETE FROM compression_run_telemetry WHERE timestamp < ?");
     const runResult = stmt.run(cutoffEpoch);
     result.deleted = runResult.changes;
