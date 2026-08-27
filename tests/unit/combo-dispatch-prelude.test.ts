@@ -423,7 +423,8 @@ function pinCtx() {
 
 async function dispatchHealthyPin(
   ctx: ReturnType<typeof pinCtx>,
-  handler: () => Promise<Response>
+  handler: () => Promise<Response>,
+  videoTranscriptSensitive = false
 ) {
   await seedHealthyPinProvider();
   const dispatched: string[] = [];
@@ -441,6 +442,7 @@ async function dispatchHealthyPin(
       return handler();
     },
     log: ctx.log,
+    videoTranscriptSensitive,
   });
   return { res, dispatched };
 }
@@ -532,6 +534,40 @@ test("tryPinnedModelDispatch: falls through when the pinned dispatch throws", as
     ctx.records.some((r) => r.level === "warn" && r.msg.includes("threw error")),
     "a throwing pin must be logged and recovered from, not propagated"
   );
+});
+
+test("tryPinnedModelDispatch: omits transcript echoed by a masked-200 quality failure", async () => {
+  const transcriptSentinel = "PRIVATE_PINNED_QUALITY_TRANSCRIPT_SENTINEL";
+  const ctx = pinCtx();
+  const { res } = await dispatchHealthyPin(
+    ctx,
+    async () =>
+      new Response(JSON.stringify({ error: { message: transcriptSentinel } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    true
+  );
+  assert.equal(res, null);
+  const retainedLogs = JSON.stringify(ctx.records);
+  assert.equal(retainedLogs.includes(transcriptSentinel), false);
+  assert.match(retainedLogs, /omitted: video transcript/);
+});
+
+test("tryPinnedModelDispatch: omits transcript echoed by a thrown upstream error", async () => {
+  const transcriptSentinel = "PRIVATE_PINNED_THROW_TRANSCRIPT_SENTINEL";
+  const ctx = pinCtx();
+  const { res } = await dispatchHealthyPin(
+    ctx,
+    async () => {
+      throw new Error(transcriptSentinel);
+    },
+    true
+  );
+  assert.equal(res, null);
+  const retainedLogs = JSON.stringify(ctx.records);
+  assert.equal(retainedLogs.includes(transcriptSentinel), false);
+  assert.match(retainedLogs, /omitted: video transcript/);
 });
 
 /* ------------------------------------------------------------------------- *

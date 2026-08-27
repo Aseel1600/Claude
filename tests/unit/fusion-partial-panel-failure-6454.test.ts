@@ -35,7 +35,9 @@ function okResponse(content: string): Promise<Response> {
 
 function errResponse(status: number): Promise<Response> {
   const body = JSON.stringify({ error: { message: "boom" } });
-  return Promise.resolve(new Response(body, { status, headers: { "Content-Type": "application/json" } }));
+  return Promise.resolve(
+    new Response(body, { status, headers: { "Content-Type": "application/json" } })
+  );
 }
 
 // Mirrors the #6454 repro: an 11-member "fusion-free" style panel where only
@@ -72,8 +74,14 @@ test("fusion #6454: a cooling minority (2/11) does not sink a healthy majority â
     tuning: { minPanel: 1, stragglerGraceMs: 4000, panelHardTimeoutMs: 60000 },
   });
 
-  assert.notEqual(res.status, 503, "9/11 healthy members must not be reported as a total panel failure");
-  const body = (await res.clone().json()) as { choices?: Array<{ message?: { content?: string } }> };
+  assert.notEqual(
+    res.status,
+    503,
+    "9/11 healthy members must not be reported as a total panel failure"
+  );
+  const body = (await res.clone().json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
   const text = body.choices?.[0]?.message?.content ?? "";
   assert.ok(text.length > 0, "should carry a real synthesized/answer body, not an error");
   // The judge call is the final dispatch, invoked with every healthy answer available to it.
@@ -94,7 +102,40 @@ test("fusion #6454: a genuinely all-failed 11-member panel still returns the doc
     tuning: { minPanel: 1, stragglerGraceMs: 4000, panelHardTimeoutMs: 60000 },
   });
 
-  assert.equal(res.status, 503, "a genuinely all-failed panel must still surface the fusion failure error");
+  assert.equal(
+    res.status,
+    503,
+    "a genuinely all-failed panel must still surface the fusion failure error"
+  );
   const body = (await res.clone().json()) as { error: { message: string } };
   assert.match(body.error.message, /All fusion panel models failed/);
+});
+
+test("fusion native logs omit a thrown transcript echo for a sensitive request", async () => {
+  const transcriptSentinel = "PRIVATE_FUSION_THROW_TRANSCRIPT_SENTINEL";
+  const retainedLogs: unknown[][] = [];
+  let dispatches = 0;
+  const res = await handleFusionChat({
+    body: { messages: [{ role: "user", content: "processed video request" }] },
+    models: ["private/failing-panel", "private/healthy-panel"],
+    handleSingleModel: async (_body: Body, model: string) => {
+      dispatches += 1;
+      if (model === "private/failing-panel") throw new Error(transcriptSentinel);
+      return okResponse("safe answer");
+    },
+    log: {
+      info: (...args: unknown[]) => retainedLogs.push(args),
+      warn: (...args: unknown[]) => retainedLogs.push(args),
+      debug: (...args: unknown[]) => retainedLogs.push(args),
+      error: (...args: unknown[]) => retainedLogs.push(args),
+    },
+    tuning: { minPanel: 1, stragglerGraceMs: 25, panelHardTimeoutMs: 1000 },
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(res.status, 200);
+  assert.ok(dispatches >= 2);
+  const retained = JSON.stringify(retainedLogs);
+  assert.equal(retained.includes(transcriptSentinel), false);
+  assert.match(retained, /omitted: video transcript/);
 });

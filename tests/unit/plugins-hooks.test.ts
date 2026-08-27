@@ -159,6 +159,49 @@ test("runOnResponse passes through if no modification", async () => {
   assert.deepEqual(result, { original: true });
 });
 
+test("native plugin-hook error logs omit transcript echoes for a sensitive request", async () => {
+  const sentinels = [
+    "PRIVATE_PLUGIN_REQUEST_TRANSCRIPT_SENTINEL",
+    "PRIVATE_PLUGIN_RESPONSE_TRANSCRIPT_SENTINEL",
+    "PRIVATE_PLUGIN_ERROR_TRANSCRIPT_SENTINEL",
+  ];
+  const retainedLogs: string[] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    retainedLogs.push(args.map(String).join(" "));
+  };
+  try {
+    registerHook("onRequest", "private-request-plugin", () => {
+      throw new Error(sentinels[0]);
+    });
+    registerHook("onResponse", "private-response-plugin", () => {
+      throw new Error(sentinels[1]);
+    });
+    registerHook("onError", "private-error-plugin", () => {
+      throw new Error(sentinels[2]);
+    });
+
+    await emitHookBlocking("onRequest", { videoTranscriptSensitive: true });
+    await runOnResponse(
+      {
+        requestId: "private-request",
+        body: {},
+        model: "test",
+        metadata: {},
+        videoTranscriptSensitive: true,
+      },
+      { ok: true }
+    );
+    await emitHook("onError", { videoTranscriptSensitive: true });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  const retained = retainedLogs.join("\n");
+  for (const sentinel of sentinels) assert.equal(retained.includes(sentinel), false);
+  assert.match(retained, /omitted: video transcript/);
+});
+
 // ── runOnError ──
 
 test("runOnError fires emitHook", async () => {

@@ -17,6 +17,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "combo-10597-test-secret";
 
 const { handleComboChat } = await import("../../open-sse/services/combo.ts");
+const { getEventHistory } = await import("../../src/lib/events/eventBus.ts");
 
 const DISTINCTIVE_ERROR_TEXT =
   "messages.450: `tool_use` ids were found without `tool_result` blocks immediately after";
@@ -177,4 +178,89 @@ test("transcript-sensitive round-robin failures omit echoed transcript from reta
   const serialized = JSON.stringify(retainedFailure);
   assert.equal(serialized.includes(transcriptSentinel), false);
   assert.match(serialized, /omitted: video transcript/);
+});
+
+test("transcript-sensitive masked-200 quality failures omit transcript from logs and live events", async () => {
+  const transcriptSentinel = "PRIVATE_COMBO_QUALITY_TRANSCRIPT_SENTINEL";
+  const comboName = "test-combo-10597-private-quality";
+  const localWarnCalls: WarnCall[] = [];
+  const modelsCalled: string[] = [];
+  const result = await handleComboChat({
+    body: { model: "test", messages: [{ role: "user", content: "processed video request" }] },
+    combo: {
+      ...makeCombo(["claude/private-quality", "openai/private-quality-fallback"]),
+      name: comboName,
+    },
+    handleSingleModel: async (_body: unknown, modelStr: string) => {
+      modelsCalled.push(modelStr);
+      if (modelsCalled.length === 1) {
+        return new Response(JSON.stringify({ error: { message: transcriptSentinel } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return healthy200(modelStr);
+    },
+    log: {
+      info: () => {},
+      debug: () => {},
+      error: () => {},
+      warn: (tag: string, msg: string, meta?: unknown) => {
+        localWarnCalls.push({ tag, msg, meta });
+      },
+    },
+    settings: {},
+    allCombos: [],
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(modelsCalled.length, 2);
+  const retainedLogs = JSON.stringify(localWarnCalls);
+  assert.equal(retainedLogs.includes(transcriptSentinel), false);
+  assert.match(retainedLogs, /omitted: video transcript/);
+
+  const failedEvent = getEventHistory(undefined, 100).find((entry) => {
+    if (entry.event !== "combo.target.failed") return false;
+    return (entry.payload as { comboName?: string }).comboName === comboName;
+  });
+  assert.ok(failedEvent, "expected a retained combo.target.failed event for the quality rejection");
+  const retainedEvent = JSON.stringify(failedEvent);
+  assert.equal(retainedEvent.includes(transcriptSentinel), false);
+  assert.match(retainedEvent, /omitted: video transcript/);
+});
+
+test("transcript-sensitive round-robin masked-200 failures omit quality echoes from every log", async () => {
+  const transcriptSentinel = "PRIVATE_COMBO_RR_QUALITY_TRANSCRIPT_SENTINEL";
+  const localWarnCalls: WarnCall[] = [];
+  const result = await handleComboChat({
+    body: { model: "test", messages: [{ role: "user", content: "processed video request" }] },
+    combo: {
+      name: "test-combo-10597-private-rr-quality",
+      strategy: "round-robin",
+      models: [{ model: "claude/private-video-rr-quality" }],
+      config: { maxRetries: 0 },
+    },
+    handleSingleModel: async () =>
+      new Response(JSON.stringify({ error: { message: transcriptSentinel } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    log: {
+      info: () => {},
+      debug: () => {},
+      error: () => {},
+      warn: (tag: string, msg: string, meta?: unknown) => {
+        localWarnCalls.push({ tag, msg, meta });
+      },
+    },
+    settings: {},
+    allCombos: [],
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(result.ok, false);
+  const retainedLogs = JSON.stringify(localWarnCalls);
+  assert.equal(retainedLogs.includes(transcriptSentinel), false);
+  assert.match(retainedLogs, /omitted: video transcript/);
 });
