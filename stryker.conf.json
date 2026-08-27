@@ -245,6 +245,7 @@
       "tests/unit/format-provider-error-cause.test.ts",
       "tests/unit/forwarded-header-budget.test.ts",
       "tests/unit/fusion-vision-panel-3378.test.ts",
+      "tests/unit/gemini-deprecated-model-lockout.test.ts",
       "tests/unit/gemini-web-capabilities-9356.test.ts",
       "tests/unit/gemini-web-missing-browser-3516.test.ts",
       "tests/unit/grok-cli-oauth.test.ts",
