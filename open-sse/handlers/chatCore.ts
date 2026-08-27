@@ -5632,6 +5632,7 @@ export async function handleChatCore({
       status: normalizedStreamStatus,
       error: streamError,
       errorCode: streamErrorCode,
+      videoTranscriptSensitive,
     });
 
     // Track cache token metrics for streaming responses

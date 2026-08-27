@@ -92,7 +92,7 @@ export function finalizeStreamRequestLog({
   status,
   error,
   errorCode,
-  videoTranscriptSensitive = false,
+  videoTranscriptSensitive,
   onWarn,
 }: {
   pendingRequestId: string;
@@ -104,7 +104,7 @@ export function finalizeStreamRequestLog({
   status: number;
   error?: string | null;
   errorCode?: string | null;
-  videoTranscriptSensitive?: boolean;
+  videoTranscriptSensitive: boolean;
   onWarn?: (error: unknown) => void;
 }) {
   try {
