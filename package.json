@@ -165,6 +165,7 @@
     "check:model-lifecycle": "node --import tsx/esm scripts/check/check-model-lifecycle.mjs",
     "check:provider-consistency": "bun scripts/check/check-provider-consistency.ts",
     "check:provider-assets": "node scripts/check/check-provider-assets.mjs",
+    "check:provider-asset-provenance": "node scripts/check/check-provider-asset-provenance.mjs",
     "check:nvidia-catalog-drift": "node --import tsx/esm scripts/check/check-nvidia-catalog-drift.ts",
     "check:fetch-targets": "node scripts/check/check-fetch-targets.mjs",
     "check:openapi-routes": "node scripts/check/check-openapi-routes.mjs",
