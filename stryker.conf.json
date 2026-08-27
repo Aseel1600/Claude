@@ -247,6 +247,7 @@
       "tests/unit/fusion-vision-panel-3378.test.ts",
       "tests/unit/gemini-web-capabilities-9356.test.ts",
       "tests/unit/gemini-web-missing-browser-3516.test.ts",
+      "tests/unit/github-model-not-supported-lockout.test.ts",
       "tests/unit/grok-cli-oauth.test.ts",
       "tests/unit/guardrails-api-3496.test.ts",
       "tests/unit/guardrails/visionBridge-responses-9597.test.ts",
