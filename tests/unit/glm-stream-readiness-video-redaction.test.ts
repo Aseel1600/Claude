@@ -61,6 +61,62 @@ test("GLM stream readiness keeps the operational diagnostic but omits it from re
   }
 });
 
+test("GLM transport fallback omits thrown transcript diagnostics without changing its result", async () => {
+  const primarySentinel = "PRIVATE_GLM_PRIMARY_THROW_TRANSCRIPT_SENTINEL";
+  const fallbackSentinel = "PRIVATE_GLM_FALLBACK_THROW_TRANSCRIPT_SENTINEL";
+  const retainedDebug: string[] = [];
+  const originalFetch = globalThis.fetch;
+  const executor = new GlmExecutor("glm");
+  const input = {
+    model: "glm-5.1",
+    body: {
+      model: "glm-5.1",
+      messages: [{ role: "user", content: "describe the video" }],
+    },
+    stream: false,
+    credentials: {
+      apiKey: "glm-key",
+      providerSpecificData: {
+        baseUrl: "https://api.z.ai/api/coding/paas/v4",
+        primaryTransport: "openai",
+      },
+    },
+    videoTranscriptSensitive: true,
+    log: {
+      debug: (_tag: string, message: string) => retainedDebug.push(message),
+    },
+  };
+
+  try {
+    let fetchCall = 0;
+    globalThis.fetch = async () => {
+      fetchCall += 1;
+      if (fetchCall === 1) throw new Error(primarySentinel);
+      return new Response("fallback result", { status: 500 });
+    };
+
+    const fallbackResult = await executor.execute(input);
+    assert.equal(fallbackResult.response.status, 500);
+
+    fetchCall = 0;
+    globalThis.fetch = async () => {
+      fetchCall += 1;
+      if (fetchCall === 1) return new Response("primary result", { status: 500 });
+      throw new Error(fallbackSentinel);
+    };
+
+    const primaryResult = await executor.execute(input);
+    assert.equal(primaryResult.response.status, 500);
+
+    const retained = retainedDebug.join("\n");
+    assert.doesNotMatch(retained, new RegExp(primarySentinel));
+    assert.doesNotMatch(retained, new RegExp(fallbackSentinel));
+    assert.match(retained, /omitted: video transcript/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("chatCore propagates video transcript sensitivity to every executor dispatch", () => {
   const source = fs.readFileSync("open-sse/handlers/chatCore.ts", "utf8");
   const lines = source.split("\n");
