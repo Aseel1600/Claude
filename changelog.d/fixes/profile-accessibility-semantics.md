@@ -1,0 +1,1 @@
+- Expose Profile loading, errors, page structure, and XP progress to assistive technologies. Thanks @pacocartones!
