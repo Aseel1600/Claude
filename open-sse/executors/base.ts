@@ -179,10 +179,10 @@ export type ProviderCredentials = {
 };
 
 export type ExecutorLog = {
-  debug?: (tag: string, message: string) => void;
-  info?: (tag: string, message: string) => void;
-  warn?: (tag: string, message: string) => void;
-  error?: (tag: string, message: string) => void;
+  debug?: (tag: string, message: string, data?: Record<string, unknown> | null) => void;
+  info?: (tag: string, message: string, data?: Record<string, unknown> | null) => void;
+  warn?: (tag: string, message: string, data?: Record<string, unknown> | null) => void;
+  error?: (tag: string, message: string, data?: Record<string, unknown> | null) => void;
 };
 
 export type ExecuteInput = {

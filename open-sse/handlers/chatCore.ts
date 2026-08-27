@@ -170,6 +170,7 @@ import {
   redactVideoTranscriptSensitiveText,
   resolveVideoTranscriptLogSensitivity,
 } from "@/lib/guardrails/videoTranscriptLogRedaction";
+import { createExecutorRetentionLog } from "./chatCore/executorRetentionLog.ts";
 import { createPreparedRequestLogger, runWithCapture } from "../utils/providerRequestLogging.ts";
 import { summarizeToolSources } from "../utils/toolSources.ts";
 import { applyResponsesPreviousResponseIdPolicy } from "../utils/responsesStatePolicy.ts";
@@ -543,6 +544,7 @@ export async function handleChatCore({
       error instanceof Error ? error.message : String(error),
       videoTranscriptSensitive
     );
+  const retainedExecutorLog = createExecutorRetentionLog(log, videoTranscriptSensitive);
   let { provider, model, extendedContext } = modelInfo;
   const resilienceSettings = resolveResilienceSettings(cachedSettings);
   if (!skipResourcePressureGuard) {
@@ -2880,7 +2882,7 @@ export async function handleChatCore({
   const resolveExecutorWithProxy = (prov: string) =>
     resolveExecutorWithProxyFor(
       prov,
-      log,
+      retainedExecutorLog,
       (credentials?.providerSpecificData as Record<string, unknown> | null | undefined) ?? null
     );
 
@@ -3156,7 +3158,7 @@ export async function handleChatCore({
                       execCreds?.providerSpecificData
                     ),
                     signal: streamController.signal,
-                    log,
+                    log: retainedExecutorLog,
                     execute: (signal) =>
                       runWithCapture(providerRequestCapture, () =>
                         executor.execute({
@@ -3165,7 +3167,7 @@ export async function handleChatCore({
                           stream: upstreamStream,
                           credentials: execCreds,
                           signal,
-                          log,
+                          log: retainedExecutorLog,
                           extendedContext,
                           upstreamExtraHeaders: buildUpstreamHeadersForExecute(modelToCall),
                           clientHeaders: buildExecutorClientHeaders(
@@ -3473,7 +3475,7 @@ export async function handleChatCore({
                           execCreds?.providerSpecificData
                         ),
                         signal: streamController.signal,
-                        log,
+                        log: retainedExecutorLog,
                         execute: (signal) =>
                           runWithCapture(providerRequestCapture, () =>
                             executor.execute({
@@ -3482,7 +3484,7 @@ export async function handleChatCore({
                               stream: upstreamStream,
                               credentials: execCreds,
                               signal,
-                              log,
+                              log: retainedExecutorLog,
                               extendedContext,
                               upstreamExtraHeaders: buildUpstreamHeadersForExecute(modelToCall),
                               clientHeaders: buildExecutorClientHeaders(
@@ -4033,7 +4035,7 @@ export async function handleChatCore({
               stream: upstreamStream,
               credentials: getExecutionCredentials(),
               signal: streamController.signal,
-              log,
+              log: retainedExecutorLog,
               extendedContext,
               upstreamExtraHeaders: buildUpstreamHeadersForExecute(retryModelId),
               clientHeaders: buildExecutorClientHeaders(clientRawRequest?.headers, userAgent),

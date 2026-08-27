@@ -1,5 +1,4 @@
 import { getTrustedLocalRateLimitResponse } from "@omniroute/open-sse/services/rateLimitManager/errors";
-import { redactVideoTranscriptSensitiveText } from "@/lib/guardrails/videoTranscriptLogRedaction";
 
 import { isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { isRequestScopedUpstreamFailure } from "./comboFailureLogging";
@@ -73,13 +72,18 @@ export function resolveStreamReadinessClassificationError(
 }
 
 export interface DailyQuotaModelViews {
-  /** Exact provider token used by model-lockout state and future routing decisions. */
+  /** Model key used by model-lockout state and future routing decisions. */
   operationalModel: string;
   /** Safe representation allowed in retained application logs. */
   retainedModel: string;
 }
 
-/** Keep routing semantics raw while separating the retained representation at the parse seam. */
+/**
+ * Ordinary requests preserve the exact upstream model token used by existing quota routing.
+ * For transcript-sensitive requests, the provider diagnostic is untrusted request-derived text:
+ * keep classifying the raw error at the caller, but never promote its token into retained lockout
+ * state. The already-resolved request model is the server-owned key and safe retained view.
+ */
 export function resolveDailyQuotaModelViews(
   errorText: string,
   resolvedModel: string,
@@ -87,12 +91,11 @@ export function resolveDailyQuotaModelViews(
 ): DailyQuotaModelViews {
   const match = errorText.match(/today's quota for model ([^,]+)/);
   const upstreamModel = match?.[1]?.trim();
-  const operationalModel = upstreamModel || resolvedModel;
+  const operationalModel = videoTranscriptSensitive
+    ? resolvedModel
+    : upstreamModel || resolvedModel;
   return {
     operationalModel,
-    retainedModel: redactVideoTranscriptSensitiveText(
-      operationalModel,
-      videoTranscriptSensitive && Boolean(upstreamModel)
-    ),
+    retainedModel: operationalModel,
   };
 }
