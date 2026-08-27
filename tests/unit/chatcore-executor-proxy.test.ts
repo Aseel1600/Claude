@@ -17,13 +17,11 @@ process.env.DATA_DIR = testDataDir;
 // Dynamic imports AFTER DATA_DIR is set so core.ts picks up the temp path.
 const coreDb = await import("../../src/lib/db/core.ts");
 const upstreamProxyDb = await import("../../src/lib/db/upstreamProxy.ts");
-const { resolveExecutorWithProxy } = await import(
-  "../../open-sse/handlers/chatCore/executorProxy.ts"
-);
+const { resolveExecutorWithProxy } =
+  await import("../../open-sse/handlers/chatCore/executorProxy.ts");
 const { getExecutor } = await import("../../open-sse/executors/index.ts");
-const { clearUpstreamProxyConfigCache } = await import(
-  "../../open-sse/handlers/chatCore/comboContextCache.ts"
-);
+const { clearUpstreamProxyConfigCache } =
+  await import("../../open-sse/handlers/chatCore/comboContextCache.ts");
 
 before(async () => {
   await coreDb.ensureDbInitialized();
@@ -136,4 +134,69 @@ test("connection override wins over provider mode 'fallback'", async () => {
   });
   // Connection override short-circuits to the passthrough executor, not the fallback wrapper.
   assert.equal(exec, await getExecutor("cliproxyapi"));
+});
+
+test("fallback diagnostics omit transcript echoes while preserving operational errors", async () => {
+  const nativeSentinel = "PRIVATE_NATIVE_VIDEO_TRANSCRIPT_SENTINEL";
+  const thrownFallbackSentinel = "PRIVATE_THROWN_FALLBACK_VIDEO_TRANSCRIPT_SENTINEL";
+  const statusFallbackSentinel = "PRIVATE_STATUS_FALLBACK_VIDEO_TRANSCRIPT_SENTINEL";
+  const retainedLogs: string[] = [];
+  const log = {
+    info: (...args: unknown[]) => retainedLogs.push(args.map(String).join(" ")),
+    error: (...args: unknown[]) => retainedLogs.push(args.map(String).join(" ")),
+  };
+
+  await upstreamProxyDb.upsertUpstreamProxyConfig({
+    providerId: "openai",
+    mode: "fallback",
+    enabled: true,
+  });
+  clearUpstreamProxyConfigCache("openai");
+
+  const nativeExecutor = await getExecutor("openai");
+  const fallbackExecutor = await getExecutor("cliproxyapi");
+  const originalNativeExecute = nativeExecutor.execute;
+  const originalFallbackExecute = fallbackExecutor.execute;
+  const input = {
+    model: "video-model",
+    body: { messages: [{ role: "user", content: "describe the video" }] },
+    stream: false,
+    credentials: { apiKey: "test-key" },
+    videoTranscriptSensitive: true,
+  };
+
+  try {
+    nativeExecutor.execute = async () => {
+      throw new Error(nativeSentinel);
+    };
+    fallbackExecutor.execute = async () => {
+      throw new Error(thrownFallbackSentinel);
+    };
+
+    const thrownWrapper = await resolveExecutorWithProxy("openai", log);
+    await assert.rejects(thrownWrapper.execute(input), new RegExp(thrownFallbackSentinel));
+
+    nativeExecutor.execute = async () => ({
+      response: new Response("retryable", { status: 500 }),
+      url: "https://native.example.test/v1/chat/completions",
+      headers: {},
+      transformedBody: input.body,
+    });
+    fallbackExecutor.execute = async () => {
+      throw new Error(statusFallbackSentinel);
+    };
+
+    const statusWrapper = await resolveExecutorWithProxy("openai", log);
+    await assert.rejects(statusWrapper.execute(input), new RegExp(statusFallbackSentinel));
+
+    const retained = retainedLogs.join("\n");
+    for (const sentinel of [nativeSentinel, thrownFallbackSentinel, statusFallbackSentinel]) {
+      assert.doesNotMatch(retained, new RegExp(sentinel));
+    }
+    assert.match(retained, /omitted: video transcript/);
+  } finally {
+    nativeExecutor.execute = originalNativeExecute;
+    fallbackExecutor.execute = originalFallbackExecute;
+    clearUpstreamProxyConfigCache("openai");
+  }
 });
