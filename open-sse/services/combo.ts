@@ -167,6 +167,7 @@ import {
   recordStickyWeightedSuccess,
   resolveComboStickyRoundRobinLimit,
 } from "./combo/rrState.ts";
+import { expandTargetsForAllStrategies } from "./combo/connectionAwareExpansion.ts";
 import {
   validateResponseQuality,
   releaseQualityClone,
@@ -838,6 +839,8 @@ async function handleComboChatInner({
     combo,
     config,
     strategy,
+    settings,
+    apiKeyAllowedConnections,
     allCombos,
     handleSingleModelWithTimeout,
     log,
@@ -888,6 +891,7 @@ async function handleComboChatInner({
       settings,
       allCombos,
       signal,
+      apiKeyAllowedConnections,
       hiddenModelsByProvider,
       clientManagedResponsesContext,
       deferContextOverflowWhenCompressible,
@@ -2878,6 +2882,7 @@ async function handleRoundRobinCombo({
   settings,
   allCombos,
   signal,
+  apiKeyAllowedConnections = null,
   nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
   clientManagedResponsesContext,
@@ -2934,12 +2939,25 @@ async function handleRoundRobinCombo({
         }
     : allCombos;
 
-  const orderedTargets = resolveComboTargets(
+  let orderedTargets = resolveComboTargets(
     rrExpandedCombo,
     rrExpandedAllCombos,
     clampComboDepth(config.maxComboDepth),
     hiddenModelsByProvider
   );
+  // Connection-aware expansion is opt-in. RR runs outside
+  // resolveComboTargetPipeline, so it wires the same stage here. Rotation
+  // granularity becomes model x connection: rrStartIndex takes mod over the
+  // expanded list, so each account occupies its own rotation slot.
+  orderedTargets = await expandTargetsForAllStrategies({
+    strategy: "round-robin",
+    targets: orderedTargets,
+    comboName: combo.name,
+    config: combo.config,
+    settings: settings as Record<string, unknown> | null | undefined,
+    log,
+    apiKeyAllowedConnectionIds: apiKeyAllowedConnections,
+  });
   const tagFilteredTargets = await applyRequestTagRouting(orderedTargets, body, log);
   const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
   // Align with the main/auto paths: combo config OR top-level settings (#8488 / #8494).
