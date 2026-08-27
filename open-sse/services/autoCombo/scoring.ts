@@ -313,7 +313,9 @@ export function calculateRuntimePressureScore(candidate: ProviderCandidate): num
   const explicitPressure = candidate.runtimePressure;
 
   if (typeof explicitPressure === "number" && Number.isFinite(explicitPressure)) {
-    return clamp01(1 - explicitPressure);
+    // runtimePressure is already normalized as a desirability score:
+    // higher = less runtime pressure = better candidate.
+    return clamp01(explicitPressure);
   }
 
   return clamp01(1 - saturation);

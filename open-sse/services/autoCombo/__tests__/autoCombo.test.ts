@@ -153,15 +153,28 @@ describe("Scoring", () => {
 });
 
 it("runtime pressure penalizes saturated providers", () => {
+  const baseCandidate: ProviderCandidate = {
+    provider: "runtime-base",
+    model: "test-model",
+    quotaRemaining: 80,
+    quotaTotal: 100,
+    circuitBreakerState: "CLOSED",
+    costPer1MTokens: 0.5,
+    p95LatencyMs: 500,
+    latencyStdDev: 50,
+    errorRate: 0.01,
+    connectionPoolSize: 2,
+  };
+
   const healthy: ProviderCandidate = {
-    ...candidate,
+    ...baseCandidate,
     provider: "healthy-runtime",
     runtimeSaturation: 0.1,
     runtimePressure: 0.9,
   };
 
   const saturated: ProviderCandidate = {
-    ...candidate,
+    ...baseCandidate,
     provider: "saturated-runtime",
     runtimeSaturation: 0.9,
     runtimePressure: 0.1,
@@ -170,7 +183,6 @@ it("runtime pressure penalizes saturated providers", () => {
   const pool = [healthy, saturated];
 
   const healthyFactors = calculateFactors(healthy, pool, "coding", getTaskFitness);
-
   const saturatedFactors = calculateFactors(saturated, pool, "coding", getTaskFitness);
 
   expect(healthyFactors.runtimePressure).toBeGreaterThan(saturatedFactors.runtimePressure);
