@@ -2280,10 +2280,8 @@ async function imageUrlToCachedImageUrl(
 
   if (response.text == null || response.text.length === 0) return null;
 
-  // tls-client-node already returns binary bodies as a "data:<mime>;base64,..."
-  // string (see node_modules/tls-client-node/dist/response.js — its bytes()
-  // method splits on the comma to extract base64). Decode back into bytes
-  // so we can hand them to the cache.
+  // The shared browser transport returns binary bodies as a
+  // "data:<mime>;base64,..." string. Decode it back into bytes for the cache.
   let bytes: Buffer;
   let mime: string;
   if (/^data:[^;]{1,256};base64,/.test(response.text)) {

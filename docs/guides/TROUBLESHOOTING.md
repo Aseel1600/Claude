@@ -62,7 +62,7 @@ Set these in the OmniRoute process environment (the daemon, e.g. via the LaunchA
 
 **How to verify it worked**: run your agent/cron twice in quick succession and confirm both succeed. Before the fix, the second run typically throws `429`/`401`. After the fix, failures (if any) are retried transparently and the call completes. You can also `curl /monitoring/health` and watch the `rateLimitedUntil` field on the provider connections and the `circuitBreakers.providerBreakers[].state` for the affected providers — the state is one of `CLOSED`, `DEGRADED`, `OPEN`, or `HALF_OPEN` (see `src/shared/utils/circuitBreaker.ts`), and a provider that keeps failing will flip `CLOSED → DEGRADED → OPEN` before the reset window lets a probe through (`HALF_OPEN`).
 
-**If you still see 429**: the active account for that provider has genuinely exhausted its *quota* (not just rate). Add a second account for the same provider in the OmniRoute dashboard → Providers → Accounts, or mix in another free provider (e.g. `routeway`, `auggie`). Rotation only helps with transient rate/400/401; a hard quota exhaustion requires a second credential or a different provider.
+**If you still see 429**: the active account for that provider has genuinely exhausted its _quota_ (not just rate). Add a second account for the same provider in the OmniRoute dashboard → Providers → Accounts, or mix in another free provider (e.g. `routeway`, `auggie`). Rotation only helps with transient rate/400/401; a hard quota exhaustion requires a second credential or a different provider.
 
 **If you see 403 on vision models (`auto/vision`, `bazaarlink/*`)**: the connected account lacks a paid plan that includes vision, or the API key has insufficient permissions. Verify in the provider dashboard that the key scope includes vision/multimodal, or connect a paid tier account and keep it as the vision target.
 
@@ -75,7 +75,7 @@ When you run `npm install -g omniroute`, you may see a wall of warnings like `np
 The warnings come from stale peer-dependency ranges in third-party packages OmniRoute doesn't control:
 
 1. **`marked-terminal` wants `marked >=1 <16`, found `marked@18`** — works fine in practice; the upstream peer range is just stale.
-2. **`deprecated prebuild-install@7.1.3`** — the native-binary fetch helper. Only relevant later if a web-cookie provider reports a missing `tls-client-node` native binary (a separate issue, not caused by this warning).
+2. **`deprecated prebuild-install@7.1.3`** — a transitive native-binary helper used by another dependency. The pinned `wreq-js@3.0.0` package bundles its seven supported platform addons directly; this warning does not diagnose the web-cookie transport.
 
 **No action needed** — the warnings cannot be fully silenced without forking upstream packages.
 
@@ -148,9 +148,10 @@ desktop app, for example:
 - `resources/app/.build/next/node_modules/playwright-<hash>/lib/…/agentParser.js` and
   `workerProcessEntry.js` — [Playwright](https://playwright.dev), the browser-automation
   library used for in-app provider login and browser-backed chat.
-- `resources/app/.build/next/node_modules/tls-client-node-<hash>/bin/tls-client-windows-64-<ver>.dll`
-  — the native binary from `tls-client-node`, used for Cloudflare-tolerant HTTP on some web
-  providers.
+- `resources/app/.build/next/node_modules/wreq-js-<hash>/rust/wreq-js.win32-x64-msvc.node`
+  — the declared MIT-licensed native addon from pinned `wreq-js@3.0.0`, used for
+  browser-fingerprinted HTTP on some web providers. Its expected SHA-256 is recorded in
+  `config/release/wreq-js-native-manifest.json`.
 
 **Why it fires:** the Windows installer is **not yet code-signed**, so an unsigned NSIS
 installer has zero reputation and behavioral heuristics run at maximum aggression. Combined

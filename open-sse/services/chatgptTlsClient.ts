@@ -2,8 +2,8 @@
  * Browser-TLS-impersonating HTTP client for chatgpt.com.
  *
  * Thin re-export over the shared `tlsClientBase.ts` factory
- * (`createTlsClientModule`). All provider-agnostic logic (sidecar lifecycle,
- * streaming tail-file, proxy resolution, error classes, SSE detection) lives
+ * (`createTlsClientModule`). All provider-agnostic logic (wreq-js transport
+ * pooling, direct streaming, proxy resolution, deadlines, SSE detection) lives
  * in the base module; this file supplies only ChatGPT-specific config and
  * preserves the original public export surface.
  */
@@ -24,9 +24,9 @@ const STREAM_FIRST_BYTE_TIMEOUT_MS =
 export const tlsClientModule = createTlsClientModule({
   providerName: "ChatGPT",
   tlsProfile: "firefox_148",
+  emulationOs: "macos",
   domain: "https://chatgpt.com",
-  tempDirPrefix: "cgpt-stream-",
-  tailFileVariant: "A",
+  streamEofPolicy: "include",
   responseValidation: "sse",
   exportCloudflareCheck: false,
   exposeStreamingForTesting: true,

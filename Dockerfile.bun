@@ -29,11 +29,6 @@ RUN if [ -d "node_modules/better-sqlite3" ]; then \
       (cd node_modules/better-sqlite3 && bunx node-gyp rebuild); \
     fi
 
-# Fetch tls-client-node native binary if script exists
-RUN if [ -f "node_modules/tls-client-node/scripts/postinstall.js" ]; then \
-      bun node_modules/tls-client-node/scripts/postinstall.js || true; \
-    fi
-
 # Disable Turbopack for Bun builder stage (Turbopack V8 internal worker bindings require Node)
 ENV OMNIROUTE_USE_TURBOPACK=0
 

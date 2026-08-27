@@ -16,10 +16,7 @@ import {
 import { prepareToolMessages } from "../translator/webTools.ts";
 import { buildToolModeResponse } from "./chatgptWebTools.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
-import {
-  buildSessionCookieHeader,
-  mergeRefreshedCookie,
-} from "../utils/nextAuthCookie.ts";
+import { buildSessionCookieHeader, mergeRefreshedCookie } from "../utils/nextAuthCookie.ts";
 import {
   PPLX_SSE_ENDPOINT,
   PPLX_USER_AGENT,
@@ -362,7 +359,15 @@ export class PerplexityWebExecutor extends BaseExecutor {
     super("perplexity-web", { id: "perplexity-web", baseUrl: PPLX_SSE_ENDPOINT });
   }
 
-  async execute({ model, body, stream, credentials, signal, log, onCredentialsRefreshed }: ExecuteInput) {
+  async execute({
+    model,
+    body,
+    stream,
+    credentials,
+    signal,
+    log,
+    onCredentialsRefreshed,
+  }: ExecuteInput) {
     const bodyObj = (body || {}) as Record<string, unknown>;
     const rawMessages = bodyObj.messages as Array<Record<string, unknown>> | undefined;
     if (!rawMessages || !Array.isArray(rawMessages) || rawMessages.length === 0) {
@@ -496,7 +501,7 @@ export class PerplexityWebExecutor extends BaseExecutor {
         if (isCloudflareChallenge(response.text)) {
           errMsg =
             "Cloudflare blocked the request — Perplexity's edge rejected this server's TLS fingerprint " +
-            "(common on VPS/datacenter IPs). Ensure tls-client-node is installed with its native binary, " +
+            "(common on VPS/datacenter IPs). Verify the wreq-js 3.0.0 native addon, " +
             "or route perplexity-web through a residential proxy.";
           log?.error?.("PPLX-WEB", "Cloudflare challenge detected — TLS bypass failed");
         } else {
