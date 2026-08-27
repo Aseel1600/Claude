@@ -25,7 +25,6 @@ import { dedupeTargetsByExecutionKey, isRecord } from "./comboData.ts";
 import { isComboModelVisible } from "./comboVisibility.ts";
 import { getTargetProvider, MAX_COMBO_DEPTH } from "./comboPredicates.ts";
 import { evaluateContextLimit } from "./contextOverrideGate.ts";
-import { hasEstimableContent } from "./knownContextOverflow.ts";
 import {
   normalizeModelEntry,
   orderTargetsForWeightedFallback,
@@ -115,6 +114,7 @@ function normalizeRuntimeStep(
       comboName: step.comboName,
       weight,
       label,
+      ...(step.fallbackOnlyOnQuotaExhaustion ? { fallbackOnlyOnQuotaExhaustion: true } : {}),
     };
   }
 
@@ -141,6 +141,9 @@ function normalizeRuntimeStep(
     // `prompt` is a per-step pipeline input and only exists on a model step —
     // #8894 widened the union with ComboProviderWildcardStep, which has no prompt.
     prompt: (step.kind === "model" ? step.prompt : null) || null,
+    ...(step.kind === "model" && step.fallbackOnlyOnQuotaExhaustion
+      ? { fallbackOnlyOnQuotaExhaustion: true }
+      : {}),
   } satisfies ResolvedComboTarget;
 }
 
@@ -476,6 +479,13 @@ function requestRequiresStructuredOutput(body: Record<string, unknown>): boolean
   return type === "json_object" || type === "json_schema";
 }
 
+export function hasEstimableContent(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return true;
+}
+
 function estimateRequestInputTokens(body: Record<string, unknown>): number {
   const estimatePayload: Record<string, unknown> = {};
   for (const key of ["messages", "input", "tools", "functions", "response_format"]) {
@@ -485,13 +495,6 @@ function estimateRequestInputTokens(body: Record<string, unknown>): number {
 }
 
 function valueContainsImagePart(value: unknown): boolean {
-  // Delegates to the unified media detector (open-sse/utils/mediaParts.ts) —
-  // single source of truth shared with the vision-bridge guardrail. The
-  // detector keeps this filter's legacy permissive matches (image-ish `type`
-  // in any casing, bare `image_url`/`input_image` keys, source.media_type
-  // image/*, bare data:image strings, recursion capped at depth 8) via
-  // "image_indicator" parts. containsMediaKind short-circuits on the first
-  // hit — this runs on every request, so no full-part collection here.
   return containsMediaKind([{ content: [value] }], "image");
 }
 
@@ -615,6 +618,10 @@ export type CompatFilterOptions = {
   failOpen?: boolean;
 };
 
+export function hasHardCapabilityFailure(reasons: string[]): boolean {
+  return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));
+}
+
 /**
  * Summarize a capability-filter exhaustion for a 400-class combo error (#8488).
  * Returns null when the empty pool is not attributable to hard requirements.
@@ -718,9 +725,7 @@ export function filterTargetsByRequestCompatibility(
 
   if (compatible.length === targets.length) return targets;
   if (compatible.length === 0) {
-    const hardRejected = rejected.some((entry) =>
-      entry.reasons.some((r) => HARD_COMPAT_REASONS.has(r))
-    );
+    const hardRejected = rejected.some((entry) => hasHardCapabilityFailure(entry.reasons));
     const failOpen = options?.failOpen === true;
 
     log.debug?.(

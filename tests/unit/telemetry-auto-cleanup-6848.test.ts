@@ -47,7 +47,6 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-const DAY_SECONDS = 86_400;
 const DAY_MS = 86_400_000;
 
 /** Ensure compression_run_telemetry table exists (created lazily in production). */
@@ -71,6 +70,19 @@ function ensureTelemetryTable(): void {
     )
   `);
 }
+
+test.beforeEach(() => {
+  ensureTelemetryTable();
+  const db = getDbInstance()!;
+  for (const table of [
+    "domain_cost_history",
+    "compression_cache_stats",
+    "xp_audit_log",
+    "compression_run_telemetry",
+  ]) {
+    db.exec(`DELETE FROM ${table}`);
+  }
+});
 
 // ─── Tests ───────────────────────────────────────────────────────────────
 
@@ -147,14 +159,16 @@ test("#6848 cleanupXpAuditLog: deletes rows older than retention window", async 
 test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention window", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
   const insert = db.prepare(
     "INSERT INTO compression_run_telemetry (timestamp, tokens_before, tokens_after) VALUES (?, ?, ?)"
   );
 
-  insert.run(now - 40 * DAY_SECONDS, 1000, 500);
-  insert.run(now - 40 * DAY_SECONDS, 2000, 800);
-  insert.run(now - 5 * DAY_SECONDS, 1500, 600);
+  // insertCompressionRunTelemetryRow() stamps Date.now() — epoch MILLISECONDS.
+  // Seeding seconds here encoded the same unit mismatch the cleanup had.
+  insert.run(now - 40 * DAY_MS, 1000, 500);
+  insert.run(now - 40 * DAY_MS, 2000, 800);
+  insert.run(now - 5 * DAY_MS, 1500, 600);
 
   const result = await cleanupCompressionRunTelemetry();
 
@@ -170,7 +184,6 @@ test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention wi
 test("#6848 no rows deleted when all data is within retention window (calls all 4 real functions)", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;
-  const nowSeconds = Math.floor(Date.now() / 1000);
   const nowMilliseconds = Date.now();
   const recentISO = new Date().toISOString();
 
@@ -187,7 +200,7 @@ test("#6848 no rows deleted when all data is within retention window (calls all 
   ).run("k", "a", 5, recentISO);
   db.prepare(
     "INSERT INTO compression_run_telemetry (timestamp, tokens_before, tokens_after) VALUES (?, ?, ?)"
-  ).run(nowSeconds - DAY_SECONDS, 100, 50);
+  ).run(nowMilliseconds - DAY_MS, 100, 50);
 
   const r1 = await cleanupDomainCostHistory();
   const r2 = await cleanupCompressionCacheStats();

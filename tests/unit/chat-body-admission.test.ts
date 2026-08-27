@@ -8,11 +8,15 @@ const {
   admitChatStructure,
   ChatAdmissionController,
   CHAT_HARD_MAX_MESSAGES,
+  CHAT_ADMISSION_QUEUE_MAX_MS,
+  CHAT_ADMISSION_MAX_QUEUED_BYTES,
+  CHAT_LARGE_BODY_BYTES,
   releaseChatAdmissionAfterHandler,
   releaseChatAdmissionWhenDone,
   resolveSelfLoopBearer,
 } = admissionModule;
 const { withEarlyStreamKeepalive } = await import("../../open-sse/utils/earlyStreamKeepalive.ts");
+const { getActiveRequestCount } = await import("../../src/lib/gracefulShutdown.ts");
 
 /**
  * Save/restore the env-var keys that `resolveSelfLoopBearer` reads so tests can
@@ -46,6 +50,25 @@ function chatRequest(body: string, contentLength: string | null = String(body.le
   });
 }
 
+test("heavyweight leases are counted for SIGTERM drain (#11015)", () => {
+  globalThis.__omnirouteShutdown = { init: true, shuttingDown: false, activeRequests: 0 };
+  const controller = new ChatAdmissionController(2);
+  const before = getActiveRequestCount();
+  const lease = controller.tryAcquireHeavy();
+  assert.ok(lease);
+  assert.equal(getActiveRequestCount(), before + 1);
+  const headroom = controller.tryAcquireHealthyHeadroom();
+  assert.ok(headroom);
+  assert.equal(getActiveRequestCount(), before + 2);
+  lease.release();
+  assert.equal(getActiveRequestCount(), before + 1);
+  headroom.release();
+  assert.equal(getActiveRequestCount(), before);
+  lease.release();
+  headroom.release();
+  assert.equal(getActiveRequestCount(), before);
+});
+
 test("small known body is admitted without consuming heavyweight capacity", async () => {
   const controller = new ChatAdmissionController(1);
   const result = await admitChatRequest(chatRequest("{}"), {
@@ -60,7 +83,7 @@ test("small known body is admitted without consuming heavyweight capacity", asyn
 
 test("a byte-light request above the message threshold acquires heavyweight capacity", async () => {
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     {
       messages: [
         { role: "user", content: "one" },
@@ -77,15 +100,42 @@ test("a byte-light request above the message threshold acquires heavyweight capa
   assert.equal(controller.activeHeavy, 0);
 });
 
-test("a byte-light request above the tool threshold is rejected when heavy capacity is busy", async () => {
+test("Responses input items count toward heavyweight admission", async () => {
+  const controller = new ChatAdmissionController(1);
+  const result = await admitChatStructure(
+    {
+      input: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
+    null,
+    { controller, maxMessages: 10, heavyMessages: 2, heavyTools: 10, heavyTokens: 10_000 }
+  );
+
+  assert.equal(result.admit, true);
+  assert.equal(controller.activeHeavy, 1);
+  if (result.admit) result.lease?.release();
+});
+
+test("a byte-light request above the tool threshold is rejected when heavy capacity is busy AND the heap is genuinely under pressure (#10183/#10268)", async () => {
   const controller = new ChatAdmissionController(1);
   const occupied = controller.tryAcquireHeavy();
   assert.ok(occupied);
 
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: [], tools: [{ type: "function" }, { type: "function" }] },
     null,
-    { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 2, heavyTokens: 10_000 }
+    {
+      controller,
+      maxMessages: 10,
+      heavyMessages: 10,
+      heavyTools: 2,
+      heavyTokens: 10_000,
+      // #10183/#10268: shedding is now conditional on real heap pressure, not
+      // capacity alone — simulate the pressured case this test targets.
+      heapPressureCheck: () => true,
+    }
   );
 
   assert.equal(result.admit, false);
@@ -98,7 +148,7 @@ test("a byte-light request above the tool threshold is rejected when heavy capac
 
 test("an opt-in history cap still returns the structured compact-required 413", async () => {
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: Array.from({ length: 3 }, () => ({ role: "user", content: "x" })) },
     null,
     { controller, maxMessages: 2, heavyMessages: 1, heavyTools: 10, heavyTokens: 10_000 }
@@ -120,7 +170,7 @@ test("no history cap is enforced by default; long conversations are admitted", a
   assert.equal(CHAT_HARD_MAX_MESSAGES, 0, "the shipped default must not cap history");
 
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: Array.from({ length: 5_000 }, () => ({ role: "user", content: "x" })) },
     null,
     { controller, heavyMessages: 200, heavyTools: 64, heavyTokens: 32_000 }
@@ -132,15 +182,23 @@ test("no history cap is enforced by default; long conversations are admitted", a
   result.lease?.release();
 });
 
-test("an uncapped oversized conversation still yields to occupied heavyweight capacity", async () => {
+test("an uncapped oversized conversation still yields to occupied heavyweight capacity when the heap is genuinely under pressure (#10183/#10268)", async () => {
   const controller = new ChatAdmissionController(1);
   const occupied = controller.tryAcquireHeavy();
   assert.ok(occupied);
 
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: Array.from({ length: 5_000 }, () => ({ role: "user", content: "x" })) },
     null,
-    { controller, maxMessages: 0, heavyMessages: 200, heavyTools: 64, heavyTokens: 32_000 }
+    {
+      controller,
+      maxMessages: 0,
+      heavyMessages: 200,
+      heavyTools: 64,
+      heavyTokens: 32_000,
+      // #10183/#10268: shedding is now conditional on real heap pressure.
+      heapPressureCheck: () => true,
+    }
   );
 
   assert.equal(result.admit, false);
@@ -153,9 +211,9 @@ test("an uncapped oversized conversation still yields to occupied heavyweight ca
   occupied.release();
 });
 
-test("maxMessages: 0 explicitly disables the history cap", () => {
+test("maxMessages: 0 explicitly disables the history cap", async () => {
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: Array.from({ length: 3 }, () => ({ role: "user", content: "x" })) },
     null,
     { controller, maxMessages: 0, heavyMessages: 1, heavyTools: 10, heavyTokens: 10_000 }
@@ -165,9 +223,9 @@ test("maxMessages: 0 explicitly disables the history cap", () => {
   if (result.admit) result.lease?.release();
 });
 
-test("a conservative token estimate classifies string messages and tool schemas as heavy", () => {
+test("a conservative token estimate classifies string messages and tool schemas as heavy", async () => {
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     {
       messages: [{ role: "user", content: "abcdefgh" }],
       tools: [{ type: "function", function: { name: "tool", description: "abcdefgh" } }],
@@ -181,9 +239,24 @@ test("a conservative token estimate classifies string messages and tool schemas 
   if (result.admit) result.lease?.release();
 });
 
-test("exhausting the bounded structural inspection is conservatively heavyweight", () => {
+test("Responses string input contributes to the conservative token estimate", async () => {
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure({ messages: [], input: "abcdefgh" }, null, {
+    controller,
+    maxMessages: 10,
+    heavyMessages: 10,
+    heavyTools: 10,
+    heavyTokens: 2,
+  });
+
+  assert.equal(result.admit, true);
+  assert.equal(controller.activeHeavy, 1);
+  if (result.admit) result.lease?.release();
+});
+
+test("exhausting the bounded structural inspection is conservatively heavyweight", async () => {
+  const controller = new ChatAdmissionController(1);
+  const result = await admitChatStructure(
     {
       messages: [
         {
@@ -201,12 +274,12 @@ test("exhausting the bounded structural inspection is conservatively heavyweight
   if (result.admit) result.lease?.release();
 });
 
-test("tool-schema property names contribute to the conservative token estimate", () => {
+test("tool-schema property names contribute to the conservative token estimate", async () => {
   const controller = new ChatAdmissionController(1);
   const properties = Object.fromEntries(
     Array.from({ length: 5 }, (_, index) => [`${index}${"k".repeat(99)}`, {}])
   );
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: [], tools: [{ function: { parameters: { properties } } }] },
     null,
     { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 10, heavyTokens: 100 }
@@ -217,9 +290,9 @@ test("tool-schema property names contribute to the conservative token estimate",
   if (result.admit) result.lease?.release();
 });
 
-test("non-ASCII strings use a conservative UTF-8 token estimate", () => {
+test("non-ASCII strings use a conservative UTF-8 token estimate", async () => {
   const controller = new ChatAdmissionController(1);
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     { messages: [{ role: "user", content: "漢".repeat(100) }] },
     null,
     { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 10, heavyTokens: 100 }
@@ -230,10 +303,10 @@ test("non-ASCII strings use a conservative UTF-8 token estimate", () => {
   if (result.admit) result.lease?.release();
 });
 
-test("wide objects exhaust bounded inspection without materializing all property values", () => {
+test("wide objects exhaust bounded inspection without materializing all property values", async () => {
   const controller = new ChatAdmissionController(1);
   const wide = Object.fromEntries(Array.from({ length: 10_001 }, (_, index) => [`k${index}`, 0]));
-  const result = admitChatStructure({ messages: [{ role: "user", content: wide }] }, null, {
+  const result = await admitChatStructure({ messages: [{ role: "user", content: wide }] }, null, {
     controller,
     maxMessages: 10,
     heavyMessages: 10,
@@ -246,12 +319,12 @@ test("wide objects exhaust bounded inspection without materializing all property
   if (result.admit) result.lease?.release();
 });
 
-test("an existing byte-heavy lease is reused for structure-heavy admission", () => {
+test("an existing byte-heavy lease is reused for structure-heavy admission", async () => {
   const controller = new ChatAdmissionController(1);
   const lease = controller.tryAcquireHeavy();
   assert.ok(lease);
 
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     {
       messages: [
         { role: "user", content: "one" },
@@ -637,7 +710,7 @@ test("bypass describe call passes the structural stage while the parent holds th
 
     // Structural stage (the route's admitChatStructure(parsedBody, admission.lease)):
     // the sentinel lease must prevent the heavy body from re-acquiring → no 503.
-    const structural = admitChatStructure(JSON.parse(body), admission.lease, { controller });
+    const structural = await admitChatStructure(JSON.parse(body), admission.lease, { controller });
     assert.equal(structural.admit, true);
     assert.equal(controller.activeHeavy, 1);
 
