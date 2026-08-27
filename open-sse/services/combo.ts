@@ -3286,7 +3286,24 @@ async function handleRoundRobinCombo({
               "COMBO-RR",
               `Maximum combo attempts (${maxGlobalAttempts}) exceeded. Terminating loop to prevent runaway requests.`
             );
-            return errorResponse(503, "Maximum combo retry limit reached");
+            return errorResponseWithComboDiagnostics(
+              503,
+              "Maximum combo retry limit reached",
+              {
+                poolSize: modelCount,
+                attempted: globalAttempts,
+                excluded: [
+                  ...[...exhaustedProviders].map((p) => ({ provider: p, reason: "exhausted" })),
+                  ...[...exhaustedConnections].map((c) => formatExhaustedConnectionKey(String(c))),
+                ],
+                attemptOrder: rrOutcomes.map((o) => ({
+                  provider: o.model.split("/")[0] || "unknown",
+                  model: o.model,
+                })),
+                terminalReason: "max_attempts_exceeded",
+                recovery: buildRecoveryHint("max_attempts_exceeded"),
+              }
+            );
           }
           if (retry > 0) {
             log.info(
