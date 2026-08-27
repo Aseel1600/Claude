@@ -259,6 +259,89 @@ test("guardrail registry fails open when a guardrail throws", async () => {
   assert.equal(warnings.length, 1);
 });
 
+test("guardrail registry sanitizes native pre-call logs for a transcript-sensitive request", async () => {
+  const transcriptSentinel = "PRIVATE_GUARDRAIL_PRECALL_TRANSCRIPT_SENTINEL";
+  class EchoingGuardrail extends BaseGuardrail {
+    constructor() {
+      super("echoing", { priority: 5 });
+    }
+
+    override async preCall(
+      _payload: unknown,
+      context: import("../../src/lib/guardrails/base.ts").GuardrailContext
+    ) {
+      context.log?.warn?.("GUARDRAIL", `native echo: ${transcriptSentinel}`, {
+        transcriptEcho: transcriptSentinel,
+      });
+      return { meta: { transcriptEcho: transcriptSentinel } };
+    }
+  }
+
+  class ExplodingGuardrail extends BaseGuardrail {
+    constructor() {
+      super("exploding-private", { priority: 10 });
+    }
+
+    override async preCall() {
+      throw new Error(transcriptSentinel);
+    }
+  }
+
+  const retainedLogs: unknown[][] = [];
+  const capture = (...args: unknown[]) => retainedLogs.push(args);
+  const registry = new GuardrailRegistry();
+  registry.register(new EchoingGuardrail());
+  registry.register(new ExplodingGuardrail());
+  const result = await registry.runPreCallHooks(
+    { safe: true },
+    {
+      log: { debug: capture, info: capture, warn: capture, error: capture },
+      videoTranscriptSensitive: true,
+    }
+  );
+
+  assert.equal(result.blocked, false);
+  const retained = JSON.stringify(retainedLogs);
+  assert.equal(retained.includes(transcriptSentinel), false);
+  assert.match(retained, /omitted: video transcript/);
+});
+
+test("guardrail registry sanitizes native post-call logs for a transcript-sensitive request", async () => {
+  const transcriptSentinel = "PRIVATE_GUARDRAIL_POSTCALL_TRANSCRIPT_SENTINEL";
+  class ExplodingPostGuardrail extends BaseGuardrail {
+    constructor() {
+      super("exploding-post-private", { priority: 5 });
+    }
+
+    override async postCall(
+      _response: unknown,
+      context: import("../../src/lib/guardrails/base.ts").GuardrailContext
+    ) {
+      context.log?.warn?.("GUARDRAIL", `native echo: ${transcriptSentinel}`, {
+        transcriptEcho: transcriptSentinel,
+      });
+      throw new Error(transcriptSentinel);
+    }
+  }
+
+  const retainedLogs: unknown[][] = [];
+  const capture = (...args: unknown[]) => retainedLogs.push(args);
+  const registry = new GuardrailRegistry();
+  registry.register(new ExplodingPostGuardrail());
+  const result = await registry.runPostCallHooks(
+    { choices: [] },
+    {
+      log: { debug: capture, info: capture, warn: capture, error: capture },
+      videoTranscriptSensitive: true,
+    }
+  );
+
+  assert.equal(result.blocked, false);
+  const retained = JSON.stringify(retainedLogs);
+  assert.equal(retained.includes(transcriptSentinel), false);
+  assert.match(retained, /omitted: video transcript/);
+});
+
 test("guardrail registry never fails open after the client request aborts", async () => {
   class AbortedGuardrail extends BaseGuardrail {
     constructor() {

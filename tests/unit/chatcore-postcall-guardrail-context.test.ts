@@ -7,9 +7,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { buildPostCallGuardrailContext } = await import(
-  "../../open-sse/handlers/chatCore/postCallGuardrailContext.ts"
-);
+const { buildPostCallGuardrailContext } =
+  await import("../../open-sse/handlers/chatCore/postCallGuardrailContext.ts");
 
 function baseArgs(overrides: Record<string, unknown> = {}) {
   return {
@@ -45,6 +44,11 @@ test("maps fields, constants, and source/target formats", () => {
     body: { messages: [] },
     headers: { "x-test": "1" },
   });
+});
+
+test("propagates the server-owned transcript sensitivity bit", () => {
+  const ctx = buildPostCallGuardrailContext(baseArgs({ videoTranscriptSensitive: true }), () => []);
+  assert.equal(ctx.videoTranscriptSensitive, true);
 });
 
 test("null clientRawRequest → endpoint/headers null", () => {
