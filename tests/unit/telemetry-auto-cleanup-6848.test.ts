@@ -181,6 +181,14 @@ test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention wi
   assert.strictEqual(remaining.cnt, 1);
 });
 
+test("#6848 cleanupCompressionRunTelemetry: missing lazy table is an empty no-op", async () => {
+  getDbInstance()!.exec("DROP TABLE compression_run_telemetry");
+
+  const result = await cleanupCompressionRunTelemetry();
+
+  assert.deepStrictEqual(result, { deleted: 0, errors: 0 });
+});
+
 test("#6848 no rows deleted when all data is within retention window (calls all 4 real functions)", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;
