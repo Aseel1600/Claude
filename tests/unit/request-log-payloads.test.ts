@@ -639,6 +639,12 @@ test("treats explicit malformed and nested video carriers as transcript-sensitiv
       type: "input_video",
     },
     {
+      input_video: {
+        url: { transcript: privateTranscript },
+      },
+      type: "input_video",
+    },
+    {
       source: { transcript: privateTranscript },
       type: "video_source",
     },
