@@ -46,10 +46,22 @@ function extractXmlInvokeBlocks(
     const toolCallTextMatch = remaining.match(/TOOL_CALL\s+([A-Za-z0-9_]+):\s*/);
 
     const matches = [
-      invokeMatch ? { type: "invoke" as const, index: invokeMatch.index!, data: invokeMatch } : null,
-      toolCallTagMatch ? { type: "tool_call_tag" as const, index: toolCallTagMatch.index!, data: toolCallTagMatch } : null,
-      toolCallTextMatch ? { type: "tool_call_text" as const, index: toolCallTextMatch.index!, data: toolCallTextMatch } : null,
-    ].filter(Boolean).sort((a, b) => a!.index - b!.index);
+      invokeMatch
+        ? { type: "invoke" as const, index: invokeMatch.index!, data: invokeMatch }
+        : null,
+      toolCallTagMatch
+        ? { type: "tool_call_tag" as const, index: toolCallTagMatch.index!, data: toolCallTagMatch }
+        : null,
+      toolCallTextMatch
+        ? {
+            type: "tool_call_text" as const,
+            index: toolCallTextMatch.index!,
+            data: toolCallTextMatch,
+          }
+        : null,
+    ]
+      .filter(Boolean)
+      .sort((a, b) => a!.index - b!.index);
 
     if (matches.length === 0) {
       cleaned += remaining;
@@ -94,9 +106,7 @@ function extractXmlInvokeBlocks(
         const name = (parsed.name || parsed.tool_name || "") as string;
         const rawArgs = parsed.arguments || parsed.args || parsed.parameters || {};
         const args: Record<string, string> =
-          typeof rawArgs === "string"
-            ? JSON.parse(rawArgs)
-            : (rawArgs as Record<string, string>);
+          typeof rawArgs === "string" ? JSON.parse(rawArgs) : (rawArgs as Record<string, string>);
         if (name) {
           toolCalls.push({ id: `toolu_txt_${Date.now()}_${toolCalls.length}`, name, args });
         }
@@ -114,12 +124,27 @@ function extractXmlInvokeBlocks(
       let jsonEndIndex = -1;
       for (let i = 0; i < afterPrefix.length; i++) {
         const c = afterPrefix[i];
-        if (escape) { escape = false; continue; }
-        if (c === "\\" && inString) { escape = true; continue; }
-        if (c === '"') { inString = !inString; continue; }
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (c === "\\" && inString) {
+          escape = true;
+          continue;
+        }
+        if (c === '"') {
+          inString = !inString;
+          continue;
+        }
         if (!inString) {
           if (c === "{") depth++;
-          else if (c === "}") { depth--; if (depth === 0) { jsonEndIndex = i + 1; break; } }
+          else if (c === "}") {
+            depth--;
+            if (depth === 0) {
+              jsonEndIndex = i + 1;
+              break;
+            }
+          }
         }
       }
       if (jsonEndIndex === -1) {
@@ -164,13 +189,15 @@ function stopTextBlock(state, results) {
 
 // Convert OpenAI stream chunk to Claude format
 export function openaiToClaudeResponse(chunk, state) {
-  if (!chunk || !chunk.choices?.[0]) return null;
+  if (!chunk) return null;
 
-  const results = [];
-  const choice = chunk.choices[0];
-  const delta = choice.delta;
-
-  // Track usage from OpenAI chunk if available
+  // Track usage from OpenAI chunk if available. This must run before the
+  // `choices?.[0]` guard below: upstreams using `stream_options.include_usage`
+  // (confirmed: Fireworks) send the real usage block — including cache token
+  // accounting — on a trailing chunk shaped `{choices: [], usage: {...}}`,
+  // which has no choice to process. Bailing out early on that shape (as this
+  // used to) silently dropped the real usage and left `state.usage` on
+  // whatever estimate/undefined value it had from the finish_reason chunk (#11817).
   if (chunk.usage && typeof chunk.usage === "object") {
     const promptTokens =
       typeof chunk.usage.prompt_tokens === "number" ? chunk.usage.prompt_tokens : 0;
@@ -205,6 +232,12 @@ export function openaiToClaudeResponse(chunk, state) {
     // Note: completion_tokens_details.reasoning_tokens is already included in output_tokens
     // No need to add separately as Claude expects total output_tokens
   }
+
+  if (!chunk.choices?.[0]) return null;
+
+  const results = [];
+  const choice = chunk.choices[0];
+  const delta = choice.delta;
 
   // First chunk - ALWAYS send message_start first
   if (!state.messageStartSent) {

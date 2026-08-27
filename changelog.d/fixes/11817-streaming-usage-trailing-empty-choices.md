@@ -1,0 +1,1 @@
+- fix(backend): capture usage on trailing `choices: []` streaming chunks in the OpenAI→Claude translator, so cache token accounting from upstreams using `stream_options.include_usage` (e.g. Fireworks) is no longer silently dropped (#11817)
