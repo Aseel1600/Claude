@@ -13,6 +13,7 @@
  * Extracted from combo.ts as a pure move (#3501). No behaviour change.
  */
 import { getCachedProviderConnections } from "../../../src/lib/db/readCache";
+import { redactVideoTranscriptSensitiveText } from "../../../src/lib/guardrails/videoTranscriptLogRedaction";
 import { getCircuitBreaker } from "../../../src/shared/utils/circuitBreaker";
 import { fisherYatesShuffle, getNextFromDeck } from "../../../src/shared/utils/shuffleDeck";
 import { handleFusionChat, type FusionTuning } from "../fusion.ts";
@@ -84,6 +85,7 @@ type PreludeBaseOptionArgs = {
   signal?: AbortSignal | null;
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  videoTranscriptSensitive?: boolean;
   clientManagedResponsesContext?: boolean;
   /** #9654 Wave 2: per-target lane-aware admission probe (see HandleComboChatOptions). */
   perTargetAdmission?: PerTargetAdmissionHook | null;
@@ -111,6 +113,7 @@ function buildBaseOptions(a: PreludeBaseOptionArgs): HandleComboChatOptions {
     signal: a.signal,
     apiKeyAllowedConnections: a.apiKeyAllowedConnections,
     hiddenModelsByProvider: a.hiddenModelsByProvider,
+    videoTranscriptSensitive: a.videoTranscriptSensitive,
     invocationId: a.invocationId,
     clientManagedResponsesContext: a.clientManagedResponsesContext,
     perTargetAdmission: a.perTargetAdmission,
@@ -221,8 +224,16 @@ async function evaluatePinnedResponse(args: {
   clientRequestedStream: boolean;
   config: ComboSetupConfig;
   log: ComboLogger;
+  videoTranscriptSensitive?: boolean;
 }): Promise<Response | null> {
-  const { pinnedResult, pinnedModel, clientRequestedStream, config, log } = args;
+  const {
+    pinnedResult,
+    pinnedModel,
+    clientRequestedStream,
+    config,
+    log,
+    videoTranscriptSensitive = false,
+  } = args;
   if (pinnedResult.ok) {
     let pinnedClone: Response;
     try {
@@ -239,9 +250,13 @@ async function evaluatePinnedResponse(args: {
     releaseQualityClone(pinnedClone, pinnedResult, pinnedQuality);
     if (pinnedQuality.valid) return pinnedResult;
     releaseRejectedQualityResponse(pinnedClone, pinnedResult);
+    const retainedReason = redactVideoTranscriptSensitiveText(
+      pinnedQuality.reason || "upstream response failed quality validation",
+      videoTranscriptSensitive
+    );
     log.warn(
       "COMBO",
-      `Pinned model ${pinnedModel} returned 200 but failed quality check: ${pinnedQuality.reason}, falling through to combo retry/fallback`
+      `Pinned model ${pinnedModel} returned 200 but failed quality check: ${retainedReason}, falling through to combo retry/fallback`
     );
     return null;
   }
@@ -271,6 +286,7 @@ export async function tryPinnedModelDispatch(args: {
   handleSingleModelWithTimeout: HandleSingleModel;
   log: ComboLogger;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  videoTranscriptSensitive?: boolean;
 }): Promise<Response | null> {
   const {
     body,
@@ -282,6 +298,7 @@ export async function tryPinnedModelDispatch(args: {
     handleSingleModelWithTimeout,
     log,
     hiddenModelsByProvider,
+    videoTranscriptSensitive = false,
   } = args;
   // The pin is read from session_model_history (a PRIOR turn) and may name a
   // model that has since been removed from this combo, or a provider whose
@@ -341,9 +358,13 @@ export async function tryPinnedModelDispatch(args: {
         modelPinned: true,
       } as SingleModelTarget);
     } catch (pinErr) {
+      const retainedPinError = redactVideoTranscriptSensitiveText(
+        pinErr instanceof Error ? pinErr.message : String(pinErr),
+        videoTranscriptSensitive
+      );
       log.warn(
         "COMBO",
-        `Pinned model ${pinnedModel} threw error: ${pinErr instanceof Error ? pinErr.message : String(pinErr)}, falling through to combo retry/fallback`
+        `Pinned model ${pinnedModel} threw error: ${retainedPinError}, falling through to combo retry/fallback`
       );
     }
     if (pinnedResult) {
@@ -353,6 +374,7 @@ export async function tryPinnedModelDispatch(args: {
         clientRequestedStream,
         config,
         log,
+        videoTranscriptSensitive,
       });
       if (accepted) return accepted;
     }
@@ -395,6 +417,7 @@ export async function tryFusionDispatch(args: {
   signal?: AbortSignal | null;
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  videoTranscriptSensitive?: boolean;
   perTargetAdmission?: PerTargetAdmissionHook | null;
   deferContextOverflowWhenCompressible?: boolean;
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
@@ -524,6 +547,7 @@ export async function tryFusionDispatch(args: {
     perTargetAdmission: args.perTargetAdmission,
     judgeModel,
     tuning: fusionTuning,
+    videoTranscriptSensitive: args.videoTranscriptSensitive,
   });
 }
 
@@ -676,6 +700,7 @@ export async function tryRuntimeUnitDispatch(args: {
   signal?: AbortSignal | null;
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  videoTranscriptSensitive?: boolean;
   perTargetAdmission?: PerTargetAdmissionHook | null;
   deferContextOverflowWhenCompressible?: boolean;
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;

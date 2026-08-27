@@ -618,7 +618,7 @@ export async function executeChatWithBreaker({
 
     if (cbErr?.code === "PROXY_UNREACHABLE" || /proxy unreachable/i.test(cbErr?.message || "")) {
       const detail = cbErr?.message || "Proxy unreachable";
-      log.warn("PROXY", detail);
+      log.warn("PROXY", redactVideoTranscriptSensitiveText(detail, videoTranscriptSensitive));
       return {
         result: {
           success: false,

@@ -19,6 +19,8 @@ export interface GuardrailContext {
   sourceFormat?: string | null;
   stream?: boolean;
   targetFormat?: string | null;
+  /** Server-owned bit resolved before any guardrail can replace the raw video carrier. */
+  videoTranscriptSensitive?: boolean;
 }
 
 export interface GuardrailResult<TValue = unknown> {

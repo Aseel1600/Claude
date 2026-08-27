@@ -69,3 +69,19 @@ export function resolveStreamReadinessClassificationError(
   }
   return fallback;
 }
+
+/**
+ * Resolve the model key used by daily-quota lockout/telemetry. Ordinary requests preserve the
+ * provider's more-specific model token. A transcript-sensitive video request must not promote an
+ * arbitrary upstream echo into persistent routing state, so it uses the already-resolved model.
+ */
+export function resolveDailyQuotaLockoutModel(
+  errorText: string,
+  resolvedModel: string,
+  videoTranscriptSensitive: boolean
+): string {
+  if (videoTranscriptSensitive) return resolvedModel;
+  const match = errorText.match(/today's quota for model ([^,]+)/);
+  const upstreamModel = match?.[1]?.trim();
+  return upstreamModel || resolvedModel;
+}

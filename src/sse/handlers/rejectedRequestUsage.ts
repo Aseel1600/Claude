@@ -19,6 +19,7 @@
  */
 import { saveCallLog, saveRequestUsage } from "@/lib/usageDb";
 import {
+  containsVideoTranscriptForLog,
   omitVideoTranscriptForLog,
   VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER,
 } from "@/lib/guardrails/videoTranscriptLogRedaction";
@@ -75,10 +76,13 @@ export async function recordRejectedRequestUsage(input: RejectedRequestUsageInpu
 
   const now = Date.now();
   const duration = typeof startTime === "number" ? now - startTime : 0;
-  const retainedError = videoTranscriptSensitive
-    ? VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER
-    : error || null;
-  const retainedRequestBody = videoTranscriptSensitive
+  // This sink owns a request body and must defend itself if an upstream caller forgets the
+  // request-scoped bit. The explicit bit is still required after a guardrail replaced the raw
+  // carrier with generated text, which is why both sources participate.
+  const transcriptSensitive =
+    videoTranscriptSensitive || containsVideoTranscriptForLog(requestBody);
+  const retainedError = transcriptSensitive ? VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER : error || null;
+  const retainedRequestBody = transcriptSensitive
     ? omitVideoTranscriptForLog(requestBody)
     : requestBody;
 

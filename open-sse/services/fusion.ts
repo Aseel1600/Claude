@@ -20,6 +20,7 @@
  */
 import { errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import { extractTextContent } from "../translator/helpers/geminiHelper.ts";
+import { redactVideoTranscriptSensitiveText } from "../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 import type { PerTargetAdmissionHook } from "./admission/types.ts";
 import type { ComboLogger, HandleSingleModel, ResolvedComboTarget } from "./combo/types.ts";
 
@@ -231,6 +232,8 @@ export type HandleFusionChatOptions = {
   tuning?: FusionTuning | null;
   /** #9654 Wave 2: per-target lane-aware admission probe (see HandleComboChatOptions). */
   perTargetAdmission?: PerTargetAdmissionHook | null;
+  /** Request-scoped bit set before Video Bridge can replace the raw carrier. */
+  videoTranscriptSensitive?: boolean;
 };
 
 function getFusionModelString(model: FusionModel): string {
@@ -276,6 +279,7 @@ export async function handleFusionChat({
   judgeTarget,
   tuning,
   perTargetAdmission,
+  videoTranscriptSensitive = false,
 }: HandleFusionChatOptions): Promise<Response> {
   const panel = Array.isArray(models) ? models.filter(Boolean) : [];
   if (panel.length === 0) {
@@ -400,7 +404,10 @@ export async function handleFusionChat({
     }
     if (sentinel.__error) {
       log.warn("FUSION", `Panel ${model} threw`, {
-        error: sanitizeErrorMessage(sentinel.__error as Error),
+        error: redactVideoTranscriptSensitiveText(
+          sanitizeErrorMessage(sentinel.__error as Error),
+          videoTranscriptSensitive
+        ),
       });
       failures.push({ model, reason: "threw" });
       continue;
@@ -428,7 +435,10 @@ export async function handleFusionChat({
       }
     } catch (e) {
       log.warn("FUSION", `Panel ${model} unparseable`, {
-        error: sanitizeErrorMessage(e as Error),
+        error: redactVideoTranscriptSensitiveText(
+          sanitizeErrorMessage(e as Error),
+          videoTranscriptSensitive
+        ),
       });
       failures.push({ model, reason: "unparseable" });
     }

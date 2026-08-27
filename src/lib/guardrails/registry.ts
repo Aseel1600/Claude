@@ -10,6 +10,7 @@ import { VisionBridgeGuardrail } from "./visionBridge";
 import { AudioBridgeGuardrail } from "./audioBridge";
 import { VideoBridgeGuardrail } from "./videoBridge";
 import { CredentialMaskerGuardrail } from "./credentialMasker";
+import { VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER } from "./videoTranscriptLogRedaction";
 
 /**
  * `preCall`/`postCall` may legitimately return nothing — that is the documented
@@ -69,8 +70,29 @@ function coerceDisabledGuardrails(value: unknown) {
     .filter(Boolean);
 }
 
-function getGuardrailLogger(context: GuardrailContext) {
-  return context.log || console;
+function getGuardrailLogger(context: GuardrailContext): NonNullable<GuardrailContext["log"]> {
+  const source = context.log || console;
+  if (context.videoTranscriptSensitive !== true) return source;
+
+  const emit = (
+    level: "debug" | "info" | "warn" | "error",
+    tag: string,
+    _message: string,
+    _meta?: Record<string, unknown>
+  ) => {
+    const target = source[level];
+    if (typeof target !== "function") return;
+    target.call(source, tag, VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER, {
+      detail: VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER,
+    });
+  };
+
+  return {
+    debug: (tag, message, meta) => emit("debug", tag, message, meta),
+    info: (tag, message, meta) => emit("info", tag, message, meta),
+    warn: (tag, message, meta) => emit("warn", tag, message, meta),
+    error: (tag, message, meta) => emit("error", tag, message, meta),
+  };
 }
 
 export function resolveDisabledGuardrails({
@@ -135,6 +157,8 @@ export class GuardrailRegistry {
 
   async runPreCallHooks<TPayload = unknown>(payload: TPayload, context: GuardrailContext = {}) {
     const logger = getGuardrailLogger(context);
+    const guardedContext =
+      context.videoTranscriptSensitive === true ? { ...context, log: logger } : context;
     const results: GuardrailExecutionResult[] = [];
     let currentPayload = payload;
 
@@ -151,7 +175,7 @@ export class GuardrailRegistry {
       }
 
       try {
-        const result = asGuardrailResult(await guardrail.preCall(currentPayload, context));
+        const result = asGuardrailResult(await guardrail.preCall(currentPayload, guardedContext));
         const modified = result?.modifiedPayload !== undefined;
         const meta = result?.meta || null;
 
@@ -211,6 +235,8 @@ export class GuardrailRegistry {
 
   async runPostCallHooks<TResponse = unknown>(response: TResponse, context: GuardrailContext = {}) {
     const logger = getGuardrailLogger(context);
+    const guardedContext =
+      context.videoTranscriptSensitive === true ? { ...context, log: logger } : context;
     const results: GuardrailExecutionResult[] = [];
     let currentResponse = response;
 
@@ -227,7 +253,7 @@ export class GuardrailRegistry {
       }
 
       try {
-        const result = asGuardrailResult(await guardrail.postCall(currentResponse, context));
+        const result = asGuardrailResult(await guardrail.postCall(currentResponse, guardedContext));
         const modified = result?.modifiedResponse !== undefined;
         const meta = result?.meta || null;
 

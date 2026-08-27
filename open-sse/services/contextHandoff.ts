@@ -5,6 +5,7 @@ import {
   type HandoffPayload,
   upsertHandoff,
 } from "../../src/lib/db/contextHandoffs.ts";
+import { containsVideoTranscriptForLog } from "../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 import { estimateTokens } from "./contextManager.ts";
 import { stripMarkdownCodeFence } from "../utils/aiSdkCompat.ts";
 
@@ -445,9 +446,17 @@ export function maybeGenerateHandoff(options: {
   model: string;
   expiresAt: string | null;
   config?: ContextRelayConfig | null;
+  /** Trusted request bit for carriers already replaced by the Video Bridge guardrail. */
+  videoTranscriptSensitive?: boolean;
   handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
 }): void {
   if (!options.sessionId || !options.connectionId) return;
+  if (
+    options.videoTranscriptSensitive === true ||
+    containsVideoTranscriptForLog(options.messages)
+  ) {
+    return;
+  }
 
   const relayConfig = resolveContextRelayConfig(options.config as Record<string, unknown>);
   if (relayConfig.handoffProviders.length === 0) return;
@@ -690,8 +699,16 @@ export function maybeGenerateUniversalHandoff(options: {
   prevModel: string | null;
   currModel: string;
   universalConfig: UniversalHandoffConfig;
+  /** Trusted request bit for carriers already replaced by the Video Bridge guardrail. */
+  videoTranscriptSensitive?: boolean;
   handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
 }): void {
+  if (
+    options.videoTranscriptSensitive === true ||
+    containsVideoTranscriptForLog(options.messages)
+  ) {
+    return;
+  }
   const decision = shouldGenerateUniversalHandoff({
     sessionId: options.sessionId,
     comboName: options.comboName,

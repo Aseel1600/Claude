@@ -63,6 +63,10 @@ import {
 } from "../../src/lib/db/contextHandoffs.ts";
 import { extractSessionAffinityKey } from "@/sse/services/auth";
 import { getHiddenModelsByProvider } from "@/models";
+import {
+  containsVideoTranscriptForLog,
+  redactVideoTranscriptSensitiveText,
+} from "@/lib/guardrails/videoTranscriptLogRedaction";
 import { resolveModelLockoutSettings } from "../../src/lib/resilience/modelLockoutSettings";
 import { fetchCodexQuota } from "./codexQuotaFetcher.ts";
 import { evaluateQuotaCutoff, getQuotaFetcher, type QuotaInfo } from "./quotaPreflight.ts";
@@ -702,7 +706,15 @@ export async function resolveTargetTimeoutMsForTarget(
  */
 export async function handleComboChat(options: HandleComboChatOptions): Promise<Response> {
   const traceInvocationId = options.invocationId ?? createInvocationId();
-  const response = await handleComboChatInner({ ...options, invocationId: traceInvocationId });
+  // Re-check a still-structured body at the service boundary. The explicit bit remains
+  // authoritative when the caller already ran Video Bridge and replaced the raw carrier.
+  const videoTranscriptSensitive =
+    options.videoTranscriptSensitive === true || containsVideoTranscriptForLog(options.body);
+  const response = await handleComboChatInner({
+    ...options,
+    invocationId: traceInvocationId,
+    videoTranscriptSensitive,
+  });
   response.headers.set("X-OmniRoute-Combo-Trace", traceInvocationId);
   const trace = getComboTrace(traceInvocationId);
   options.log.info(
@@ -732,6 +744,7 @@ async function handleComboChatInner({
   sourceFormat = null,
   endpointPath = null,
   requestHeaders = null,
+  videoTranscriptSensitive = false,
   invocationId,
 }: HandleComboChatOptions): Promise<Response> {
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
@@ -783,6 +796,7 @@ async function handleComboChatInner({
       handleSingleModelWithTimeout,
       log,
       hiddenModelsByProvider,
+      videoTranscriptSensitive,
     });
     if (pinnedDispatch) return pinnedDispatch;
   }
@@ -805,6 +819,7 @@ async function handleComboChatInner({
     signal,
     apiKeyAllowedConnections,
     hiddenModelsByProvider,
+    videoTranscriptSensitive,
     perTargetAdmission,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
@@ -861,6 +876,7 @@ async function handleComboChatInner({
     signal,
     apiKeyAllowedConnections,
     hiddenModelsByProvider,
+    videoTranscriptSensitive,
     perTargetAdmission,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
@@ -889,6 +905,7 @@ async function handleComboChatInner({
       allCombos,
       signal,
       hiddenModelsByProvider,
+      videoTranscriptSensitive,
       clientManagedResponsesContext,
       deferContextOverflowWhenCompressible,
       compressionExclusions,
@@ -1681,9 +1698,13 @@ async function handleComboChatInner({
             releaseQualityClone(qualityClone, result, quality);
             if (!quality.valid) {
               releaseRejectedQualityResponse(qualityClone, result);
+              const retainedQualityReason = redactVideoTranscriptSensitiveText(
+                quality.reason || "upstream response failed quality validation",
+                videoTranscriptSensitive
+              );
               log.warn(
                 "COMBO",
-                `Model ${modelStr} returned 200 but failed quality check: ${quality.reason}`
+                `Model ${modelStr} returned 200 but failed quality check: ${retainedQualityReason}`
               );
               // #6692: a quality-rejected 200 never marks the connection row
               // unhealthy, so the sticky pin's lazy headroom recheck would never
@@ -1736,7 +1757,7 @@ async function handleComboChatInner({
                 targetIndex: i,
                 provider,
                 model: modelStr,
-                error: `Quality: ${quality.reason}`,
+                error: `Quality: ${retainedQualityReason}`,
                 latencyMs: Date.now() - startTime,
               });
               observeFailure(false, target.executionKey);
@@ -1869,6 +1890,7 @@ async function handleComboChatInner({
                   prevModel,
                   currModel: modelStr,
                   universalConfig: universalHandoffConfig,
+                  videoTranscriptSensitive,
                   handleSingleModel: handleSingleModelWithTimeout,
                 });
               }
@@ -1920,6 +1942,7 @@ async function handleComboChatInner({
                     model: modelStr,
                     expiresAt: resetCandidates[0] || null,
                     config: relayConfig,
+                    videoTranscriptSensitive,
                     handleSingleModel: handleSingleModelWithTimeout,
                   });
                 }
@@ -2443,7 +2466,9 @@ async function handleComboChatInner({
           }
           log.warn("COMBO", `Model ${modelStr} failed, trying next`, {
             status: result.status,
-            errorBody: redactConnectionLabel(errorText),
+            errorBody: redactConnectionLabel(
+              redactVideoTranscriptSensitiveText(errorText, videoTranscriptSensitive)
+            ),
           });
 
           // #5976: per-model-quota providers (Gemini, GitHub, etc.) multiplex models
@@ -2524,7 +2549,11 @@ async function handleComboChatInner({
           }
         })().catch((err) => {
           const logError = log.error ?? log.warn;
-          logError("COMBO", `Speculative task error for target ${i}`, err);
+          logError(
+            "COMBO",
+            `Speculative task error for target ${i}`,
+            videoTranscriptSensitive ? redactVideoTranscriptSensitiveText(String(err), true) : err
+          );
           // G2 (silent-stop fix): never leave the speculative loop waiting on an
           // unresolved globalPromise. If a task throws unexpectedly (outside
           // executeTarget's error handling) and no other task succeeds, the post-loop
@@ -2745,9 +2774,13 @@ async function handleComboChatInner({
         });
 
         if (decision.wait) {
+          const retainedComboFailure = redactVideoTranscriptSensitiveText(
+            msg,
+            videoTranscriptSensitive
+          );
           log.info(
             "COMBO",
-            `${strategy} cooldown wait: ${msg} — waiting ${Math.ceil(
+            `${strategy} cooldown wait: ${retainedComboFailure} — waiting ${Math.ceil(
               decision.waitMs / 1000
             )}s (reason=${decision.reason ?? "?"}) then retrying (attempt ${
               comboCooldownAttempt + 1
@@ -2773,7 +2806,13 @@ async function handleComboChatInner({
       // a config-class status like 403/422).
       if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
         const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
-        log.warn("COMBO", `All models failed | ${msg} (${retryHuman})`);
+        log.warn(
+          "COMBO",
+          `All models failed | ${redactVideoTranscriptSensitiveText(
+            msg,
+            videoTranscriptSensitive
+          )} (${retryHuman})`
+        );
         return withQuotaExhaustionClassification(
           unavailableResponse(status, msg, earliestRetryAfter, retryHuman),
           observedFailure ? allObservedFailuresQuota : null
@@ -2784,7 +2823,10 @@ async function handleComboChatInner({
       // `try-auto` recovery action via buildRecoveryHint so the OC plugin can show "→ Try
       // model: auto" instead of an opaque 5xx. We pass the upstream retry-after seconds to
       // the hint so the client can render a precise "wait Ns and retry" message.
-      log.warn("COMBO", `All models failed | ${msg}`);
+      log.warn(
+        "COMBO",
+        `All models failed | ${redactVideoTranscriptSensitiveText(msg, videoTranscriptSensitive)}`
+      );
       const { pinClearedNow } = recordComboFailure(effectiveSessionId, combo.name);
       if (pinClearedNow) {
         log.info(
@@ -2888,6 +2930,7 @@ async function handleRoundRobinCombo({
   requestHeaders = null,
   relayOptions,
   perTargetAdmission = null,
+  videoTranscriptSensitive = false,
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
     ? resolveComboConfig(combo, settings)
@@ -3387,9 +3430,13 @@ async function handleRoundRobinCombo({
             releaseQualityClone(rrClone, result, quality);
             if (!quality.valid) {
               releaseRejectedQualityResponse(rrClone, result);
+              const retainedQualityReason = redactVideoTranscriptSensitiveText(
+                quality.reason || "upstream response failed quality validation",
+                videoTranscriptSensitive
+              );
               log.warn(
                 "COMBO-RR",
-                `${modelStr} returned 200 but failed quality check: ${quality.reason}`
+                `${modelStr} returned 200 but failed quality check: ${retainedQualityReason}`
               );
               // #6692: same rationale as handleComboChat's quality-fail branch —
               // a quality-rejected 200 never marks the connection row unhealthy,
@@ -3741,7 +3788,9 @@ async function handleRoundRobinCombo({
           if (offset > 0) fallbackCount++;
           log.warn("COMBO-RR", `${modelStr} failed, trying next model`, {
             status: result.status,
-            errorBody: redactConnectionLabel(errorText),
+            errorBody: redactConnectionLabel(
+              redactVideoTranscriptSensitiveText(errorText, videoTranscriptSensitive)
+            ),
           });
 
           if (
@@ -3794,7 +3843,11 @@ async function handleRoundRobinCombo({
   } catch (err) {
     // G4: unexpected exception in the round-robin loop must never crash the
     // request silently — surface a 500 instead of hanging the client.
-    log.error?.("COMBO-RR", "Unexpected error in round-robin loop", err);
+    log.error?.(
+      "COMBO-RR",
+      "Unexpected error in round-robin loop",
+      videoTranscriptSensitive ? redactVideoTranscriptSensitiveText(String(err), true) : err
+    );
     return errorResponse(500, "Unexpected error in round-robin combo");
   } finally {
     if (rrLoopSafetyTimer) {
@@ -3890,11 +3943,20 @@ async function handleRoundRobinCombo({
 
   if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
     const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
-    log.warn("COMBO-RR", `All models failed | ${msg} (${retryHuman})`);
+    log.warn(
+      "COMBO-RR",
+      `All models failed | ${redactVideoTranscriptSensitiveText(
+        msg,
+        videoTranscriptSensitive
+      )} (${retryHuman})`
+    );
     return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
   }
 
-  log.warn("COMBO-RR", `All models failed | ${msg}`);
+  log.warn(
+    "COMBO-RR",
+    `All models failed | ${redactVideoTranscriptSensitiveText(msg, videoTranscriptSensitive)}`
+  );
   return new Response(JSON.stringify({ error: { message: msg } }), {
     status,
     headers: { "Content-Type": "application/json" },

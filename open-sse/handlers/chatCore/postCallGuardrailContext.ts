@@ -36,6 +36,7 @@ export function buildPostCallGuardrailContext(
     provider: string | null | undefined;
     responsePayloadFormat: unknown;
     clientResponseFormat: unknown;
+    videoTranscriptSensitive?: boolean;
   },
   resolveDisabledGuardrails: typeof defaultResolveDisabled = defaultResolveDisabled
 ): GuardrailContext {
@@ -57,5 +58,6 @@ export function buildPostCallGuardrailContext(
     sourceFormat: optionalString(args.responsePayloadFormat),
     stream: false,
     targetFormat: optionalString(args.clientResponseFormat),
+    videoTranscriptSensitive: args.videoTranscriptSensitive === true,
   };
 }

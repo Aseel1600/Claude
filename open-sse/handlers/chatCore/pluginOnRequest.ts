@@ -9,6 +9,8 @@
  * byte-identical to the previous inline block.
  */
 
+import { redactVideoTranscriptSensitiveText } from "@/lib/guardrails/videoTranscriptLogRedaction";
+
 type LoggerLike =
   { info?: (...args: unknown[]) => void; debug?: (...args: unknown[]) => void } | null | undefined;
 
@@ -25,6 +27,7 @@ export async function runPluginOnRequestHook(args: {
   apiKeyInfo: unknown;
   headers?: Record<string, string | string[] | undefined>;
   log?: LoggerLike;
+  videoTranscriptSensitive?: boolean;
 }): Promise<PluginOnRequestGate> {
   try {
     const { runOnRequest } = await import("@/lib/plugins/hooks");
@@ -36,6 +39,7 @@ export async function runPluginOnRequestHook(args: {
       apiKeyInfo: args.apiKeyInfo,
       headers: args.headers,
       metadata: {},
+      videoTranscriptSensitive: args.videoTranscriptSensitive === true,
     };
     const pluginResult = await runOnRequest(pluginCtx);
     if (pluginResult?.blocked) {
@@ -55,10 +59,11 @@ export async function runPluginOnRequestHook(args: {
     }
     return { blocked: false, body: pluginResult?.body };
   } catch (pluginErr) {
-    args.log?.debug?.(
-      "PLUGIN",
-      `onRequest hook error (non-fatal): ${pluginErr instanceof Error ? pluginErr.message : String(pluginErr)}`
+    const retainedPluginError = redactVideoTranscriptSensitiveText(
+      pluginErr instanceof Error ? pluginErr.message : String(pluginErr),
+      args.videoTranscriptSensitive === true
     );
+    args.log?.debug?.("PLUGIN", `onRequest hook error (non-fatal): ${retainedPluginError}`);
     return { blocked: false };
   }
 }

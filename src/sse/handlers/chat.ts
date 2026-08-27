@@ -7,9 +7,9 @@ import { normalizeReasoningRequest } from "@/shared/reasoning/effortStandardizat
 import { isDetailedLoggingEnabled } from "@/lib/db/detailedLogs";
 import { resolvePreviousResponseState } from "@/lib/db/responsesContinuationStore";
 import {
-  containsVideoTranscriptForLog,
   extractVideoTranscriptDescriptionFingerprints,
   redactVideoTranscriptSensitiveText,
+  resolveVideoTranscriptLogSensitivity,
 } from "@/lib/guardrails/videoTranscriptLogRedaction";
 import { normalizeResponsesPreviousResponseIdMode } from "@omniroute/open-sse/utils/responsesStatePolicy.ts";
 import { FORMATS } from "@omniroute/open-sse/translator/formats.ts";
@@ -107,6 +107,7 @@ import { resolveConversationId } from "@omniroute/open-sse/services/conversation
 import {
   isAntigravityMissingProjectError,
   isProviderBreakerFailureStatus,
+  resolveDailyQuotaLockoutModel,
   resolveStreamReadinessClassificationError,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
@@ -695,6 +696,10 @@ async function handleChatImplementation(
   clientRawRequest = chatAdmission.resolveClientRawAfterAdmission(clientRawRequest, () =>
     deferredClientRawBody.withClientBody((clientBody) => buildClientRawRequest(request, clientBody))
   );
+  let videoTranscriptSensitive = resolveVideoTranscriptLogSensitivity({
+    rawRequestBody: clientRawRequest?.body,
+    processedBody: body,
+  });
 
   // Guardrail pre-call pipeline — prompt injection, PII masking, and future custom rules.
   telemetry.startPhase("validate");
@@ -712,11 +717,15 @@ async function handleChatImplementation(
     model: modelStr,
     signal: request.signal,
     stream: body?.stream === true,
+    videoTranscriptSensitive,
   });
   if (preCallGuardrails.blocked) {
     log.warn("GUARDRAIL", "Request blocked during pre-call guardrails", {
       guardrail: preCallGuardrails.guardrail,
-      message: preCallGuardrails.message,
+      message: redactVideoTranscriptSensitiveText(
+        preCallGuardrails.message || "Request rejected by guardrail",
+        videoTranscriptSensitive
+      ),
     });
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
@@ -730,8 +739,11 @@ async function handleChatImplementation(
   const videoTranscriptDescriptionFingerprints = extractVideoTranscriptDescriptionFingerprints(
     preCallGuardrails.results
   );
-  const videoTranscriptSensitive =
-    containsVideoTranscriptForLog(body) || videoTranscriptDescriptionFingerprints.length > 0;
+  videoTranscriptSensitive = resolveVideoTranscriptLogSensitivity({
+    rawRequestBody: clientRawRequest?.body,
+    processedBody: body,
+    trustedDescriptionFingerprints: videoTranscriptDescriptionFingerprints,
+  });
   ({ body, modelStr } = await RoutingModelOps.reconcileGuardrailReroute({
     body,
     modelBeforeGuardrails,
@@ -767,7 +779,10 @@ async function handleChatImplementation(
     // already treat null/undefined as "untracked" (see withConversationId).
     log.warn("CHAT", "resolveConversationId failed, continuing without conversation tracking", {
       correlationId: reqId,
-      error: error instanceof Error ? error.message : String(error),
+      error: redactVideoTranscriptSensitiveText(
+        error instanceof Error ? error.message : String(error),
+        videoTranscriptSensitive
+      ),
     });
   }
 
@@ -1051,6 +1066,7 @@ async function handleChatImplementation(
       sourceFormat,
       endpointPath: new URL(request.url).pathname,
       requestHeaders: request.headers,
+      videoTranscriptSensitive,
       clientManagedResponsesContext:
         sourceFormat === "openai-responses" &&
         new URL(request.url).pathname.split("/").includes("responses") &&
@@ -1378,6 +1394,7 @@ async function handleSingleModelChat(
       sourceFormat: sNetSourceFormat,
       endpointPath: clientRawRequest?.endpoint || "",
       requestHeaders: clientRawRequest?.headers,
+      videoTranscriptSensitive: runtimeOptions.videoTranscriptSensitive === true,
       clientManagedResponsesContext:
         sNetSourceFormat === "openai-responses" &&
         String(clientRawRequest?.endpoint || "")
@@ -2226,8 +2243,11 @@ async function handleSingleModelChat(
           : undefined;
       if (result.status === 429 && isDailyQuotaExhausted(errorStr)) {
         // Parse which model is quota-limited
-        const match = errorStr.match(/today's quota for model ([^,]+)/);
-        const limitedModel = match ? match[1].trim() : model;
+        const limitedModel = resolveDailyQuotaLockoutModel(
+          errorStr,
+          model,
+          runtimeOptions.videoTranscriptSensitive === true
+        );
 
         const mlSettings = resolveModelLockoutSettings(runtimeOptions.cachedSettings);
         if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {

@@ -166,7 +166,10 @@ import {
   runWithCasGuard,
 } from "../services/tokenRefresh.ts";
 import { createRequestLogger } from "../utils/requestLogger.ts";
-import { redactVideoTranscriptSensitiveText } from "@/lib/guardrails/videoTranscriptLogRedaction";
+import {
+  redactVideoTranscriptSensitiveText,
+  resolveVideoTranscriptLogSensitivity,
+} from "@/lib/guardrails/videoTranscriptLogRedaction";
 import { createPreparedRequestLogger, runWithCapture } from "../utils/providerRequestLogging.ts";
 import { summarizeToolSources } from "../utils/toolSources.ts";
 import { applyResponsesPreviousResponseIdPolicy } from "../utils/responsesStatePolicy.ts";
@@ -528,6 +531,18 @@ export async function handleChatCore({
   videoTranscriptSensitive = false,
   videoTranscriptDescriptionFingerprints = [],
 }) {
+  videoTranscriptSensitive =
+    videoTranscriptSensitive ||
+    resolveVideoTranscriptLogSensitivity({
+      rawRequestBody: clientRawRequest?.body,
+      processedBody: body,
+      trustedDescriptionFingerprints: videoTranscriptDescriptionFingerprints,
+    });
+  const retainedErrorTextForLog = (error: unknown): string =>
+    redactVideoTranscriptSensitiveText(
+      error instanceof Error ? error.message : String(error),
+      videoTranscriptSensitive
+    );
   let { provider, model, extendedContext } = modelInfo;
   const resilienceSettings = resolveResilienceSettings(cachedSettings);
   if (!skipResourcePressureGuard) {
@@ -640,6 +655,7 @@ export async function handleChatCore({
     apiKeyInfo,
     headers: clientRawRequest?.headers,
     log,
+    videoTranscriptSensitive,
   });
   if (pluginGate.blocked === true) {
     return {
@@ -1498,8 +1514,7 @@ export async function handleChatCore({
         } catch (err) {
           log?.debug?.(
             "COMPRESSION",
-            "Combo compression override lookup skipped: " +
-              (err instanceof Error ? err.message : String(err))
+            "Combo compression override lookup skipped: " + retainedErrorTextForLog(err)
           );
         }
       }
@@ -1508,10 +1523,7 @@ export async function handleChatCore({
         const { listCompressionCombos } = await import("../../src/lib/db/compressionCombos.ts");
         namedCombos = buildNamedComboLookup(listCompressionCombos());
       } catch (err) {
-        log?.debug?.(
-          "COMPRESSION",
-          "Named combos load skipped: " + (err instanceof Error ? err.message : String(err))
-        );
+        log?.debug?.("COMPRESSION", "Named combos load skipped: " + retainedErrorTextForLog(err));
       }
       // Phase 3: per-request override. Unknown values fall through in the resolver (never error).
       const compressionHeader = resolveCompressionHeader(clientRawRequest?.headers ?? null);
@@ -1559,8 +1571,7 @@ export async function handleChatCore({
         } catch (err) {
           log?.debug?.(
             "COMPRESSION",
-            "Default compression combo lookup skipped: " +
-              (err instanceof Error ? err.message : String(err))
+            "Default compression combo lookup skipped: " + retainedErrorTextForLog(err)
           );
         }
       }
@@ -1602,10 +1613,7 @@ export async function handleChatCore({
             }
           }
         } catch (err) {
-          log?.debug?.(
-            "COMPRESSION",
-            "Output styles skipped: " + (err instanceof Error ? err.message : String(err))
-          );
+          log?.debug?.("COMPRESSION", "Output styles skipped: " + retainedErrorTextForLog(err));
         }
       }
       const compressionInputBody = body as Record<string, unknown>;
@@ -1915,8 +1923,7 @@ export async function handleChatCore({
     } catch (err) {
       log?.warn?.(
         "COMPRESSION",
-        "Compression pipeline error (non-fatal): " +
-          (err instanceof Error ? err.message : String(err))
+        "Compression pipeline error (non-fatal): " + retainedErrorTextForLog(err)
       );
     }
     // --- End Modular Compression Pipeline ---
@@ -1970,7 +1977,10 @@ export async function handleChatCore({
           `Combo context limit: ${resolved.limit} (source=${resolved.source})`
         );
       } catch (err) {
-        log?.warn?.("CONTEXT", "Failed to resolve combo limits for compression: " + err);
+        log?.warn?.(
+          "CONTEXT",
+          "Failed to resolve combo limits for compression: " + retainedErrorTextForLog(err)
+        );
       }
     }
 
@@ -2448,13 +2458,21 @@ export async function handleChatCore({
     try {
       const { runOnError } = await import("@/lib/plugins/hooks");
       await runOnError(
-        { requestId: traceId, body, model, provider, apiKeyInfo, metadata: {} },
+        {
+          requestId: traceId,
+          body,
+          model,
+          provider,
+          apiKeyInfo,
+          metadata: {},
+          videoTranscriptSensitive,
+        },
         error instanceof Error ? error : new Error(String(error))
       );
     } catch (pluginErr) {
       log?.debug?.(
         "PLUGIN",
-        `onError hook error (non-fatal): ${pluginErr instanceof Error ? pluginErr.message : String(pluginErr)}`
+        `onError hook error (non-fatal): ${retainedErrorTextForLog(pluginErr)}`
       );
     }
 
@@ -2466,7 +2484,13 @@ export async function handleChatCore({
     const message = error?.message || "Invalid request";
     const errorType = typeof error?.errorType === "string" ? error.errorType : null;
 
-    log?.warn?.("TRANSLATE", `Request translation failed: ${message}`);
+    log?.warn?.(
+      "TRANSLATE",
+      `Request translation failed: ${redactVideoTranscriptSensitiveText(
+        message,
+        videoTranscriptSensitive
+      )}`
+    );
 
     if (errorType) {
       trackPendingRequest(model, provider, connectionId, false);
@@ -2560,8 +2584,7 @@ export async function handleChatCore({
       // must never turn an otherwise valid translated request into a 500.
       log?.warn?.(
         "COMPRESSION",
-        "Post-translation OmniGlyph skipped: " +
-          (error instanceof Error ? error.message : String(error))
+        "Post-translation OmniGlyph skipped: " + retainedErrorTextForLog(error)
       );
     }
   }
@@ -2877,7 +2900,7 @@ export async function handleChatCore({
       }).catch((err: unknown): EnforceDecision => {
         log?.warn?.(
           "QUOTA_SHARE",
-          `enforceQuotaShare failed; fail-open: ${err instanceof Error ? err.message : String(err)}`
+          `enforceQuotaShare failed; fail-open: ${retainedErrorTextForLog(err)}`
         );
         return { kind: "allow" as const };
       });
@@ -2919,7 +2942,7 @@ export async function handleChatCore({
       // Outer fail-open guard — should not be reached (inner .catch covers it)
       log?.warn?.(
         "QUOTA_SHARE",
-        `[quotaShare] enforceQuotaShare unexpected error; fail-open: ${err instanceof Error ? err.message : String(err)}`
+        `[quotaShare] enforceQuotaShare unexpected error; fail-open: ${retainedErrorTextForLog(err)}`
       );
     }
   }
@@ -2931,7 +2954,7 @@ export async function handleChatCore({
     } catch (err) {
       log?.warn?.(
         "QUOTA_SHARE",
-        `[quotaShare] could not set soft penalty on candidate: ${err instanceof Error ? err.message : String(err)}`
+        `[quotaShare] could not set soft penalty on candidate: ${retainedErrorTextForLog(err)}`
       );
     }
   }
@@ -3182,7 +3205,7 @@ export async function handleChatCore({
                     invalidateCodexQuotaCache(String(attemptConnectionId));
                   }
                 } catch (err) {
-                  const errMessage = err instanceof Error ? err.message : String(err);
+                  const errMessage = retainedErrorTextForLog(err);
                   log?.debug?.("CODEX", `Failed to persist codex quota state: ${errMessage}`);
                 }
               }
@@ -3696,7 +3719,9 @@ export async function handleChatCore({
     } catch (err) {
       // Fail-open at Tier 2: Tier 1 already enforced the model/global limit pre-dispatch.
       // A transient counter read error here must not break an otherwise-valid request.
-      log?.warn?.("TOKEN_LIMIT", "Tier 2 token-limit check failed; allowing request", { err });
+      log?.warn?.("TOKEN_LIMIT", "Tier 2 token-limit check failed; allowing request", {
+        error: retainedErrorTextForLog(err),
+      });
     }
   }
 
@@ -3715,7 +3740,9 @@ export async function handleChatCore({
         );
       }
     } catch (err) {
-      log?.warn?.("GEMINI_RATE_LIMIT", "Pre-dispatch TPM check failed; allowing request", { err });
+      log?.warn?.("GEMINI_RATE_LIMIT", "Pre-dispatch TPM check failed; allowing request", {
+        error: retainedErrorTextForLog(err),
+      });
     }
   }
 
@@ -5138,6 +5165,7 @@ export async function handleChatCore({
       provider,
       responsePayloadFormat,
       clientResponseFormat,
+      videoTranscriptSensitive,
     });
     const postCallGuardrails = await guardrailRegistry.runPostCallHooks(
       translatedResponse,
@@ -5179,7 +5207,10 @@ export async function handleChatCore({
       }
       log?.warn?.(
         "GUARDRAIL",
-        `Response blocked by ${postCallGuardrails.guardrail || "guardrail"}: ${guardrailMessage}`
+        `Response blocked by ${postCallGuardrails.guardrail || "guardrail"}: ${redactVideoTranscriptSensitiveText(
+          guardrailMessage,
+          videoTranscriptSensitive
+        )}`
       );
       finalizePendingScope(pendingScope, {
         providerResponse: responseBody,
@@ -5361,6 +5392,7 @@ export async function handleChatCore({
       apiKeyInfo,
       headers: clientRawRequest?.headers,
       response: { status: 200, data: translatedResponse },
+      videoTranscriptSensitive,
     });
 
     // Routing event (feedback foundation) — fire-and-forget, cheap.
@@ -5895,6 +5927,7 @@ export async function handleChatCore({
     apiKeyInfo,
     headers: clientRawRequest?.headers,
     response: { status: 200, streamed: true },
+    videoTranscriptSensitive,
   });
 
   return {

@@ -4,7 +4,7 @@ export const VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER = "[omitted: video transcript]
 export const VIDEO_TRANSCRIPT_REDACTION_PIPELINE_KEY = "_omnirouteVideoTranscriptRedacted" as const;
 
 const VIDEO_TRANSCRIPT_PAYLOAD_KEYS = new Set(["audioTranscript", "transcript"]);
-const VIDEO_TRANSCRIPT_CARRIER_KEYS = new Set(["source", "video_url"]);
+const VIDEO_TRANSCRIPT_CARRIER_KEYS = new Set(["input_video", "source", "url", "video_url"]);
 const VIDEO_BRIDGE_DESCRIPTION_PREFIX = "[Video description:";
 // Security bound for the retained copy, deliberately above the default downstream log depth (20).
 // Crossing it is unknown-as-sensitive: callers must discard the partial copy instead of leaking it.
@@ -26,6 +26,15 @@ type JsonRecord = Record<string, unknown>;
 
 export interface VideoTranscriptLogContext {
   /** SHA-256 identities emitted only for descriptions produced by the Video Bridge guardrail. */
+  trustedDescriptionFingerprints?: readonly string[];
+}
+
+export interface VideoTranscriptLogSensitivityInput {
+  /** Original client body, before any guardrail is allowed to replace or remove media parts. */
+  rawRequestBody?: unknown;
+  /** Current request body after guardrail processing. */
+  processedBody?: unknown;
+  /** Validated identities emitted by a successful Video Bridge rewrite. */
   trustedDescriptionFingerprints?: readonly string[];
 }
 
@@ -191,31 +200,25 @@ export function extractVideoTranscriptDescriptionFingerprints(results: unknown):
   return [...fingerprints].sort();
 }
 
-function urlFrom(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (!isJsonRecord(value)) return undefined;
-  return typeof value.url === "string" ? value.url : undefined;
-}
-
 function isRecognizedVideoPart(record: JsonRecord): boolean {
   const type = typeof record.type === "string" ? record.type : undefined;
-  if (type === "input_video") {
-    return Boolean(urlFrom(record.video_url ?? record.input_video ?? record.url));
+  // Explicit modality tags remain security carriers even when the media URL/data is malformed.
+  // Validation can reject them later, but malformed input must never bypass retained-log policy.
+  if (
+    type === "input_video" ||
+    type === "video" ||
+    type === "video_source" ||
+    type === "video_url"
+  ) {
+    return true;
   }
-  if (type === "video_url") return Boolean(urlFrom(record.video_url));
+  if (Object.hasOwn(record, "input_video") || Object.hasOwn(record, "video_url")) return true;
 
   const source = isJsonRecord(record.source) ? record.source : undefined;
   if (!source) return false;
   const videoMediaType =
     typeof source.media_type === "string" && source.media_type.toLowerCase().startsWith("video/");
-  // Keep this aligned with mediaParts.ts: empty base64 is malformed media, but still a
-  // recognized video carrier whose transcript fields must never bypass log protection.
-  if (videoMediaType && typeof source.data === "string") return true;
-  const sourceUrl = urlFrom(source.url);
-  return Boolean(
-    sourceUrl &&
-    ((type === "video" && source.type === "url") || type === "video_source" || videoMediaType)
-  );
+  return videoMediaType;
 }
 
 function findTrustedDescriptionRanges(
@@ -292,8 +295,8 @@ function fieldIsTranscript(key: string, carrier: boolean): boolean {
   return carrier && VIDEO_TRANSCRIPT_PAYLOAD_KEYS.has(key);
 }
 
-function childIsDirectCarrier(key: string, recognizedParent: boolean, value: unknown): boolean {
-  return recognizedParent && VIDEO_TRANSCRIPT_CARRIER_KEYS.has(key) && isJsonRecord(value);
+function childIsDirectCarrier(key: string, carrierParent: boolean, value: unknown): boolean {
+  return carrierParent && VIDEO_TRANSCRIPT_CARRIER_KEYS.has(key) && isJsonRecord(value);
 }
 
 function* enumerableEntries(value: object): Generator<readonly [string, unknown]> {
@@ -312,6 +315,7 @@ function* enumerableEntries(value: object): Generator<readonly [string, unknown]
 
 function walkContains(root: unknown, context: VideoTranscriptLogContext): boolean {
   const stack: Array<WalkFrame | { directCarrier: boolean; depth: number; value: string }> = [];
+  if (typeof root === "function") return true;
   if (typeof root === "string") stack.push({ directCarrier: false, depth: 0, value: root });
   else if (root && typeof root === "object" && !ArrayBuffer.isView(root)) {
     stack.push({ directCarrier: false, depth: 0, value: root });
@@ -350,6 +354,9 @@ function walkContains(root: unknown, context: VideoTranscriptLogContext): boolea
       if (fieldIsTranscript(key, carrier)) {
         return true;
       }
+      // Functions are not valid JSON request values. In particular, an enumerable toJSON
+      // function could replace the retained clone with attacker-selected transcript content.
+      if (typeof value === "function") return true;
       if (typeof value === "string") {
         stack.push({
           directCarrier: fieldIsTranscript(key, carrier),
@@ -358,7 +365,7 @@ function walkContains(root: unknown, context: VideoTranscriptLogContext): boolea
         });
       } else if (value && typeof value === "object" && !ArrayBuffer.isView(value)) {
         stack.push({
-          directCarrier: childIsDirectCarrier(key, recognized, value),
+          directCarrier: childIsDirectCarrier(key, carrier, value),
           depth: frame.depth + 1,
           value,
         });
@@ -380,6 +387,22 @@ export function containsVideoTranscriptForLog(
   }
 }
 
+/** Resolve sensitivity once from both sides of the guardrail boundary. */
+export function resolveVideoTranscriptLogSensitivity({
+  rawRequestBody,
+  processedBody,
+  trustedDescriptionFingerprints = [],
+}: VideoTranscriptLogSensitivityInput): boolean {
+  const hasTrustedDescription = trustedDescriptionFingerprints.some(
+    (fingerprint) => parseTrustedDescriptionIdentity(fingerprint) !== null
+  );
+  return (
+    hasTrustedDescription ||
+    containsVideoTranscriptForLog(rawRequestBody) ||
+    containsVideoTranscriptForLog(processedBody)
+  );
+}
+
 function prepareClone(
   value: unknown,
   depth: number,
@@ -393,6 +416,7 @@ function prepareClone(
   if (typeof value === "string") {
     return { value: omitVideoTranscriptFromLogString(value, context) };
   }
+  if (typeof value === "function") return { value: "[Function]" };
   if (!value || typeof value !== "object") return { value };
   if (ArrayBuffer.isView(value)) return { value: `[binary ${value.byteLength} bytes]` };
 
@@ -422,8 +446,6 @@ function omitVideoTranscriptForLogUnsafe(
 
   while (stack.length > 0) {
     const frame = stack.pop()!;
-    const sourceRecord = Array.isArray(frame.value) ? null : (frame.value as JsonRecord);
-    const recognized = Boolean(sourceRecord && isRecognizedVideoPart(sourceRecord));
     for (const [key, value] of enumerableEntries(frame.value)) {
       clonedEntries += 1;
       if (clonedEntries > MAX_VIDEO_TRANSCRIPT_LOG_SECURITY_ENTRIES) {
@@ -437,7 +459,7 @@ function omitVideoTranscriptForLogUnsafe(
       const child = prepareClone(
         value,
         frame.depth + 1,
-        childIsDirectCarrier(key, recognized, value),
+        childIsDirectCarrier(key, frame.directCarrier, value),
         context,
         memo
       );

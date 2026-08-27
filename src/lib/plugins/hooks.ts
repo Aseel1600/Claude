@@ -8,8 +8,24 @@
  */
 
 import { logger } from "../../../open-sse/utils/logger.ts";
+import { redactVideoTranscriptSensitiveText } from "../guardrails/videoTranscriptLogRedaction.ts";
 
 const log = logger("PLUGIN_HOOKS");
+
+function isVideoTranscriptSensitiveContext(value: unknown): boolean {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    (value as Record<string, unknown>).videoTranscriptSensitive === true
+  );
+}
+
+function retainedHookError(error: unknown, sensitive: boolean): string {
+  return redactVideoTranscriptSensitiveText(
+    error instanceof Error ? error.message : String(error),
+    sensitive
+  );
+}
 
 // ── Types ──
 
@@ -143,6 +159,7 @@ export function unregisterHook(event: string, pluginName: string): void {
 export async function emitHook(event: string, payload: unknown): Promise<void> {
   const list = hooks.get(event);
   if (!list || list.length === 0) return;
+  const videoTranscriptSensitive = isVideoTranscriptSensitiveContext(payload);
 
   for (const reg of list) {
     if (isRateLimited(reg.pluginName)) {
@@ -152,11 +169,10 @@ export async function emitHook(event: string, payload: unknown): Promise<void> {
     try {
       await reg.handler(payload);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       log.error("hook.handler_error", {
         event,
         pluginName: reg.pluginName,
-        error: message,
+        error: retainedHookError(err, videoTranscriptSensitive),
       });
     }
   }
@@ -178,6 +194,7 @@ export async function emitHookBlocking(
 }> {
   const list = hooks.get(event) || [];
   const ctx = (payload || {}) as Record<string, unknown>;
+  const videoTranscriptSensitive = isVideoTranscriptSensitiveContext(ctx);
   let mergedBody: unknown = ctx.body;
   let mergedMetadata: Record<string, unknown> = (ctx.metadata as Record<string, unknown>) || {};
 
@@ -209,11 +226,10 @@ export async function emitHookBlocking(
         }
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       log.error("hook.blocking_handler_error", {
         event,
         pluginName: reg.pluginName,
-        error: message,
+        error: retainedHookError(err, videoTranscriptSensitive),
       });
     }
   }
@@ -234,6 +250,8 @@ export interface PluginContext {
    *  client (trace ids, correlation ids, session markers). */
   headers?: Record<string, string | string[] | undefined>;
   metadata: Record<string, unknown>;
+  /** Server-owned retention bit; plugins still receive the live body as trusted processors. */
+  videoTranscriptSensitive?: boolean;
 }
 
 export interface PluginResult {
@@ -333,6 +351,7 @@ export async function runOnRequest(ctx: PluginContext): Promise<PluginResult> {
 export async function runOnResponse(ctx: PluginContext, response: unknown): Promise<unknown> {
   let currentResponse = response;
   const list = hooks.get("onResponse") || [];
+  const videoTranscriptSensitive = ctx.videoTranscriptSensitive === true;
   for (const reg of list) {
     try {
       const result = await reg.handler({ ...ctx, response: currentResponse });
@@ -345,8 +364,10 @@ export async function runOnResponse(ctx: PluginContext, response: unknown): Prom
         currentResponse = (result as { response: unknown }).response;
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      log.error("hook.response_handler_error", { pluginName: reg.pluginName, error: message });
+      log.error("hook.response_handler_error", {
+        pluginName: reg.pluginName,
+        error: retainedHookError(err, videoTranscriptSensitive),
+      });
     }
   }
   return currentResponse;

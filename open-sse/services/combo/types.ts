@@ -114,6 +114,8 @@ export type HandleComboChatOptions = {
   apiKeyAllowedConnections?: string[] | null;
   nesting?: ComboNestingContext | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  /** Request-scoped retention bit derived before guardrails can replace a video carrier. */
+  videoTranscriptSensitive?: boolean;
   /** Native Responses clients (for example Codex CLI/Desktop) manage compaction themselves. */
   clientManagedResponsesContext?: boolean;
   /**

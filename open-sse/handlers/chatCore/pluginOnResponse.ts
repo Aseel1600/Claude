@@ -26,6 +26,7 @@ export async function runPluginOnResponseHook(args: {
   apiKeyInfo: unknown;
   headers?: Record<string, string | string[] | undefined>;
   response: PluginOnResponsePayload;
+  videoTranscriptSensitive?: boolean;
 }): Promise<void> {
   try {
     const { runOnResponse } = await import("@/lib/plugins/hooks");
@@ -38,6 +39,7 @@ export async function runPluginOnResponseHook(args: {
         apiKeyInfo: args.apiKeyInfo,
         headers: args.headers,
         metadata: {},
+        videoTranscriptSensitive: args.videoTranscriptSensitive === true,
       },
       args.response
     ).catch(() => {});
