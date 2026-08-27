@@ -115,8 +115,17 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-async function navigationFallback(request) {
-  return (await caches.match(request)) || (await caches.match("/")) || (await caches.match("/offline"));
+// Navigations are network-first on purpose: the dashboard is an online
+// tool. When the network fails, serving a cached navigation response is
+// worse than surfacing the failure -- the cached shell references
+// /_next/static/<old-build-id>/ chunks that no longer exist after a
+// deploy, so the page loads and then breaks on chunk 404s, and the
+// broken state sticks until the cache happens to clear. An honest
+// network error lets the browser show its own offline state and
+// recover on the next reload. (The /offline page is still precached
+// for the APP_SHELL list; it just is no longer used as a decoy.)
+async function navigationFallback() {
+  return Response.error();
 }
 
 // ── Push Notifications ───────────────────────────────────────────────────────
