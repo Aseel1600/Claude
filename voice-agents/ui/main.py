@@ -5,15 +5,27 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import OAuth2PasswordRequestForm
 
 from orca import queue, routing, skills, worker as orca_worker
 from orca.scheduler import run_scheduled_jobs
+from ui.auth import (
+    Token,
+    User,
+    authenticate_user,
+    create_access_token,
+    create_user,
+    get_current_user,
+    init_default_user,
+    require_auth,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
@@ -65,6 +77,9 @@ app = FastAPI(title="OmniRoute PWA UI", version="0.1.0")
 async def _start_bg_tasks():
     import asyncio
 
+    # Initialize default auth user
+    init_default_user()
+    
     asyncio.create_task(orca_worker.worker_loop(OMNIROUTE_BASE_URL, OMNIROUTE_API_KEY, OMNIROUTE_MODEL))
     asyncio.create_task(run_scheduled_jobs(interval_seconds=60))
 
@@ -203,6 +218,61 @@ async def describe_image(path: Path, user_text: str = "") -> str | None:
         return None
 
 
+def _check_ollama() -> dict:
+    """Check if Ollama is reachable and return status."""
+    import urllib.request
+    import urllib.error
+    try:
+        req = urllib.request.Request("http://127.0.0.1:11434/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read().decode())
+            models = data.get("models", [])
+            model_name = models[0]["name"] if models else ""
+            return {"reachable": True, "model": model_name}
+    except Exception:
+        return {"reachable": False, "model": ""}
+
+
+# ── Auth Endpoints ─────────────────────────────────────────────────────────
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """Login with username and password, returns JWT token."""
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(data={"sub": user.username})
+    return Token(access_token=access_token)
+
+
+@app.post("/api/auth/register", response_model=User)
+async def register(
+    username: str = Form(...),
+    password: str = Form(...),
+    email: str = Form(None)
+):
+    """Register a new user."""
+    return create_user(username, password, email)
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_me(user: Optional[User] = Depends(get_current_user)):
+    """Get current user info. Returns null if not authenticated."""
+    if user is None:
+        return None
+    return user
+
+
+@app.get("/api/auth/ok")
+async def auth_ok():
+    """Health check for auth system."""
+    return {"status": "ok"}
+
+
 @app.get("/health")
 async def health():
     from orca import kanban, queue
@@ -224,7 +294,7 @@ async def health():
             "failed": counts.get("failed", 0),
             "deadLettered": 0,
         },
-        "ollama": {"reachable": False, "model": ""},
+        "ollama": _check_ollama(),
     })
 
 

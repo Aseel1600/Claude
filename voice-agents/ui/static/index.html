@@ -750,16 +750,17 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     <div class="sidebar-content" id="sidebar-content">
       <div id="sidebar-projects" class="session-list">
         <div class="search-container">
-          <input class="search-input" id="session-search" placeholder="Search projects..." value="" />
+          <label for="session-search" class="visually-hidden">Projekte suchen</label>
+          <input class="search-input" id="session-search" placeholder="Search projects..." value="" aria-label="Projekte suchen" />
         </div>
-        <div id="session-list" aria-live="polite"></div>
+        <div id="session-list" aria-live="polite" role="list"></div>
       </div>
       <div id="sidebar-legend" class="legend-sidebar-list" hidden>
         <div id="legend-list" style="display:flex;flex-direction:column;gap:10px;padding:16px;"></div>
       </div>
     </div>
     <div class="sidebar-footer">
-      <div class="system-health-panel" id="system-health">
+      <div class="system-health-panel" id="system-health" aria-live="polite" aria-atomic="true">
         <div class="health-header" id="health-toggle">
           <div>
             <span class="health-title">System Health</span>
@@ -781,7 +782,8 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
       <button class="tab-btn" id="load-session-btn">Load Session</button>
       <form id="command-form" class="command-form" aria-label="Orchestra Command">
         <label class="visually-hidden" for="command-input">Orchestra Command</label>
-        <input id="command-input" name="command" autocomplete="off" placeholder="Tell the orchestra what to do..." aria-label="Orchestra Command" required>
+        <input id="command-input" name="command" autocomplete="off" placeholder="Tell the orchestra what to do..." aria-label="Orchestra Command" aria-describedby="command-error" required>
+        <div id="command-error" role="alert" class="visually-hidden"></div>
         <button id="command-submit" type="submit">Run</button>
       </form>
       <div id="command-routing" class="command-routing" aria-live="polite" hidden></div>
@@ -799,8 +801,8 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   <!-- Graph -->
   <main class="background-graph" style="z-index:1" id="main-content">
     <div class="graph-wrap" id="graph-wrap">
-      <canvas id="graph-canvas"></canvas>
-      <div class="graph-filter-pills" id="graph-filter-pills" aria-live="polite"></div>
+      <canvas id="graph-canvas" role="img" aria-label="Wissensgraph - interaktive Visualisierung von Knoten und Verbindungen"></canvas>
+      <div class="graph-filter-pills" id="graph-filter-pills" aria-live="polite" role="toolbar" aria-label="Graph-Filter"></div>
       <div class="graph-controls">
         <button class="graph-btn" id="zoom-in" title="Zoom in" aria-label="Hineinzoomen">+</button>
         <button class="graph-btn" id="zoom-out" title="Zoom out" aria-label="Herauszoomen">−</button>
@@ -839,9 +841,10 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
             <h3 style="font-family:'Outfit',sans-serif;font-size:18px" id="facts-title">Captured Facts</h3>
           </div>
           <div style="position:relative;margin-bottom:20px">
-            <input type="text" id="fact-search" placeholder="Search facts..." style="width:100%;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px;outline:none" />
+            <label for="fact-search" class="visually-hidden">Fakten suchen</label>
+            <input type="text" id="fact-search" placeholder="Search facts..." aria-label="Fakten suchen" style="width:100%;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px;outline:none" />
           </div>
-          <div id="facts-list"></div>
+          <div id="facts-list" role="list"></div>
           <div id="facts-pagination" style="margin-top:20px;display:flex;gap:10px;justify-content:center;align-items:center" hidden>
             <button class="tab-btn" id="facts-prev">Prev</button>
             <span style="font-size:12px;opacity:0.5" id="facts-page-info"></span>
@@ -1096,28 +1099,31 @@ const SIM = {
     nodeIds.forEach(id => this.communities.set(id, unique.indexOf(communityMap.get(id))));
   },
   step() {
-    if (this.paused) return;
+    if (this.paused || this.alpha < 0.01) return;
     const nodes = this.simNodes, links = this.linkObjs;
     const cx = this.width / 2, cy = this.height / 2;
-    const wanderStrength = 0.5;
-    // wander
-    nodes.forEach(n => {
-      n.wanderAngle += (Math.random() - 0.5) * 0.4;
-      n.vx += Math.cos(n.wanderAngle) * wanderStrength;
-      n.vy += Math.sin(n.wanderAngle) * wanderStrength;
-    });
-    // link force
+    // --- CALM force simulation ---
+    // wander: very gentle random drift (only when alpha > 0.3)
+    if (this.alpha > 0.3) {
+      nodes.forEach(n => {
+        if (n.fx !== null) return;
+        n.wanderAngle += (Math.random() - 0.5) * 0.1;
+        n.vx += Math.cos(n.wanderAngle) * 0.08;
+        n.vy += Math.sin(n.wanderAngle) * 0.08;
+      });
+    }
+    // link force: gentle spring
     links.forEach(l => {
       const s = l.source, t = l.target;
       const dx = t.x - s.x, dy = t.y - s.y;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
-      const base = 200 + this.getNodeRadius(this.degreeMap.get(s.id) || 0) + this.getNodeRadius(this.degreeMap.get(t.id) || 0);
-      const force = (len - base) * 0.05;
+      const base = 180 + this.getNodeRadius(this.degreeMap.get(s.id) || 0) + this.getNodeRadius(this.degreeMap.get(t.id) || 0);
+      const force = (len - base) * 0.015;
       const fx = (dx / len) * force, fy = (dy / len) * force;
       if (s.fx === null) { s.vx += fx; s.vy += fy; }
       if (t.fx === null) { t.vx -= fx; t.vy -= fy; }
     });
-    // charge force (O(n^2))
+    // charge force: repulsion
     for (let i = 0; i < nodes.length; i++) {
       const a = nodes[i];
       if (a.fx !== null) continue;
@@ -1126,34 +1132,29 @@ const SIM = {
         const dx = b.x - a.x, dy = b.y - a.y;
         const d2 = dx * dx + dy * dy + 0.01;
         const d = Math.sqrt(d2);
-        const strength = nodes.length > 100 ? -400 : -800;
+        const strength = nodes.length > 100 ? -200 : -400;
         const f = strength / d2;
         const fx = (dx / d) * f, fy = (dy / d) * f;
         if (b.fx === null) { b.vx += fx; b.vy += fy; }
         a.vx -= fx; a.vy -= fy;
       }
     }
-    // center / radial / x / y forces
+    // center force: pull toward center
     nodes.forEach(n => {
-      const d = this.degreeMap.get(n.id) || 0;
-      const kx = d === 0 ? 0.05 : 0.02, ky = d === 0 ? 0.05 : 0.02;
-      if (n.fx === null) n.vx += (cx - n.x) * kx;
-      if (n.fy === null) n.vy += (cy - n.y) * ky;
-      if (n.fx === null) n.vx += (cx - n.x) * 0.015;
-      if (n.fy === null) n.vy += (cy - n.y) * 0.015;
+      if (n.fx === null) n.vx += (cx - n.x) * 0.008;
+      if (n.fy === null) n.vy += (cy - n.y) * 0.008;
     });
-    // integrate
+    // integrate: strong damping for stability
     nodes.forEach(n => {
-      if (n.fx === null) { n.x += n.vx; n.vx *= 0.2; } else { n.x = n.fx; }
-      if (n.fy === null) { n.y += n.vy; n.vy *= 0.2; } else { n.y = n.fy; }
+      if (n.fx === null) { n.x += n.vx; n.vx *= 0.6; } else { n.x = n.fx; }
+      if (n.fy === null) { n.y += n.vy; n.vy *= 0.6; } else { n.y = n.fy; }
     });
-    this.alpha *= 0.95;
-    this.alpha = Math.max(0.05, this.alpha);
+    // alpha decay: slow cooling
+    this.alpha *= 0.995;
+    this.alpha = Math.max(0.01, this.alpha);
   },
   tick() {
-    if (!this.paused) {
-      for (let i = 0; i < 3; i++) this.step();
-    }
+    if (!this.paused) this.step();
     this.draw();
     requestAnimationFrame(() => this.tick());
   },
@@ -1475,6 +1476,15 @@ function showContextMenu(node, x, y) {
       if (state.selectedNodeId === node.id) state.selectedNodeId = null;
       renderFilterPills();
     }
+  };
+  // Keyboard navigation for context menu
+  const items = menu.querySelectorAll('.context-menu-item');
+  let focusIdx = 0;
+  if (items.length) items[0].focus();
+  menu.onkeydown = (e) => {
+    if (e.key === 'Escape') { menu.hidden = true; e.stopPropagation(); }
+    else if (e.key === 'ArrowDown') { focusIdx = (focusIdx + 1) % items.length; items[focusIdx].focus(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { focusIdx = (focusIdx - 1 + items.length) % items.length; items[focusIdx].focus(); e.preventDefault(); }
   };
   document.addEventListener('mousedown', function closeMenu(e) { if (!menu.contains(e.target)) { menu.hidden = true; document.removeEventListener('mousedown', closeMenu); } });
 }
