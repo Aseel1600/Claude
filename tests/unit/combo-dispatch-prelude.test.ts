@@ -66,10 +66,17 @@ function okResponse(content: string): Response {
 }
 
 function makeLog() {
-  const records: Array<{ level: string; scope: string; msg: string }> = [];
-  const cap = (level: string) => (scope: string, msg: string) => {
-    records.push({ level, scope, msg: String(msg) });
-  };
+  const records: Array<{
+    level: string;
+    scope: string;
+    msg: string;
+    details: unknown[];
+  }> = [];
+  const cap =
+    (level: string) =>
+    (scope: string, msg: string, ...details: unknown[]) => {
+      records.push({ level, scope, msg: String(msg), details });
+    };
   return {
     log: { info: cap("info"), warn: cap("warn"), debug: cap("debug"), error: cap("error") },
     records,
