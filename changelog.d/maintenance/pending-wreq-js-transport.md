@@ -1,1 +1,0 @@
-- **chore(stealth):** replace the `tls-client-node` sidecar/temp-file transport used by the six web-cookie providers with the exactly pinned `wreq-js` 3.0.0 native transport, preserving streaming, proxy isolation, deadlines, EOF policies, binary responses, and cancellation while removing the obsolete downloader and native repair path.
