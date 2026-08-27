@@ -1,5 +1,5 @@
 import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
-import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
+import { assertRuntimeProviderAvailable } from "@/shared/constants/providerRetirement";
 import {
   registerLazyExecutor,
   loadRegisteredExecutor,
@@ -241,11 +241,8 @@ const CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS = new Set(["jules"]);
 const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS));
 
 export async function getExecutor(provider: string): Promise<BaseExecutor> {
-  if (isRuntimeRetiredProviderId(provider)) {
-    const err = new Error("Provider is retired and unavailable.");
-    (err as Error & { status?: number }).status = 410;
-    throw err;
-  }
+  assertRuntimeProviderAvailable(provider);
+
   const loaded = await loadRegisteredExecutor(provider);
   if (loaded) return loaded;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {
