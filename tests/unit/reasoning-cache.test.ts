@@ -182,6 +182,24 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("call_capture_2"), "Captured assistant reasoning");
   });
 
+  it("should never cache reasoning echoed by a transcript-sensitive response", () => {
+    clearReasoningCacheAll();
+    const sentinel = "PRIVATE_REASONING_CACHE_TRANSCRIPT_SENTINEL";
+    const cached = cacheReasoningFromAssistantMessage(
+      {
+        role: "assistant",
+        reasoning_content: sentinel,
+        tool_calls: [{ id: "call_private_video_reasoning" }],
+      },
+      "deepseek",
+      "deepseek-reasoner",
+      { videoTranscriptSensitive: true }
+    );
+
+    assert.equal(cached, 0);
+    assert.equal(lookupReasoning("call_private_video_reasoning"), null);
+  });
+
   it("should keep request message cache keys stable when tool call IDs change", () => {
     clearReasoningCacheAll();
 

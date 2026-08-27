@@ -53,6 +53,7 @@ function makeBaseArgs(overrides: Record<string, unknown> = {}) {
       persistCalls.push(a);
     },
     apiKeyId: null as string | null,
+    videoTranscriptSensitive: false,
     ...overrides,
   };
   return { args, persistCalls };
@@ -173,6 +174,7 @@ function makeHitArgs(overrides: Record<string, unknown> = {}) {
       persistCalls.push(a as Record<string, unknown>);
     },
     apiKeyId: null as string | null,
+    videoTranscriptSensitive: false,
     ...overrides,
   };
   return { args, persistCalls, convertedCalls, debugCalls };
@@ -190,6 +192,27 @@ function seedHit(args: ReturnType<typeof makeHitArgs>["args"], response: unknown
   setCachedResponse(signature, args.model, response);
   return signature;
 }
+
+test("checkSemanticCache bypasses an existing sensitive cache entry", async () => {
+  clearCache();
+  const sentinel = "PRIVATE_SEMANTIC_CACHE_HIT_TRANSCRIPT_SENTINEL";
+  const { args, persistCalls, convertedCalls, debugCalls } = makeHitArgs({
+    body: {
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "sensitive cached query" }],
+      temperature: 0,
+    },
+    videoTranscriptSensitive: true,
+  });
+  seedHit(args, { choices: [{ message: { content: sentinel } }] });
+
+  const result = await checkSemanticCache(args as Parameters<typeof checkSemanticCache>[0]);
+
+  assert.equal(result, null);
+  assert.equal(persistCalls.length, 0);
+  assert.equal(convertedCalls.length, 0);
+  assert.equal(debugCalls.length, 0);
+});
 
 test("checkSemanticCache returns a non-streaming JSON HIT with cache headers + logging side effects", async () => {
   clearCache();
