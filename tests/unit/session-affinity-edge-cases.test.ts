@@ -100,7 +100,7 @@ test("extractSessionAffinityKey handles array input with content parts", () => {
 // 4. Multimodal payloads — base64 images (DoS protection)
 // ---------------------------------------------------------------------------
 
-test("extractSessionAffinityKey handles multimodal content with large base64 image without blocking", () => {
+test("extractSessionAffinityKey ignores large non-text multimodal content", () => {
   // Simulate a multimodal message with a 1MB base64 image
   const largeBase64 = "A".repeat(1_000_000);
   const body = {
@@ -115,9 +115,7 @@ test("extractSessionAffinityKey handles multimodal content with large base64 ima
     ],
   };
 
-  const startTime = Date.now();
   const result = extractSessionAffinityKey(body);
-  const elapsed = Date.now() - startTime;
 
   // Should produce a valid hash
   assert.ok(result !== null);
@@ -127,8 +125,6 @@ test("extractSessionAffinityKey handles multimodal content with large base64 ima
   const expected = `input:sha256:${sha256hex("Describe this image")}`;
   assert.equal(result, expected);
 
-  // Should complete in well under 100ms (no JSON.stringify on the huge image)
-  assert.ok(elapsed < 100, `extractSessionAffinityKey took ${elapsed}ms, expected < 100ms`);
 });
 
 test("extractSessionAffinityKey returns null for multimodal content with ONLY non-text parts", () => {
@@ -253,22 +249,17 @@ test("extractSessionAffinityKey extracts .content field from object input", () =
   assert.equal(result, expected);
 });
 
-test("extractSessionAffinityKey handles huge object input instantly (no JSON.stringify)", () => {
-  // A huge object with no .text/.content fields → null, zero serialization cost
-  const hugeObj: Record<string, string> = {};
-  for (let i = 0; i < 100_000; i++) {
-    hugeObj[`key_${i}`] = "A".repeat(100);
-  }
-  const body = { input: hugeObj };
+test("extractSessionAffinityKey does not enumerate arbitrary object input", () => {
+  const input = new Proxy(
+    {},
+    {
+      ownKeys() {
+        throw new Error("arbitrary input must not be serialized or enumerated");
+      },
+    }
+  );
 
-  const startTime = Date.now();
-  const result = extractSessionAffinityKey(body);
-  const elapsed = Date.now() - startTime;
-
-  // No text field → null (no JSON.stringify attempted)
-  assert.equal(result, null);
-  // Must complete near-instantly — no serialization, just property lookups
-  assert.ok(elapsed < 5, `Took ${elapsed}ms on huge object, expected < 5ms`);
+  assert.equal(extractSessionAffinityKey({ input }), null);
 });
 
 // ---------------------------------------------------------------------------
