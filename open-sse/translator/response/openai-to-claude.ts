@@ -157,6 +157,10 @@ function flushMarkdownBuffer(state, results) {
   const buffered = state._markdownBuffer;
   state._markdownCodeSpanRun = 0;
   state._markdownTrailingBackslash = false;
+  state._markdownFenceRun = 0;
+  state._markdownFenceOpening = false;
+  state._markdownFenceClosingRun = 0;
+  state._markdownLineIndent = 0;
   if (!buffered) return;
   state._markdownBuffer = "";
   if (!state.textBlockStarted) {
@@ -249,6 +253,10 @@ export function openaiToClaudeResponse(chunk, state) {
     state._markdownBuffer = "";
     state._markdownCodeSpanRun = 0;
     state._markdownTrailingBackslash = false;
+    state._markdownFenceRun = 0;
+    state._markdownFenceOpening = false;
+    state._markdownFenceClosingRun = 0;
+    state._markdownLineIndent = 0;
     results.push({
       type: "message_start",
       message: {
@@ -334,38 +342,29 @@ export function openaiToClaudeResponse(chunk, state) {
         hold: textToHold,
         backtickRun,
         trailingBackslash,
+        fenceRun,
+        fenceOpening,
+        fenceClosingRun,
+        lineIndent,
       } = splitMarkdownBoundary(
         cleaned,
         state._markdownCodeSpanRun || 0,
         state._markdownTrailingBackslash === true,
+        state._markdownFenceRun || 0,
+        state._markdownFenceOpening === true,
+        state._markdownFenceClosingRun || 0,
+        state._markdownLineIndent || 0,
       );
       state._markdownBuffer = textToHold;
       state._markdownCodeSpanRun = backtickRun || 0;
       state._markdownTrailingBackslash = trailingBackslash === true;
+      state._markdownFenceRun = fenceRun || 0;
+      state._markdownFenceOpening = fenceOpening === true;
+      state._markdownFenceClosingRun = fenceClosingRun || 0;
+      state._markdownLineIndent = lineIndent || 0;
 
       // Emit remaining non-XML text content
-      if (!textToEmit) {
-        // All content was XML invoke blocks or is being held: skip text block
-        // (tool calls will be emitted at finish)
-      } else if (xmlToolCalls.length > 0) {
-        // Text before/between/after XML blocks — (re)start a text block
-        if (!state.textBlockStarted) {
-          state.textBlockIndex = state.nextBlockIndex++;
-          state.textBlockStarted = true;
-          state.textBlockClosed = false;
-          results.push({
-            type: "content_block_start",
-            index: state.textBlockIndex,
-            content_block: { type: "text", text: "" },
-          });
-        }
-        results.push({
-          type: "content_block_delta",
-          index: state.textBlockIndex,
-          delta: { type: "text_delta", text: textToEmit },
-        });
-      } else {
-        // No XML — emit as regular text (original behaviour)
+      if (textToEmit) {
         if (!state.textBlockStarted) {
           state.textBlockIndex = state.nextBlockIndex++;
           state.textBlockStarted = true;

@@ -108,6 +108,8 @@ function createOpenAIState() {
     _pendingXmlToolCalls: [],
     _xmlInvokeBuffer: "",
     _markdownBuffer: "",
+    _markdownCodeSpanRun: 0,
+    _markdownFenceRun: 0,
   };
 }
 
@@ -346,6 +348,42 @@ test("OpenAI to Claude: emits punctuation-adjacent closer opened in a prior chun
   assert.deepEqual(getTextDeltas(flatten(chunks)), ["Use `foo ", "(bar)`", " done"]);
 });
 
+test("OpenAI to Claude: longer fence closer restores inline code parsing", () => {
+  const state = createOpenAIState();
+  const contents = ["```\nfoo\n", "````\n", "`(bar)`", " done"];
+  const chunks = contents.map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-long-fence-close",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), contents);
+  assert.equal(state._markdownFenceRun, 0);
+});
+
+test("OpenAI to Claude: shorter fence run does not close a longer fence", () => {
+  const state = createOpenAIState();
+  const contents = ["````\nfoo\n", "```\n", "`(bar)`", " done"];
+  const chunks = contents.map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-short-fence-close",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), contents);
+  assert.equal(state._markdownFenceRun, 4);
+});
+
 test("OpenAI to Claude: ignores escaped backticks while tracking cross-chunk code spans", () => {
   const state = createOpenAIState();
   const chunks = ["\\` foo `bar", "`"].map((content) =>
@@ -458,6 +496,8 @@ function createGeminiState() {
   return {
     _xmlInvokeBuffer: "",
     _markdownBuffer: "",
+    _markdownCodeSpanRun: 0,
+    _markdownFenceRun: 0,
   };
 }
 
@@ -499,6 +539,24 @@ test("Gemini to Claude: emits punctuation-adjacent closer opened in a prior chun
   );
 
   assert.deepEqual(getTextDeltas(flatten(chunks)), ["Use `foo ", "(bar)`", " done"]);
+});
+
+test("Gemini to Claude: longer fence closer restores inline code parsing", () => {
+  const state = createGeminiState();
+  const contents = ["```\nfoo\n", "````\n", "`(bar)`", " done"];
+  const chunks = contents.map((text) => geminiToClaudeResponse(geminiChunk(text), state));
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), contents);
+  assert.equal(state._markdownFenceRun, 0);
+});
+
+test("Gemini to Claude: shorter fence run does not close a longer fence", () => {
+  const state = createGeminiState();
+  const contents = ["````\nfoo\n", "```\n", "`(bar)`", " done"];
+  const chunks = contents.map((text) => geminiToClaudeResponse(geminiChunk(text), state));
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), contents);
+  assert.equal(state._markdownFenceRun, 4);
 });
 
 test("Gemini to Claude: joins a closing backtick run split across chunks", () => {

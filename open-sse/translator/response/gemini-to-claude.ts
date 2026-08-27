@@ -101,6 +101,10 @@ function flushMarkdownBuffer(state, results) {
   const buffered = state._markdownBuffer;
   state._markdownCodeSpanRun = 0;
   state._markdownTrailingBackslash = false;
+  state._markdownFenceRun = 0;
+  state._markdownFenceOpening = false;
+  state._markdownFenceClosingRun = 0;
+  state._markdownLineIndent = 0;
   if (!buffered) return;
   state._markdownBuffer = "";
   if (state.openTextBlockIdx === null) {
@@ -149,6 +153,10 @@ export function geminiToClaudeResponse(chunk, state) {
     state._markdownBuffer = "";
     state._markdownCodeSpanRun = 0;
     state._markdownTrailingBackslash = false;
+    state._markdownFenceRun = 0;
+    state._markdownFenceOpening = false;
+    state._markdownFenceClosingRun = 0;
+    state._markdownLineIndent = 0;
 
     results.push({
       type: "message_start",
@@ -329,14 +337,26 @@ export function geminiToClaudeResponse(chunk, state) {
             hold: textToHold,
             backtickRun,
             trailingBackslash,
+            fenceRun,
+            fenceOpening,
+            fenceClosingRun,
+            lineIndent,
           } = splitMarkdownBoundary(
             combinedText,
             state._markdownCodeSpanRun || 0,
             state._markdownTrailingBackslash === true,
+            state._markdownFenceRun || 0,
+            state._markdownFenceOpening === true,
+            state._markdownFenceClosingRun || 0,
+            state._markdownLineIndent || 0,
           );
           state._markdownBuffer = textToHold;
           state._markdownCodeSpanRun = backtickRun || 0;
           state._markdownTrailingBackslash = trailingBackslash === true;
+          state._markdownFenceRun = fenceRun || 0;
+          state._markdownFenceOpening = fenceOpening === true;
+          state._markdownFenceClosingRun = fenceClosingRun || 0;
+          state._markdownLineIndent = lineIndent || 0;
 
           // Fully-held chunk (e.g. "`" + "code" -> whole text deferred to the
           // boundary buffer): emitting an empty delta here opens a text block

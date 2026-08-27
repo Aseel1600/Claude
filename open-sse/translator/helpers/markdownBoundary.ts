@@ -34,40 +34,153 @@ function isOpenerContext(text: string, suffixStart: number): boolean {
 function scanBacktickState(
   text: string,
   initialRun: number,
-  initialTrailingBackslash: boolean
-): { backtickRun: number; trailingBackslash: boolean } {
+  initialTrailingBackslash: boolean,
+  initialFenceRun: number,
+  initialFenceOpening: boolean,
+  initialFenceClosingRun: number,
+  initialLineIndent: number
+): {
+  backtickRun: number;
+  trailingBackslash: boolean;
+  fenceRun: number;
+  fenceOpening: boolean;
+  fenceClosingRun: number;
+  lineIndent: number;
+} {
   let openRun = initialRun;
-  let backslashes = openRun === 0 && initialTrailingBackslash ? 1 : 0;
+  let fenceRun = initialFenceRun;
+  let fenceOpening = initialFenceOpening;
+  let fenceClosingRun = initialFenceClosingRun;
+  let lineIndent = initialLineIndent;
+  let backslashes = openRun === 0 && fenceRun === 0 && initialTrailingBackslash ? 1 : 0;
+
   for (let index = 0; index < text.length;) {
-    if (text[index] !== "`") {
-      if (openRun === 0) backslashes = text[index] === "\\" ? backslashes + 1 : 0;
+    const char = text[index];
+
+    if (fenceOpening) {
+      if (char === "\n" || char === "\r") {
+        fenceOpening = false;
+        lineIndent = 0;
+      } else if (char === "`" && lineIndent === -1) {
+        let runEnd = index + 1;
+        while (runEnd < text.length && text[runEnd] === "`") runEnd++;
+        fenceRun += runEnd - index;
+        index = runEnd;
+        continue;
+      } else if (char === "`") {
+        openRun = fenceRun;
+        fenceRun = 0;
+        fenceOpening = false;
+        continue;
+      } else lineIndent = 4;
+      index++;
+      continue;
+    }
+
+    if (fenceClosingRun) {
+      if (char === "\n" || char === "\r") {
+        fenceRun = 0;
+        fenceClosingRun = 0;
+        lineIndent = 0;
+      } else if (char === "`" && lineIndent === -1) {
+        let runEnd = index + 1;
+        while (runEnd < text.length && text[runEnd] === "`") runEnd++;
+        fenceClosingRun += runEnd - index;
+        index = runEnd;
+        continue;
+      } else if (char === " " || char === "\t") {
+        lineIndent = 4;
+      } else if (char !== " " && char !== "\t") {
+        fenceClosingRun = 0;
+        lineIndent = 4;
+      }
+      index++;
+      continue;
+    }
+
+    if (fenceRun) {
+      if (char === "\n" || char === "\r") {
+        lineIndent = 0;
+        index++;
+        continue;
+      }
+      if (char === " " && lineIndent < 4) {
+        lineIndent++;
+        index++;
+        continue;
+      }
+      if (char === "`" && lineIndent <= 3) {
+        let runEnd = index + 1;
+        while (runEnd < text.length && text[runEnd] === "`") runEnd++;
+        const runLength = runEnd - index;
+        if (runLength >= fenceRun) {
+          fenceClosingRun = runLength;
+          lineIndent = -1;
+        } else lineIndent = 4;
+        index = runEnd;
+        continue;
+      }
+      lineIndent = 4;
+      index++;
+      continue;
+    }
+
+    if (char !== "`") {
+      if (char === "\n" || char === "\r") lineIndent = 0;
+      else if (char === " " && lineIndent < 4) lineIndent++;
+      else lineIndent = 4;
+      if (openRun === 0) backslashes = char === "\\" ? backslashes + 1 : 0;
       index++;
       continue;
     }
     if (openRun === 0 && backslashes % 2 === 1) {
       backslashes = 0;
+      lineIndent = 4;
       index++;
       continue;
     }
     let runEnd = index + 1;
     while (runEnd < text.length && text[runEnd] === "`") runEnd++;
     const runLength = runEnd - index;
-    if (openRun === 0) openRun = runLength;
+    if (openRun === 0 && runLength >= 3 && lineIndent <= 3) {
+      fenceRun = runLength;
+      fenceOpening = true;
+      lineIndent = -1;
+    } else if (openRun === 0) openRun = runLength;
     else if (openRun === runLength) openRun = 0;
+    if (!fenceOpening) lineIndent = 4;
     backslashes = 0;
     index = runEnd;
   }
+
   return {
     backtickRun: openRun,
-    trailingBackslash: openRun === 0 && backslashes % 2 === 1,
+    trailingBackslash: openRun === 0 && fenceRun === 0 && backslashes % 2 === 1,
+    fenceRun,
+    fenceOpening,
+    fenceClosingRun,
+    lineIndent,
   };
 }
 
 export function splitMarkdownBoundary(
   text: string,
   priorBacktickRun = 0,
-  priorTrailingBackslash = false
-): { emit: string; hold: string; backtickRun?: number; trailingBackslash?: boolean } {
+  priorTrailingBackslash = false,
+  priorFenceRun = 0,
+  priorFenceOpening = false,
+  priorFenceClosingRun = 0,
+  priorLineIndent = 0
+): {
+  emit: string;
+  hold: string;
+  backtickRun?: number;
+  trailingBackslash?: boolean;
+  fenceRun?: number;
+  fenceOpening?: boolean;
+  fenceClosingRun?: number;
+  lineIndent?: number;
+} {
   if (!text) return { emit: "", hold: "" };
 
   // 1) Incomplete fenced code block opener or inline code opener:
@@ -82,15 +195,20 @@ export function splitMarkdownBoundary(
     const suffix = fenceMatch[0];
     const suffixStart = text.length - suffix.length;
     const runLength = suffix.match(/^`+/)?.[0].length ?? 0;
-    const { backtickRun: openRun } = scanBacktickState(
+    const { backtickRun: openRun, fenceRun } = scanBacktickState(
       text.slice(0, suffixStart),
       priorBacktickRun,
-      priorTrailingBackslash
+      priorTrailingBackslash,
+      priorFenceRun,
+      priorFenceOpening,
+      priorFenceClosingRun,
+      priorLineIndent
     );
     const closesKnownRun = openRun === runLength;
     const mayCompleteKnownRun = openRun > runLength;
     if (
       suffix.length <= MAX_HOLD_CHARS &&
+      fenceRun === 0 &&
       !closesKnownRun &&
       (mayCompleteKnownRun || isOpenerContext(text, suffixStart))
     ) {
@@ -98,7 +216,15 @@ export function splitMarkdownBoundary(
       return {
         emit,
         hold: suffix,
-        ...scanBacktickState(emit, priorBacktickRun, priorTrailingBackslash),
+        ...scanBacktickState(
+          emit,
+          priorBacktickRun,
+          priorTrailingBackslash,
+          priorFenceRun,
+          priorFenceOpening,
+          priorFenceClosingRun,
+          priorLineIndent
+        ),
       };
     }
   }
@@ -112,7 +238,15 @@ export function splitMarkdownBoundary(
       return {
         emit,
         hold: suffix,
-        ...scanBacktickState(emit, priorBacktickRun, priorTrailingBackslash),
+        ...scanBacktickState(
+          emit,
+          priorBacktickRun,
+          priorTrailingBackslash,
+          priorFenceRun,
+          priorFenceOpening,
+          priorFenceClosingRun,
+          priorLineIndent
+        ),
       };
     }
   }
@@ -120,6 +254,14 @@ export function splitMarkdownBoundary(
   return {
     emit: text,
     hold: "",
-    ...scanBacktickState(text, priorBacktickRun, priorTrailingBackslash),
+    ...scanBacktickState(
+      text,
+      priorBacktickRun,
+      priorTrailingBackslash,
+      priorFenceRun,
+      priorFenceOpening,
+      priorFenceClosingRun,
+      priorLineIndent
+    ),
   };
 }
