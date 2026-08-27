@@ -620,6 +620,63 @@ test("executeChatWithBreaker converts proxy fast-fail errors", async () => {
   }
 });
 
+test("executeChatWithBreaker omits transcript echoes from proxy fast-fail logs", async () => {
+  const rawCue = "PRIVATE_PROXY_FAST_FAIL_VIDEO_TRANSCRIPT_SENTINEL";
+  const originalFetch = globalThis.fetch;
+  const error = new Error(`Proxy unreachable: ${rawCue}`);
+  (error as Error & { code?: string }).code = "PROXY_UNREACHABLE";
+  globalThis.fetch = async () => {
+    throw error;
+  };
+
+  await flushAppLogger();
+  const before = fs.existsSync(TEST_APP_LOG_PATH)
+    ? fs.readFileSync(TEST_APP_LOG_PATH, "utf8").length
+    : 0;
+
+  try {
+    const credentials = {
+      connectionId: "conn_sensitive_proxy",
+      apiKey: "sk-openai-helper",
+      providerSpecificData: {},
+    };
+    const proxyResult = await executeChatWithBreaker({
+      bypassCircuitBreaker: false,
+      breaker: getCircuitBreaker("openai"),
+      body: { model: "openai/gpt-4o-mini" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      refreshedCredentials: credentials,
+      proxyInfo: null,
+      log: console,
+      clientRawRequest: null,
+      credentials,
+      apiKeyInfo: null,
+      userAgent: "",
+      comboName: null,
+      comboStrategy: null,
+      isCombo: false,
+      extendedContext: false,
+      comboStepId: null,
+      comboExecutionKey: null,
+      videoTranscriptSensitive: true,
+    });
+
+    assert.equal(proxyResult.result.status, 502);
+    assert.match(String(proxyResult.result.error || ""), new RegExp(rawCue));
+
+    await flushAppLogger();
+    const contents = await readAppLogWhen((value) =>
+      value.slice(before).includes("omitted: video transcript")
+    );
+    const retainedLines = contents.slice(before);
+    assert.doesNotMatch(retainedLines, new RegExp(rawCue));
+    assert.match(retainedLines, /omitted: video transcript/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("executeChatWithBreaker preserves account TLS scope when a proxy bypasses to direct", async () => {
   const server = net.createServer((socket) => socket.end());
   const listening = Promise.withResolvers<void>();
