@@ -1352,7 +1352,7 @@ export function parseRetryFromErrorText(errorText: unknown): number | null {
     }
   }
 
-  const match = /reset after (\d+h)?(\d+m)?(\d+s)?/i.exec(msg);
+  const match = /resets? after (\d+h)?(\d+m)?(\d+s)?/i.exec(msg);
   if (match?.[1] || match?.[2] || match?.[3]) return computeDurationMs(match);
 
   // Variant without "reset after": "will reset after XhYmZs"
