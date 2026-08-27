@@ -372,6 +372,7 @@ async function invokeChatCore({
   reasoningTransportFallback = "drop",
   managedLease = null,
   cachedSettings = null,
+  log = noopLog(),
 }: any = {}) {
   const calls: any[] = [];
 
@@ -406,7 +407,7 @@ async function invokeChatCore({
         apiKey: "sk-test",
         providerSpecificData: {},
       },
-      log: noopLog(),
+      log,
       clientRawRequest: {
         endpoint,
         body: structuredClone(body),
@@ -2011,6 +2012,53 @@ test("chatCore returns 500 when translation throws a generic error", async () =>
   assert.equal(result.success, false);
   assert.equal(result.status, 500);
   assert.equal(result.error, "unexpected translator crash");
+});
+test("chatCore keeps transcript-sensitive translation errors raw for the client but not logs", async () => {
+  const sentinel = "PRIVATE_TRANSLATION_ERROR_TRANSCRIPT_SENTINEL";
+  const warnCalls: unknown[][] = [];
+  register(
+    FORMATS.OPENAI_RESPONSES,
+    FORMATS.OPENAI,
+    () => {
+      throw new Error(sentinel);
+    },
+    null
+  );
+
+  const { result } = await invokeChatCore({
+    provider: "openai",
+    model: "gpt-4o-mini",
+    endpoint: "/v1/responses",
+    body: {
+      model: "gpt-4o-mini",
+      input: [
+        {
+          content: [
+            {
+              transcript: sentinel,
+              type: "input_video",
+              video_url: "data:video/mp4;base64,AA==",
+            },
+          ],
+          role: "user",
+        },
+      ],
+    },
+    log: {
+      debug() {},
+      info() {},
+      warn(...args: unknown[]) {
+        warnCalls.push(args);
+      },
+      error() {},
+    },
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.error, sentinel);
+  const serializedLogs = JSON.stringify(warnCalls);
+  assert.equal(serializedLogs.includes(sentinel), false);
+  assert.match(serializedLogs, /omitted: video transcript/);
 });
 test("chatCore refreshes GitHub credentials after 401 and retries with the refreshed Copilot token", async () => {
   let refreshedCredentials = null;
