@@ -203,14 +203,14 @@ export async function POST(request) {
     // on the response when internal early-returns (idempotency cache, some combo
     // paths) drop the meta the docs promise.
     const compressionRequestHeader = readCompressionRequestHeader(request);
+    const correlationId = request.headers.get("x-correlation-id") || generateRequestId();
 
     if (wantsStreaming) {
-      const reqId = generateRequestId();
       // Wrap the real handler response, not the synthetic early-keepalive response. If the
       // client cancels while handleChat is still pending, earlyStreamKeepalive will cancel the
       // eventual handler body; only that confirmed cleanup releases heavyweight capacity.
       const handlerResponse = releaseChatAdmissionAfterHandler(
-        handleChat(request, null, parsedBody, reqId),
+        handleChat(request, null, parsedBody, correlationId),
         admission.lease
       );
       const streamedResponse = await withEarlyStreamKeepalive(handlerResponse, {
@@ -219,14 +219,14 @@ export async function POST(request) {
         keepaliveFrame: OPENAI_KEEPALIVE_FRAME,
         startupFrame: OPENAI_STARTUP_FRAME,
         errorFrame: OPENAI_CHAT_ERROR_FRAME,
-        extraHeaders: { "X-Correlation-Id": reqId },
+        extraHeaders: { "X-Correlation-Id": correlationId },
       });
       return withCompressionHeaderEcho(streamedResponse, compressionRequestHeader);
     }
 
     return finishAdmission(
       withCompressionHeaderEcho(
-        await handleChat(request, null, parsedBody),
+        await handleChat(request, null, parsedBody, correlationId),
         compressionRequestHeader
       )
     );
