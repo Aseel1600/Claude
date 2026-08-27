@@ -69,6 +69,15 @@ function normalizeSessionKey(value: unknown, prefix: string): string | null {
 /** Upper bound on text extracted for session hashing (matches the slice in extractSessionAffinityKey). */
 const SESSION_HASH_TEXT_LIMIT = 4096;
 
+function extractBoundedNonEmptyText(
+  value: unknown,
+  limit = SESSION_HASH_TEXT_LIMIT
+): string | null {
+  if (typeof value !== "string" || limit <= 0) return null;
+  const bounded = value.slice(0, limit);
+  return bounded.trim().length > 0 ? bounded : null;
+}
+
 /**
  * Extracts human-readable text from a value for session-affinity hashing.
  *
@@ -83,41 +92,42 @@ const SESSION_HASH_TEXT_LIMIT = 4096;
  *   should use explicit session IDs instead.
  */
 function extractTextForSessionHash(value: unknown): string | null {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return extractBoundedNonEmptyText(value);
 
   if (Array.isArray(value)) {
     const parts: string[] = [];
     let totalLen = 0;
     for (const item of value) {
       if (totalLen >= SESSION_HASH_TEXT_LIMIT) break;
-      let text: string | null = null;
+      let candidate: unknown = null;
       if (typeof item === "string") {
-        text = item;
+        candidate = item;
       } else {
         const record = asRecord(item);
-        if (typeof record.text === "string") text = record.text;
-        else if (typeof record.content === "string") text = record.content;
+        if (typeof record.text === "string") candidate = record.text;
+        else if (typeof record.content === "string") candidate = record.content;
       }
+      const separatorLength = parts.length > 0 ? 1 : 0;
+      const text = extractBoundedNonEmptyText(
+        candidate,
+        SESSION_HASH_TEXT_LIMIT - totalLen - separatorLength
+      );
       if (text) {
         parts.push(text);
-        totalLen += text.length;
+        totalLen += separatorLength + text.length;
       }
     }
-    return parts.length > 0 ? parts.join("\n").slice(0, SESSION_HASH_TEXT_LIMIT) : null;
+    return parts.length > 0 ? parts.join("\n") : null;
   }
 
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     // Known text fields — covers OpenAI, Anthropic, and most providers
-    if (typeof record.text === "string" && record.text.trim().length > 0) {
-      return record.text.slice(0, SESSION_HASH_TEXT_LIMIT);
-    }
-    if (typeof record.content === "string" && record.content.trim().length > 0) {
-      return record.content.slice(0, SESSION_HASH_TEXT_LIMIT);
-    }
-    if (typeof record.prompt === "string" && record.prompt.trim().length > 0) {
-      return record.prompt.slice(0, SESSION_HASH_TEXT_LIMIT);
-    }
+    const directText =
+      extractBoundedNonEmptyText(record.text) ??
+      extractBoundedNonEmptyText(record.content) ??
+      extractBoundedNonEmptyText(record.prompt);
+    if (directText) return directText;
     // Gemini format: { parts: [{ text: "..." }, ...] }
     if (Array.isArray(record.parts)) {
       const partsText = extractTextForSessionHash(record.parts);
@@ -136,16 +146,16 @@ function getFirstInputText(body: unknown): string | null {
 
   // Codex / Responses API: { input: "..." | [...] }
   if (record.input !== undefined) {
-    if (typeof record.input === "string") return record.input;
+    if (typeof record.input === "string") return extractBoundedNonEmptyText(record.input);
     if (Array.isArray(record.input)) {
       for (const item of record.input) {
         const itemRecord = asRecord(item);
         const text = extractTextForSessionHash(itemRecord.content ?? item);
-        if (text && text.trim().length > 0) return text;
+        if (text) return text;
       }
     }
     const text = extractTextForSessionHash(record.input);
-    if (text && text.trim().length > 0) return text;
+    if (text) return text;
   }
 
   // OpenAI Chat / Anthropic Messages: { messages: [...] }
@@ -153,7 +163,7 @@ function getFirstInputText(body: unknown): string | null {
     const userMessage = record.messages.find((message) => asRecord(message).role === "user");
     const firstMessage = userMessage ?? record.messages[0];
     const text = extractTextForSessionHash(asRecord(firstMessage).content ?? firstMessage);
-    if (text && text.trim().length > 0) return text;
+    if (text) return text;
   }
 
   // Google Gemini: { contents: [{ role: "user", parts: [{ text: "..." }] }] }
@@ -161,21 +171,18 @@ function getFirstInputText(body: unknown): string | null {
     const userContent = record.contents.find((c) => asRecord(c).role === "user");
     const firstContent = userContent ?? record.contents[0];
     const text = extractTextForSessionHash(asRecord(firstContent).parts ?? firstContent);
-    if (text && text.trim().length > 0) return text;
+    if (text) return text;
   }
 
   // OpenAI Legacy Completions / Anthropic /v1/complete / Ollama: { prompt: "..." }
-  if (typeof record.prompt === "string" && record.prompt.trim().length > 0) {
-    return record.prompt;
-  }
+  const prompt = extractBoundedNonEmptyText(record.prompt);
+  if (prompt) return prompt;
 
   // Other common root-level text fields
-  if (typeof record.query === "string" && record.query.trim().length > 0) {
-    return record.query;
-  }
-  if (typeof record.instruction === "string" && record.instruction.trim().length > 0) {
-    return record.instruction;
-  }
+  const query = extractBoundedNonEmptyText(record.query);
+  if (query) return query;
+  const instruction = extractBoundedNonEmptyText(record.instruction);
+  if (instruction) return instruction;
 
   return null;
 }
@@ -210,8 +217,8 @@ export function extractSessionAffinityKey(
   if (explicitKey) return explicitKey;
 
   const inputText = getFirstInputText(body);
-  if (!inputText || inputText.trim().length === 0) return null;
-  return `input:sha256:${createHash("sha256").update(inputText.slice(0, 4096)).digest("hex")}`;
+  if (!inputText) return null;
+  return `input:sha256:${createHash("sha256").update(inputText).digest("hex")}`;
 }
 
 /** Minimal structural view of a provider connection this module reads. */

@@ -124,7 +124,6 @@ test("extractSessionAffinityKey ignores large non-text multimodal content", () =
   // Should extract the text part "Describe this image" from the content array
   const expected = `input:sha256:${sha256hex("Describe this image")}`;
   assert.equal(result, expected);
-
 });
 
 test("extractSessionAffinityKey returns null for multimodal content with ONLY non-text parts", () => {
@@ -188,6 +187,25 @@ test("extractSessionAffinityKey prefers metadata.session_id over input hashing",
 
 test("extractSessionAffinityKey returns null for whitespace-only input", () => {
   assert.equal(extractSessionAffinityKey({ input: "   " }), null);
+});
+
+test("extractSessionAffinityKey bounds direct input before scanning whitespace", () => {
+  assert.equal(extractSessionAffinityKey({ input: `${" ".repeat(4096)}A` }), null);
+});
+
+test("extractSessionAffinityKey bounds recognized text fields before scanning whitespace", () => {
+  const lateText = `${" ".repeat(4096)}A`;
+  const bodies = [
+    { input: { text: lateText } },
+    { messages: [{ role: "user", content: [{ type: "text", text: lateText }] }] },
+    { prompt: lateText },
+    { query: lateText },
+    { instruction: lateText },
+  ];
+
+  for (const body of bodies) {
+    assert.equal(extractSessionAffinityKey(body), null);
+  }
 });
 
 test("extractSessionAffinityKey returns null for empty string input", () => {
@@ -383,5 +401,8 @@ test("extractSessionAffinityKey rejects overlong session IDs instead of truncati
 test("extractSessionAffinityKey rejects an overlong whitespace-padded session ID", () => {
   const whitespacePaddedSessionId = `${" ".repeat(4096)}A`;
 
-  assert.equal(extractSessionAffinityKey({ metadata: { session_id: whitespacePaddedSessionId } }), null);
+  assert.equal(
+    extractSessionAffinityKey({ metadata: { session_id: whitespacePaddedSessionId } }),
+    null
+  );
 });
