@@ -141,3 +141,40 @@ test("transcript-sensitive combo failures omit echoed transcript only from retai
   assert.equal(serialized.includes(transcriptSentinel), false);
   assert.match(serialized, /omitted: video transcript/);
 });
+
+test("transcript-sensitive round-robin failures omit echoed transcript from retained logs", async () => {
+  const transcriptSentinel = "PRIVATE_COMBO_RR_ERROR_TRANSCRIPT_SENTINEL";
+  const localWarnCalls: WarnCall[] = [];
+  const result = await handleComboChat({
+    body: { model: "test", messages: [{ role: "user", content: "processed video request" }] },
+    combo: {
+      name: "test-combo-10597-private-rr",
+      strategy: "round-robin",
+      models: [{ model: "claude/private-video-rr" }],
+      config: { maxRetries: 0 },
+    },
+    handleSingleModel: async () =>
+      new Response(JSON.stringify({ error: { message: transcriptSentinel } }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }),
+    log: {
+      info: () => {},
+      debug: () => {},
+      error: () => {},
+      warn: (tag: string, msg: string, meta?: unknown) => {
+        localWarnCalls.push({ tag, msg, meta });
+      },
+    },
+    settings: {},
+    allCombos: [],
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(result.ok, false);
+  const retainedFailure = localWarnCalls.find((call) => call.tag === "COMBO-RR");
+  assert.ok(retainedFailure);
+  const serialized = JSON.stringify(retainedFailure);
+  assert.equal(serialized.includes(transcriptSentinel), false);
+  assert.match(serialized, /omitted: video transcript/);
+});
