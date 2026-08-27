@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
 import type { TlsFetchOptions } from "../../open-sse/services/chatgptTlsClient.ts";
 
 const { ChatGptWebExecutor, __derivePublicBaseUrlForTesting, __resetChatGptWebCachesForTesting } =
@@ -255,8 +254,8 @@ function installMockFetch({
       return {
         status: cfg.status,
         headers: makeHeaders({ "Content-Type": "image/png" }),
-        // tls-client-node packages binary bodies as a data:<mime>;base64,...
-        // string when isByteResponse is set; the mock mirrors that contract.
+        // The shared browser transport packages byte responses as a
+        // data:<mime>;base64,... string; the mock mirrors that contract.
         text: `data:image/png;base64,${tinyPng.toString("base64")}`,
         body: null,
       };
@@ -1901,30 +1900,30 @@ test("looksLikeSse: rejects non-SSE bodies that previously passed as 200", () =>
   assert.equal(looksLikeSse("error: rate limit"), false, "non-SSE field name");
 });
 
-test("tls streaming: late first byte is read from streamOutputPath instead of empty body", async () => {
+test("tls streaming: a late first byte falls back to the complete buffered body", async () => {
   const fakeClient = {
-    async request(_url, opts) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      await writeFile(
-        String(opts.streamOutputPath),
-        mockChatGptStreamText([
-          {
-            conversation_id: "conv-late",
-            message: {
-              id: "msg-late",
-              author: { role: "assistant" },
-              content: { content_type: "text", parts: ["Late title answer"] },
-              status: "finished_successfully",
-            },
+    async request() {
+      const payload = mockChatGptStreamText([
+        {
+          conversation_id: "conv-late",
+          message: {
+            id: "msg-late",
+            author: { role: "assistant" },
+            content: { content_type: "text", parts: ["Late title answer"] },
+            status: "finished_successfully",
           },
-        ]),
-        "utf8"
+        },
+      ]);
+      return new Response(
+        new ReadableStream({
+          async pull(controller) {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            controller.enqueue(new TextEncoder().encode(payload));
+            controller.close();
+          },
+        }),
+        { status: 200, headers: { "content-type": "text/event-stream" } }
       );
-      return {
-        status: 200,
-        headers: { "content-type": ["text/event-stream"] },
-        body: "",
-      };
     },
   };
 
@@ -2345,9 +2344,8 @@ test("Image gen: signed URL bytes are cached and exposed via /v1/chatgpt-web/ima
     }
     if (u.startsWith(downloadUrl)) {
       calls.signed++;
-      // tls-client-node returns binary bodies as a "data:<mime>;base64,..."
-      // string (see its response.js bytes() impl); the executor decodes it
-      // back into bytes before putting the image in OmniRoute's cache.
+      // The shared browser transport returns binary bodies as a
+      // "data:<mime>;base64,..." string; the executor decodes it for the cache.
       return {
         status: 200,
         headers: makeHeaders({ "Content-Type": "image/png" }),

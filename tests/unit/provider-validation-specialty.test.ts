@@ -16,7 +16,6 @@ const { __setTlsFetchOverrideForTesting: __setPplxTlsFetchOverride } =
 const { __setTlsFetchOverrideForTesting: __setGrokTlsFetchOverride } =
   await import("../../open-sse/services/grokTlsClient.ts");
 
-
 const originalFetch = globalThis.fetch;
 
 test.afterEach(() => {
@@ -2458,7 +2457,7 @@ test("claude-web validator: 500 → Claude.ai unavailable", async () => {
 test("claude-web validator: TLS client unavailable → clear error", async () => {
   const { TlsClientUnavailableError } = await import("../../open-sse/services/claudeTlsClient.ts");
   __setClaudeTlsFetchOverride(async () => {
-    throw new TlsClientUnavailableError("tls-client-node not installed");
+    throw new TlsClientUnavailableError("wreq-js 3.0.0 native addon unavailable");
   });
 
   const result = await validateProviderApiKey({
@@ -2467,7 +2466,7 @@ test("claude-web validator: TLS client unavailable → clear error", async () =>
   });
 
   assert.equal(result.valid, false);
-  assert.match(result.error || "", /tls-client-node not installed/i);
+  assert.match(result.error || "", /wreq-js 3\.0\.0 native addon unavailable/i);
   __setClaudeTlsFetchOverride(null);
 });
 
