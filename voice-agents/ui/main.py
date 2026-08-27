@@ -161,7 +161,7 @@ async def ask_llm(prompt: str, context: str = "") -> str:
         "messages": messages,
         "stream": False,
     }
-    headers = {"Authorization": f"Bearer {OMNIROUTE_API_KEY}"}
+    headers = {"Authorization": f"Bearer {OMNIROUTE_API_KEY}"} if OMNIROUTE_API_KEY else {}
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(f"{OMNIROUTE_BASE_URL}/chat/completions", json=payload, headers=headers)
         resp.raise_for_status()
@@ -177,7 +177,7 @@ async def describe_image(path: Path, user_text: str = "") -> str | None:
     if user_text.strip():
         prompt = f"Kontext des Nutzers: {user_text.strip()}." + prompt
 
-    headers = {"Authorization": f"Bearer {OMNIROUTE_API_KEY}"}
+    headers = {"Authorization": f"Bearer {OMNIROUTE_API_KEY}"} if OMNIROUTE_API_KEY else {}
 
     if GOOGLE_API_KEY:
         try:

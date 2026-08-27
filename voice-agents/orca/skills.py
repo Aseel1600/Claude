@@ -361,7 +361,7 @@ def _llm_call(base_url: str, api_key: str, model: str, system: str, prompt: str)
     r = httpx.post(
         f"{base_url}/chat/completions",
         json=payload,
-        headers={"Authorization": f"Bearer {api_key}"},
+        headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
         timeout=240,
     )
     r.raise_for_status()

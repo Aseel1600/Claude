@@ -9,9 +9,11 @@ services:
     volumes:
       - ${OMNIROUTE_ROOT:-.}/data:/app/data
       - ${OMNIROUTE_ROOT:-.}/ui/static:/app/ui/static
+      - ${OMNIROUTE_ROOT:-.}/skills:/app/skills
     restart: unless-stopped
     environment:
       - PYTHONPATH=/app
+      - OMNIROUTE_BASE_URL=http://host.docker.internal:20128/v1
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:20129/health')"]
       interval: 30s

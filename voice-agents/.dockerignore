@@ -1,5 +1,7 @@
 # Build-Kontext klein halten (voice-agents root)
 .git
+.env*
+client_secrets.json
 .venv*
 venv*
 __pycache__

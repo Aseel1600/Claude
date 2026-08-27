@@ -97,6 +97,31 @@ def test_playwright_dependency_is_test_only_and_pinned():
     assert "playwright==1.62.0" in pinned
 
 
+def test_dockerignore_excludes_secrets():
+    root = Path(__file__).parents[2]
+    dockerignore = (root / ".dockerignore").read_text(encoding="utf-8")
+    assert ".env*" in dockerignore
+    assert "client_secrets.json" in dockerignore
+
+
+def test_run_ui_test_cmd_enforces_preflight_gate():
+    root = Path(__file__).parents[2]
+    runner = (root / "ui" / "tests" / "run_ui_test.cmd").read_text(encoding="utf-8")
+    assert "verify_b_drive_migration.py" in runner
+    assert '--root "%ROOT%"' in runner
+    assert "errorlevel" in runner
+    assert "exit /b 1" in runner
+
+
+def test_cutover_runbook_enforces_preflight_gate():
+    root = Path(__file__).parents[2]
+    runbook = root / "docs" / "superpowers" / "runbooks" / "b-drive-ui-cutover.md"
+    text = runbook.read_text(encoding="utf-8")
+    preflight = text.split("## 1. Preflight", 1)[1].split("## 2.", 1)[0]
+    assert "verify_b_drive_migration.py" in preflight
+    assert "if errorlevel 1" in preflight
+
+
 def test_cutover_runbook_has_backup_and_rollback_sections():
     root = Path(__file__).parents[2]
     runbook = root / "docs" / "superpowers" / "runbooks" / "b-drive-ui-cutover.md"

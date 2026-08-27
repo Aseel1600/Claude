@@ -14,6 +14,15 @@ if not "%OMNIROUTE_ROOT%"=="" set "ROOT=%OMNIROUTE_ROOT%"
 set SKILL=C:\Users\Sebastian\.agents\skills\webapp-testing
 set PY=%ROOT%\.venv\Scripts\python.exe
 
+rem Preflight-Gate: Migrations-Voraussetzungen pruefen, Abbruch bei Fehler
+"%PY%" "%ROOT%\scripts\verify_b_drive_migration.py" --root "%ROOT%" ^
+  --required docker-compose.ui.yml ui\main.py ui\static\index.html ui\run-ui.cmd ^
+  --forbidden .env client_secrets.json
+if errorlevel 1 (
+  echo [ui-test] PREFLIGHT FEHLGESCHLAGEN - Abbruch
+  exit /b 1
+)
+
 rem Verwaiste Server auf dem Zielport beenden (Windows zeigt LISTEN als "ABHOEREN")
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr /i "ABH"') do (
   echo [ui-test] Verwaisten Prozess %%p auf Port %PORT% beenden ...

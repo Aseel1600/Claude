@@ -23,9 +23,16 @@ set OMNIROUTE_ROOT=B:\OmniRoute\voice-agents
 python scripts\verify_b_drive_migration.py --root "%OMNIROUTE_ROOT%" ^
   --required docker-compose.ui.yml ui\main.py ui\static\index.html data\kanban\board.json ^
   --forbidden .env client_secrets.json
+if errorlevel 1 (
+  echo PREFLIGHT FEHLGESCHLAGEN - Cutover ABBRECHEN
+  exit /b 1
+)
 ```
 
-Erwartung: Exit 0, keine missing-/forbidden-Fehler.
+Erwartung: Exit 0, keine missing-/forbidden-Fehler. Das Gate ist maschinell
+erzwungen: Abbruch bei Exit != 0. Derselbe Aufruf (mit dem auf den getesteten
+Baum passenden `--required`-Set ohne `board.json`) steckt in
+`ui/tests/run_ui_test.cmd` und läuft dort vor jedem Suite-Start.
 
 ## 2. Backup (vor jedem Stopp)
 
