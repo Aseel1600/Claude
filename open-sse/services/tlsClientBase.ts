@@ -33,7 +33,10 @@ import { open, unlink, rmdir, readFile, mkdtemp, stat } from "node:fs/promises";
 // ---------------------------------------------------------------------------
 import { resolveProxyForRequest } from "../utils/proxyFetch.ts";
 import { resolveTlsClientProxyUrl } from "./tlsClientProxy.ts";
-import { buildNativeTlsClientOptions } from "./tlsClientDownloadDir.ts";
+import {
+  buildNativeTlsClientOptions,
+  resolveVerifiedTlsClientNativeLibrary,
+} from "./tlsClientDownloadDir.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -652,8 +655,17 @@ export function createGetClient(config: {
             `tls-client-node is not installed — cannot start TLS client for ${config.providerName}`
           );
         }
+        let nativeLibraryPath: string;
+        try {
+          nativeLibraryPath = await resolveVerifiedTlsClientNativeLibrary();
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          throw new TlsClientUnavailableError(
+            `tls-client native binary verification failed for ${config.providerName}: ${detail}`
+          );
+        }
         const tlsOptions: Record<string, unknown> = {
-          ...buildNativeTlsClientOptions(),
+          ...buildNativeTlsClientOptions(nativeLibraryPath),
         };
         if (config.tlsProfile) {
           tlsOptions.clientIdentifier = config.tlsProfile;

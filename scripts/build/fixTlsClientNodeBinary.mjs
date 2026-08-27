@@ -10,46 +10,73 @@
  * even when it does run, silently no-ops on a rate-limited/failed GitHub API
  * call instead of raising — so `node_modules/tls-client-node/bin/` can end
  * up empty with no visible signal until the first live request throws
- * TlsClientUnavailableError (chatgpt-web/claude-web/grok-web/lmarena/
- * perplexity-web all share this transport).
+ * TlsClientUnavailableError (chatgpt-web/claude-web/perplexity-web/grok-web/
+ * notion-web/lmarena all share this transport).
  *
  * This module:
- *   1. Copies an already-fetched root `bin/` into the standalone
+ *   1. Accepts only bogdanfinn/tls-client v1.15.1 assets whose SHA-256 matches
+ *      the digest published by GitHub for the tagged release.
+ *   2. Copies the verified root asset into the standalone
  *      `dist/node_modules/tls-client-node/bin/` bundle (same pattern as
  *      fixWreqJsBinary), so the published npm package works even though its
  *      own `files` allowlist never ships the binary.
- *   2. When the root `bin/` is empty (--ignore-scripts blocked it, or a
- *      transient GitHub rate-limit ate the first attempt), retries the
- *      module's own postinstall.js with exponential backoff instead of
- *      giving up on the first failure.
+ *   3. When that verified asset is absent, invokes the module's postinstall
+ *      with TLS_CLIENT_VERSION pinned and retries with exponential backoff.
  *
- * Best-effort throughout: a failure here never throws out of postinstall.mjs
- * — it only warns, matching the other fix*Binary() steps. The runtime layer
- * (perplexityTlsClient.ts and its 4 siblings) already surfaces a clear
- * TlsClientUnavailableError pointing at the missing binary, so an operator
- * who hits a still-empty bin/ after this repair gets an actionable message
- * rather than an opaque crash.
+ * Normal npm postinstall remains best-effort and warns on failure. Docker and
+ * release callers use --strict, which fails closed instead of shipping an
+ * absent or unverified binary.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const DEFAULT_RETRY_DELAYS_MS = [1_000, 3_000, 8_000];
+const NATIVE_MANIFEST = JSON.parse(
+  readFileSync(
+    new URL("../../open-sse/config/tlsClientNativeManifest.json", import.meta.url),
+    "utf8"
+  )
+);
 
-function hasAnyFile(dir) {
-  if (!existsSync(dir)) return false;
+export const TLS_CLIENT_NATIVE_VERSION = NATIVE_MANIFEST.version;
+export const TLS_CLIENT_NATIVE_ASSETS = NATIVE_MANIFEST.assets;
+
+/** @typedef {{ file: string; sha256: string }} NativeAsset */
+
+/**
+ * Resolve the exact native asset supported by tls-client-node@0.2.0.
+ *
+ * @param {NodeJS.Platform} [platform]
+ * @param {string} [arch]
+ * @returns {NativeAsset}
+ */
+export function resolveTlsClientNativeAsset(platform = process.platform, arch = process.arch) {
+  const asset = TLS_CLIENT_NATIVE_ASSETS[`${platform}-${arch}`];
+  if (!asset) {
+    throw new Error(`Unsupported platform for tls-client-node native asset: ${platform}/${arch}`);
+  }
+  return asset;
+}
+
+function sha256File(filePath) {
+  return createHash("sha256").update(readFileSync(filePath)).digest("hex");
+}
+
+/** @param {string} filePath @param {NativeAsset} asset */
+function isVerifiedBinary(filePath, asset) {
+  if (!existsSync(filePath)) return false;
   try {
-    return readdirSync(dir).length > 0;
+    return sha256File(filePath) === asset.sha256;
   } catch {
     return false;
   }
 }
 
-function copyBinDir(sourceDir, destDir) {
-  mkdirSync(destDir, { recursive: true });
-  for (const file of readdirSync(sourceDir)) {
-    copyFileSync(join(sourceDir, file), join(destDir, file));
-  }
+function removeIfPresent(filePath) {
+  if (existsSync(filePath)) unlinkSync(filePath);
 }
 
 async function sleep(ms) {
@@ -63,10 +90,16 @@ async function sleep(ms) {
  * only warns, so "still empty after running it" is the only failure signal
  * available).
  */
-async function downloadWithRetry(rootTlsClientDir, retryDelaysMs, log) {
+async function downloadWithRetry(rootTlsClientDir, asset, version, retryDelaysMs, log) {
   const postinstallScript = join(rootTlsClientDir, "scripts", "postinstall.js");
   const binDir = join(rootTlsClientDir, "bin");
+  const binaryPath = join(binDir, asset.file);
   if (!existsSync(postinstallScript)) return false;
+
+  if (existsSync(binaryPath) && !isVerifiedBinary(binaryPath, asset)) {
+    removeIfPresent(binaryPath);
+    log(`  ⚠️  Removed tls-client-node binary with an invalid SHA-256: ${asset.file}`);
+  }
 
   for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
     if (attempt > 0) {
@@ -81,6 +114,11 @@ async function downloadWithRetry(rootTlsClientDir, retryDelaysMs, log) {
       const { execFileSync } = await import("node:child_process");
       execFileSync(process.execPath, [postinstallScript], {
         cwd: rootTlsClientDir,
+        env: {
+          ...process.env,
+          TLS_CLIENT_SKIP_DOWNLOAD: "0",
+          TLS_CLIENT_VERSION: version,
+        },
         stdio: "pipe",
         timeout: 30_000,
       });
@@ -88,7 +126,11 @@ async function downloadWithRetry(rootTlsClientDir, retryDelaysMs, log) {
       log(`  ⚠️  tls-client-node postinstall attempt failed: ${err.message.split("\n")[0]}`);
     }
 
-    if (hasAnyFile(binDir)) return true;
+    if (isVerifiedBinary(binaryPath, asset)) return true;
+    if (existsSync(binaryPath)) {
+      removeIfPresent(binaryPath);
+      log(`  ⚠️  Rejected tls-client-node binary with an invalid SHA-256: ${asset.file}`);
+    }
   }
 
   return false;
@@ -99,50 +141,99 @@ async function downloadWithRetry(rootTlsClientDir, retryDelaysMs, log) {
  * @param {string} opts.rootDir - repo root
  * @param {(msg: string) => void} [opts.log]
  * @param {number[]} [opts.retryDelaysMs] - override for tests (avoid real sleeps)
+ * @param {NativeAsset} [opts.asset] - injected only for deterministic tests
+ * @param {boolean} [opts.strict] - fail instead of warning (Docker/release builds)
  */
 export async function fixTlsClientNodeBinary({
   rootDir,
   log = (m) => console.log(m),
   retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
+  asset,
+  strict = false,
 } = {}) {
+  const version = TLS_CLIENT_NATIVE_VERSION;
   const rootTlsClientDir = join(rootDir, "node_modules", "tls-client-node");
   const rootBinDir = join(rootTlsClientDir, "bin");
   const distTlsClientDir = join(rootDir, "dist", "node_modules", "tls-client-node");
 
-  if (!existsSync(rootTlsClientDir)) return;
+  if (!existsSync(rootTlsClientDir)) {
+    if (strict) throw new Error("tls-client-node is not installed; cannot verify native binary");
+    return;
+  }
 
-  if (!hasAnyFile(rootBinDir)) {
+  let expectedAsset = asset;
+  try {
+    expectedAsset ??= resolveTlsClientNativeAsset();
+  } catch (err) {
+    if (strict) throw err;
+    console.warn(`  ⚠️  ${err.message}`);
+    return;
+  }
+
+  const rootBinaryPath = join(rootBinDir, expectedAsset.file);
+
+  if (!isVerifiedBinary(rootBinaryPath, expectedAsset)) {
     log(
-      "\n  🔧 tls-client-node native binary missing (blocked by --ignore-scripts or a " +
-        "failed fetch) — attempting repair...\n"
+      `\n  🔧 tls-client-node native binary missing or unverified — fetching pinned ` +
+        `v${version} and checking SHA-256...\n`
     );
-    const recovered = await downloadWithRetry(rootTlsClientDir, retryDelaysMs, log);
+    const recovered = await downloadWithRetry(
+      rootTlsClientDir,
+      expectedAsset,
+      version,
+      retryDelaysMs,
+      log
+    );
     if (!recovered) {
+      const message =
+        `Could not fetch tls-client-node v${version} verified native binary ` +
+        `(${expectedAsset.file}) after retries.`;
+      if (strict) throw new Error(message);
+      console.warn(`\n  ⚠️  ${message} GitHub may be rate-limited or unreachable.`);
       console.warn(
-        "\n  ⚠️  Could not fetch tls-client-node's native binary " +
-          "(GitHub API rate-limited or unreachable after retries)."
+        "     chatgpt-web/claude-web/perplexity-web/grok-web/notion-web/lmarena will " +
+          "raise a clear TlsClientUnavailableError on first use until this is resolved."
       );
       console.warn(
-        "     chatgpt-web/claude-web/grok-web/lmarena/perplexity-web will raise a clear " +
-          "TlsClientUnavailableError on first use until this is resolved."
-      );
-      console.warn(
-        `     Manual fix: node ${join(rootTlsClientDir, "scripts", "postinstall.js")}\n`
+        `     Verified repair: node ${join(rootDir, "scripts", "build", "fixTlsClientNodeBinary.mjs")} --strict\n`
       );
       return;
     }
     log("  ✅ tls-client-node native binary fetched successfully!\n");
   }
 
-  if (!existsSync(distTlsClientDir) || !hasAnyFile(rootBinDir)) return;
+  if (!existsSync(distTlsClientDir) || !isVerifiedBinary(rootBinaryPath, expectedAsset)) return;
 
   const distBinDir = join(distTlsClientDir, "bin");
-  if (hasAnyFile(distBinDir)) return;
+  const distBinaryPath = join(distBinDir, expectedAsset.file);
+  if (isVerifiedBinary(distBinaryPath, expectedAsset)) return;
 
   try {
-    copyBinDir(rootBinDir, distBinDir);
-    log("  ✅ tls-client-node native binary copied to standalone dist/node_modules.\n");
+    removeIfPresent(distBinaryPath);
+    mkdirSync(distBinDir, { recursive: true });
+    copyFileSync(rootBinaryPath, distBinaryPath);
+    if (!isVerifiedBinary(distBinaryPath, expectedAsset)) {
+      removeIfPresent(distBinaryPath);
+      throw new Error(`SHA-256 mismatch after copying ${expectedAsset.file}`);
+    }
+    log(
+      `  ✅ Verified tls-client-node v${version} native binary copied to standalone ` +
+        "dist/node_modules.\n"
+    );
   } catch (err) {
+    if (strict) throw err;
     console.warn(`  ⚠️  Could not copy tls-client-node binary into dist/: ${err.message}`);
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    await fixTlsClientNodeBinary({
+      rootDir: process.cwd(),
+      strict: process.argv.includes("--strict"),
+    });
+  } catch (err) {
+    console.error(`  ❌ ${err.message}`);
+    process.exitCode = 1;
   }
 }

@@ -285,11 +285,27 @@ test("loadAllowlist: exceptions entries have required fields", () => {
   }
 });
 
-test("loadAllowlist: tls-client-node exception has risk=medium (Commons Clause)", () => {
+test("loadAllowlist: tls-client-node exception is temporary, owned, and covers all consumers", () => {
   const allowlist = loadAllowlist();
   const exc = allowlist.exceptions["tls-client-node"] as any;
   assert.ok(exc, "tls-client-node exception must be registered");
   assert.equal(exc.risk, "medium", "tls-client-node is a medium-risk exception (Commons Clause)");
+  assert.equal(exc.temporary, true, "Commons Clause exception must not become permanent policy");
+  assert.equal(exc.owner, "@diegosouzapw");
+  assert.equal(exc.reviewBy, "2026-09-30");
+  assert.equal(exc.reviewAt, "v3.9.0");
+  assert.match(exc.justification, /source-available/i);
+  assert.match(exc.justification, /commercial deployment/i);
+  for (const provider of [
+    "chatgpt-web",
+    "claude-web",
+    "perplexity-web",
+    "grok-web",
+    "notion-web",
+    "lmarena",
+  ]) {
+    assert.match(exc.justification, new RegExp(provider), `missing consumer ${provider}`);
+  }
 });
 
 test("loadAllowlist: LGPL packages have registered exceptions", () => {

@@ -1,0 +1,1 @@
+- **security(deps):** pin `tls-client-node@0.2.0`, ship its exact Commons Clause/Apache and upstream BSD-4 notices, pin `bogdanfinn/tls-client` to v1.15.1, and verify every native binary against GitHub's official SHA-256 before loading it ([#11742](https://github.com/diegosouzapw/OmniRoute/pull/11742)).

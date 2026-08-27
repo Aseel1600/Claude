@@ -1,9 +1,9 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -39,7 +39,7 @@ test("resolveTlsClientDownloadDir caches native binary under DATA_DIR/tls-client
   assert.equal(resolveTlsClientDownloadDir(), join(dataDir, "tls-client", "bin"));
 });
 
-test("buildNativeTlsClientOptions passes downloadDir to tls-client-node (#8579)", async () => {
+test("buildNativeTlsClientOptions pins v1.15.1 and passes downloadDir to tls-client-node", async () => {
   const dataDir = mkdtempSync(join(tmpdir(), "omniroute-tls-client-opts-8579-"));
   process.env.DATA_DIR = dataDir;
 
@@ -49,15 +49,76 @@ test("buildNativeTlsClientOptions passes downloadDir to tls-client-node (#8579)"
   const options = buildNativeTlsClientOptions();
 
   assert.equal(options.runtimeMode, "native");
+  assert.equal(options.version, "1.15.1");
   assert.equal(options.downloadDir, join(dataDir, "tls-client", "bin"));
+});
+
+test("runtime downloader verifies v1.15.1 before exposing nativeLibraryPath", async () => {
+  const downloadDir = mkdtempSync(join(tmpdir(), "omniroute-tls-client-verified-"));
+  try {
+    const bytes = Buffer.from("verified-runtime-binary");
+    const asset = {
+      file: "tls-client-linux-ubuntu-amd64-1.15.1.so",
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    };
+    const requestedUrls: string[] = [];
+    const { resolveVerifiedTlsClientNativeLibrary } =
+      await import("../../open-sse/services/tlsClientDownloadDir.ts");
+
+    const libraryPath = await resolveVerifiedTlsClientNativeLibrary({
+      asset,
+      downloadDir,
+      fetchImpl: async (url: string | URL) => {
+        requestedUrls.push(String(url));
+        return new Response(bytes, { status: 200 });
+      },
+    });
+
+    assert.deepEqual(requestedUrls, [
+      `https://github.com/bogdanfinn/tls-client/releases/download/v1.15.1/${asset.file}`,
+    ]);
+    assert.equal(libraryPath, join(downloadDir, asset.file));
+    assert.deepEqual(readFileSync(libraryPath), bytes);
+  } finally {
+    rmSync(downloadDir, { recursive: true, force: true });
+  }
+});
+
+test("runtime downloader rejects bytes that do not match the official digest", async () => {
+  const downloadDir = mkdtempSync(join(tmpdir(), "omniroute-tls-client-rejected-"));
+  try {
+    const asset = {
+      file: "tls-client-linux-ubuntu-amd64-1.15.1.so",
+      sha256: createHash("sha256").update("expected").digest("hex"),
+    };
+    const { resolveVerifiedTlsClientNativeLibrary } =
+      await import("../../open-sse/services/tlsClientDownloadDir.ts");
+
+    await assert.rejects(
+      resolveVerifiedTlsClientNativeLibrary({
+        asset,
+        downloadDir,
+        fetchImpl: async () => new Response("tampered", { status: 200 }),
+      }),
+      /SHA-256 mismatch for tls-client v1\.15\.1/
+    );
+    assert.equal(existsSync(join(downloadDir, asset.file)), false);
+  } finally {
+    rmSync(downloadDir, { recursive: true, force: true });
+  }
 });
 
 test("all web-provider tls clients wire downloadDir through buildNativeTlsClientOptions (#8579)", () => {
   const base = readFileSync(join(ROOT, "open-sse/services/tlsClientBase.ts"), "utf8");
   assert.match(
     base,
-    /buildNativeTlsClientOptions\(\)/,
-    "tlsClientBase.ts must pass buildNativeTlsClientOptions() to TLSClient"
+    /resolveVerifiedTlsClientNativeLibrary\(\)/,
+    "tlsClientBase.ts must verify the pinned native library before TLSClient loads it"
+  );
+  assert.match(
+    base,
+    /buildNativeTlsClientOptions\(nativeLibraryPath\)/,
+    "tlsClientBase.ts must pass the verified nativeLibraryPath to TLSClient"
   );
   assert.doesNotMatch(
     base,

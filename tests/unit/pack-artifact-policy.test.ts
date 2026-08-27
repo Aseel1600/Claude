@@ -241,6 +241,7 @@ test("findMissingArtifactPaths flags missing root runtime files in the tarball",
   // alphabetically (bin/ < dist/ < scripts/ < src/), minus the paths present
   // above (dist/server.js, bin/omniroute.mjs, package.json, the postinstall scripts).
   assert.deepEqual(missingPaths, [
+    "THIRD_PARTY_NOTICES.md",
     "bin/aliasResolver.mjs",
     "bin/aliasResolverHook.mjs",
     "bin/cli/data-dir.mjs",
@@ -265,6 +266,7 @@ test("findMissingArtifactPaths flags missing root runtime files in the tarball",
     "dist/systemd-notify.mjs",
     "dist/tls-options.mjs",
     "dist/webdav-handler.mjs",
+    "open-sse/config/tlsClientNativeManifest.json",
     "scripts/build/colocateOptionals.mjs",
     "scripts/build/fixTlsClientNodeBinary.mjs",
     "scripts/build/native-binary-compat.mjs",
