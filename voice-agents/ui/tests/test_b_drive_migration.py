@@ -201,3 +201,40 @@ def test_chat_omits_bearer_header_when_key_empty():
         api_key="",
     ))
     assert m["captured"]["headers"] == {}
+
+
+def test_build_graph_connects_tasks_jobs_and_chat():
+    import os
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parents[2]))
+    from orca import memory_graph
+
+    cards = [{
+        "id": "card1234567890", "title": "PR mergen", "column": "todo",
+        "source": "api", "created": "t1", "updated": "t2", "note": "",
+    }]
+    job_list = [{
+        "id": "job000000000001", "skill": "daily-brainstorm", "status": "done",
+        "created_at": "t3", "finished_at": "t4", "trigger": "pwa",
+        "input": '{"text": "smoke"}', "result": '{"response": "ok"}',
+    }]
+    skill_defs = {"daily-brainstorm": {"description": "Brainstorm", "model": "m", "pipeline": ["llm"]}}
+    out = memory_graph.build_graph(
+        cards=cards, job_list=job_list, skill_defs=skill_defs,
+        artifacts=[], agent_file={}, now="T0",
+    )
+
+    types = {n["id"]: n["type"] for n in out["nodes"]}
+    assert types.get("Sebastian") == "Person"
+    # Job-Node + Card-Task-Node, jeweils mit zwöf stelligem Kurz-ID
+    assert types.get("job000000000") == "Job"
+    card_node = next(id for id in types if types[id] == "Task")
+    assert card_node == "card12345678"
+    # Kanten: Job ran skill; Task status todo
+    relations = {(l["source"], l["target"], l["relation"]) for l in out["links"]}
+    assert ("job000000000", "daily-brainstorm", "ran") in relations
+    assert (card_node, "todo", "status") in relations
+    # Chat aus input/result geformt
+    assert "[User]: smoke" in out["chat"]["rawText"]
+    assert "[Assistant]: ok" in out["chat"]["rawText"]
