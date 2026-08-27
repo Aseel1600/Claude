@@ -1,25 +1,13 @@
 import { v4 as uuidv4 } from "uuid";
-import type { BatchItemCheckpoint, BatchRecord } from "@/lib/localDb";
-import {
-  countBatchItemCheckpoints,
-  createFile,
-  deleteFile,
-  ensureBatchItemCheckpoints,
-  getApiKeyById,
-  getBatch,
-  getFileContent,
-  getPendingBatches,
-  getTerminalBatches,
-  listBatchItemCheckpoints,
-  listFiles,
-  markBatchItemError,
-  markBatchItemProcessing,
-  markBatchItemResult,
-  updateBatch,
-} from "@/lib/localDb";
+
+
 import { dispatch } from "@/lib/batches/dispatch";
 import type { SupportedBatchEndpoint } from "@/shared/constants/batchEndpoints";
 import { DEFAULT_BATCH_EXPIRATION_SECONDS } from "@/shared/constants/batch";
+import { countBatchItemCheckpoints, ensureBatchItemCheckpoints, getBatch, getPendingBatches, getTerminalBatches, listBatchItemCheckpoints, markBatchItemError, markBatchItemProcessing, markBatchItemResult, updateBatch } from "@/lib/db/batches";
+import { createFile, deleteFile, getFileContent, listFiles } from "@/lib/db/files";
+import { getApiKeyById } from "@/lib/db/apiKeys";
+import { BatchItemCheckpoint, BatchRecord } from "@/lib/db/batches";
 
 let isProcessing: boolean = false;
 let pollInterval: NodeJS.Timeout | null = null;

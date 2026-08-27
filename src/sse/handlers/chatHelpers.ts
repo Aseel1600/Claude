@@ -26,7 +26,7 @@ import {
   isTlsFingerprintActive,
   type AppliedProxySink,
 } from "@omniroute/open-sse/utils/proxyFetch.ts";
-import { resolveProxyForConnection } from "@/lib/localDb";
+
 import { hasBlockingProxyAssignment } from "@/lib/db/proxies";
 import {
   CircuitBreakerOpenError,
@@ -39,6 +39,7 @@ import { resolveUseUpstream429BreakerHints } from "../../shared/utils/providerHi
 import { logProxyEvent } from "../../lib/proxyLogger";
 import { logTranslationEvent } from "../../lib/translatorEvents";
 import { getRuntimeProviderProfile } from "@omniroute/open-sse/services/accountFallback.ts";
+import { resolveProxyForConnection } from "@/lib/db/settings";
 
 // Models that explicitly cannot run on the codex/ChatGPT-Pro OAuth pool — when
 // a caller writes `codex/deepseek-v4-pro` we transparently reroute to the

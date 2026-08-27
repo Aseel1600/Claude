@@ -1,13 +1,6 @@
 // Re-export from open-sse with localDb integration
-import {
-  getModelAliases,
-  getComboByName,
-  getComboById,
-  getComboByNameInsensitive,
-  getCachedProviderNodes,
-  getCustomModels,
-} from "@/lib/localDb";
-import { getCachedSettings } from "@/lib/localDb";
+
+
 import { getActiveSyncedCatalog } from "@/lib/db/models/activeSyncedCatalog";
 import { getModelCompatOverrides } from "@/lib/db/models/compat";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
@@ -21,6 +14,9 @@ import { getLearnedReasoningEffortForModel } from "@omniroute/open-sse/services/
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { getRegisteredProviderEffortBaseModelId } from "@omniroute/open-sse/utils/registeredEffortVariants.ts";
 import { getReservedProviderPrefixes } from "@/shared/constants/reservedProviderPrefixes";
+import { getModelAliases, getCustomModels } from "@/lib/db/models";
+import { getComboByName, getComboById, getComboByNameInsensitive } from "@/lib/db/combos";
+import { getCachedProviderNodes, getCachedSettings } from "@/lib/db/readCache";
 
 export { parseModel, stripContextWindowSuffix };
 

@@ -1,5 +1,6 @@
-import { getApiKeyById, createApiKey } from "@/lib/localDb";
+
 import { getConsistentMachineId } from "@/shared/utils/machineId";
+import { getApiKeyById, createApiKey } from "@/lib/db/apiKeys";
 
 export async function resolveApiKey(
   apiKeyId?: string | null,

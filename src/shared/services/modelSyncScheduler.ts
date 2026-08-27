@@ -10,9 +10,10 @@
 
 import { randomUUID } from "node:crypto";
 import { Agent, buildConnector, fetch as undiciFetch, type Dispatcher } from "undici";
-import { getSettings, updateSettings } from "@/lib/localDb";
+
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { getRuntimePorts } from "@/lib/runtime/ports";
+import { getSettings, updateSettings } from "@/lib/db/settings";
 
 const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MODEL_SYNC_SETTING_KEY = "model_sync_last_run";

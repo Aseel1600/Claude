@@ -13,14 +13,9 @@
  */
 
 import { getDbInstance } from "../../src/lib/db/core.ts";
-import {
-  resetWindowIfElapsed,
-  getWindowUsage,
-  incrementWindowTokens,
-  getTokenLimitsForRequest,
-  logTokenLimitReset,
-  type TokenLimit,
-} from "@/lib/localDb";
+import { resetWindowIfElapsed, getWindowUsage, incrementWindowTokens, getTokenLimitsForRequest, logTokenLimitReset } from "@/lib/db/tokenLimits";
+import type { TokenLimit } from "@/lib/db/tokenLimits";
+
 
 interface CacheEntry {
   windowStart: string;

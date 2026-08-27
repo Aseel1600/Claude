@@ -1,5 +1,6 @@
-import { getUpstreamProxyConfig } from "@/lib/localDb";
+
 import type { FallbackBackend } from "@/lib/db/upstreamProxy";
+import { getUpstreamProxyConfig } from "@/lib/db/upstreamProxy";
 
 /**
  * Module-level cache for upstream proxy config (shared across all requests).

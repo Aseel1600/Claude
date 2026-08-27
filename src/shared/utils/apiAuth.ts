@@ -9,9 +9,10 @@
 
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { getSettings } from "@/lib/localDb";
+
 import { isPublicApiRoute } from "@/shared/constants/publicApiRoutes";
 import { extractApiKey } from "@/sse/services/auth";
+import { getSettings } from "@/lib/db/settings";
 
 type RequestLike = {
   cookies?: {

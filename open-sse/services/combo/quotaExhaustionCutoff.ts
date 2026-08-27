@@ -19,13 +19,14 @@ import {
   type PreflightQuotaThresholds,
   type QuotaInfo,
 } from "../quotaPreflight.ts";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import {
   resolveResilienceSettings,
   type ResilienceSettings,
 } from "../../../src/lib/resilience/settings";
 import { fetchResetAwareQuotaWithCache } from "./quotaStrategies.ts";
 import type { ResetWindowConfig } from "./quotaScoring.ts";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 function asThresholdMap(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
