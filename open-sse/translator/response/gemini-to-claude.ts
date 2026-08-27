@@ -100,6 +100,7 @@ function extractXmlInvokeBlocks(
 function flushMarkdownBuffer(state, results) {
   const buffered = state._markdownBuffer;
   state._markdownCodeSpanRun = 0;
+  state._markdownTrailingBackslash = false;
   if (!buffered) return;
   state._markdownBuffer = "";
   if (state.openTextBlockIdx === null) {
@@ -147,6 +148,7 @@ export function geminiToClaudeResponse(chunk, state) {
     state.openTextBlockIdx = null;
     state._markdownBuffer = "";
     state._markdownCodeSpanRun = 0;
+    state._markdownTrailingBackslash = false;
 
     results.push({
       type: "message_start",
@@ -326,9 +328,15 @@ export function geminiToClaudeResponse(chunk, state) {
             emit: textToEmit,
             hold: textToHold,
             backtickRun,
-          } = splitMarkdownBoundary(combinedText, state._markdownCodeSpanRun || 0);
+            trailingBackslash,
+          } = splitMarkdownBoundary(
+            combinedText,
+            state._markdownCodeSpanRun || 0,
+            state._markdownTrailingBackslash === true,
+          );
           state._markdownBuffer = textToHold;
           state._markdownCodeSpanRun = backtickRun || 0;
+          state._markdownTrailingBackslash = trailingBackslash === true;
 
           // Fully-held chunk (e.g. "`" + "code" -> whole text deferred to the
           // boundary buffer): emitting an empty delta here opens a text block

@@ -31,22 +31,21 @@ function isOpenerContext(text: string, suffixStart: number): boolean {
   return !/[A-Za-z0-9_]/.test(prev);
 }
 
-function scanBacktickRun(text: string, initialRun: number): number {
+function scanBacktickState(
+  text: string,
+  initialRun: number,
+  initialTrailingBackslash: boolean
+): { backtickRun: number; trailingBackslash: boolean } {
   let openRun = initialRun;
+  let backslashes = openRun === 0 && initialTrailingBackslash ? 1 : 0;
   for (let index = 0; index < text.length;) {
     if (text[index] !== "`") {
+      if (openRun === 0) backslashes = text[index] === "\\" ? backslashes + 1 : 0;
       index++;
       continue;
     }
-    let escapes = 0;
-    for (
-      let escapeIndex = index - 1;
-      escapeIndex >= 0 && text[escapeIndex] === "\\";
-      escapeIndex--
-    ) {
-      escapes++;
-    }
-    if (escapes % 2 === 1) {
+    if (openRun === 0 && backslashes % 2 === 1) {
+      backslashes = 0;
       index++;
       continue;
     }
@@ -55,15 +54,20 @@ function scanBacktickRun(text: string, initialRun: number): number {
     const runLength = runEnd - index;
     if (openRun === 0) openRun = runLength;
     else if (openRun === runLength) openRun = 0;
+    backslashes = 0;
     index = runEnd;
   }
-  return openRun;
+  return {
+    backtickRun: openRun,
+    trailingBackslash: openRun === 0 && backslashes % 2 === 1,
+  };
 }
 
 export function splitMarkdownBoundary(
   text: string,
-  priorBacktickRun = 0
-): { emit: string; hold: string; backtickRun?: number } {
+  priorBacktickRun = 0,
+  priorTrailingBackslash = false
+): { emit: string; hold: string; backtickRun?: number; trailingBackslash?: boolean } {
   if (!text) return { emit: "", hold: "" };
 
   // 1) Incomplete fenced code block opener or inline code opener:
@@ -78,7 +82,11 @@ export function splitMarkdownBoundary(
     const suffix = fenceMatch[0];
     const suffixStart = text.length - suffix.length;
     const runLength = suffix.match(/^`+/)?.[0].length ?? 0;
-    const openRun = scanBacktickRun(text.slice(0, suffixStart), priorBacktickRun);
+    const { backtickRun: openRun } = scanBacktickState(
+      text.slice(0, suffixStart),
+      priorBacktickRun,
+      priorTrailingBackslash
+    );
     const closesKnownRun = openRun === runLength;
     const mayCompleteKnownRun = openRun > runLength;
     if (
@@ -87,8 +95,11 @@ export function splitMarkdownBoundary(
       (mayCompleteKnownRun || isOpenerContext(text, suffixStart))
     ) {
       const emit = text.slice(0, -suffix.length);
-      const backtickRun = scanBacktickRun(emit, priorBacktickRun);
-      return backtickRun ? { emit, hold: suffix, backtickRun } : { emit, hold: suffix };
+      return {
+        emit,
+        hold: suffix,
+        ...scanBacktickState(emit, priorBacktickRun, priorTrailingBackslash),
+      };
     }
   }
 
@@ -98,11 +109,17 @@ export function splitMarkdownBoundary(
     const suffix = emphMatch[0];
     if (isOpenerContext(text, text.length - suffix.length)) {
       const emit = text.slice(0, -suffix.length);
-      const backtickRun = scanBacktickRun(emit, priorBacktickRun);
-      return backtickRun ? { emit, hold: suffix, backtickRun } : { emit, hold: suffix };
+      return {
+        emit,
+        hold: suffix,
+        ...scanBacktickState(emit, priorBacktickRun, priorTrailingBackslash),
+      };
     }
   }
 
-  const backtickRun = scanBacktickRun(text, priorBacktickRun);
-  return backtickRun ? { emit: text, hold: "", backtickRun } : { emit: text, hold: "" };
+  return {
+    emit: text,
+    hold: "",
+    ...scanBacktickState(text, priorBacktickRun, priorTrailingBackslash),
+  };
 }

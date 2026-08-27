@@ -156,6 +156,7 @@ function stopThinkingBlock(state, results) {
 function flushMarkdownBuffer(state, results) {
   const buffered = state._markdownBuffer;
   state._markdownCodeSpanRun = 0;
+  state._markdownTrailingBackslash = false;
   if (!buffered) return;
   state._markdownBuffer = "";
   if (!state.textBlockStarted) {
@@ -247,6 +248,7 @@ export function openaiToClaudeResponse(chunk, state) {
     state._xmlInvokeBuffer = "";
     state._markdownBuffer = "";
     state._markdownCodeSpanRun = 0;
+    state._markdownTrailingBackslash = false;
     results.push({
       type: "message_start",
       message: {
@@ -331,9 +333,15 @@ export function openaiToClaudeResponse(chunk, state) {
         emit: textToEmit,
         hold: textToHold,
         backtickRun,
-      } = splitMarkdownBoundary(cleaned, state._markdownCodeSpanRun || 0);
+        trailingBackslash,
+      } = splitMarkdownBoundary(
+        cleaned,
+        state._markdownCodeSpanRun || 0,
+        state._markdownTrailingBackslash === true,
+      );
       state._markdownBuffer = textToHold;
       state._markdownCodeSpanRun = backtickRun || 0;
+      state._markdownTrailingBackslash = trailingBackslash === true;
 
       // Emit remaining non-XML text content
       if (!textToEmit) {

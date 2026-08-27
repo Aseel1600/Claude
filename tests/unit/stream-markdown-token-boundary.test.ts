@@ -362,6 +362,55 @@ test("OpenAI to Claude: ignores escaped backticks while tracking cross-chunk cod
   assert.deepEqual(getTextDeltas(flatten(chunks)), ["\\` foo ", "`bar`"]);
 });
 
+test("OpenAI to Claude: backslash does not escape a code span closing backtick", () => {
+  const state = createOpenAIState();
+  const chunks = ["`foo\\`", "(bar)`", " done"].map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-code-backslash",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["`foo\\`", "(bar)", "` done"]);
+});
+
+test("OpenAI to Claude: escaped opener is equivalent when split after backslash", () => {
+  const splitState = createOpenAIState();
+  const splitChunks = ["\\", "` foo ", "(bar)`"].map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-split-escape",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      splitState
+    )
+  );
+  const joinedState = createOpenAIState();
+  const joinedChunks = ["\\` foo ", "(bar)`"].map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-joined-escape",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      joinedState
+    )
+  );
+
+  assert.equal(
+    getTextDeltas(flatten(splitChunks)).join(""),
+    getTextDeltas(flatten(joinedChunks)).join("")
+  );
+  assert.equal(splitState._markdownBuffer, "`");
+  assert.equal(splitState._markdownBuffer, joinedState._markdownBuffer);
+  assert.equal(splitState._markdownCodeSpanRun || 0, joinedState._markdownCodeSpanRun || 0);
+});
+
 test("OpenAI to Claude: ignores literal backtick runs inside longer code spans", () => {
   const state = createOpenAIState();
   const chunks = ["`` ` `` `foo", "`"].map((content) =>
@@ -459,6 +508,34 @@ test("Gemini to Claude: joins a closing backtick run split across chunks", () =>
   );
 
   assert.deepEqual(getTextDeltas(flatten(chunks)), ["``a", "``", " done"]);
+});
+
+test("Gemini to Claude: backslash does not escape a code span closing backtick", () => {
+  const state = createGeminiState();
+  const chunks = ["`foo\\`", "(bar)`", " done"].map((text) =>
+    geminiToClaudeResponse(geminiChunk(text), state)
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["`foo\\`", "(bar)", "` done"]);
+});
+
+test("Gemini to Claude: escaped opener is equivalent when split after backslash", () => {
+  const splitState = createGeminiState();
+  const splitChunks = ["\\", "` foo ", "(bar)`"].map((text) =>
+    geminiToClaudeResponse(geminiChunk(text), splitState)
+  );
+  const joinedState = createGeminiState();
+  const joinedChunks = ["\\` foo ", "(bar)`"].map((text) =>
+    geminiToClaudeResponse(geminiChunk(text), joinedState)
+  );
+
+  assert.equal(
+    getTextDeltas(flatten(splitChunks)).join(""),
+    getTextDeltas(flatten(joinedChunks)).join("")
+  );
+  assert.equal(splitState._markdownBuffer, "`");
+  assert.equal(splitState._markdownBuffer, joinedState._markdownBuffer);
+  assert.equal(splitState._markdownCodeSpanRun || 0, joinedState._markdownCodeSpanRun || 0);
 });
 
 test("Gemini to Claude: flushes held boundary before tool call transition", () => {
