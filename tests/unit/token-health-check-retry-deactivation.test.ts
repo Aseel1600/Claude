@@ -88,6 +88,31 @@ function createMockFetchForInvalidGrant(tokenUrl: string) {
   return originalFetch;
 }
 
+function createMockFetchForSuccessfulRefresh(tokenUrl: string) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : (input as Request).url;
+    if (url === tokenUrl) {
+      return new Response(
+        JSON.stringify({
+          access_token: "at_retry_recovered",
+          refresh_token: "rt_retry_recovered",
+          expires_in: 3600,
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    }
+    return originalFetch(
+      input as Parameters<typeof originalFetch>[0],
+      init as Parameters<typeof originalFetch>[1]
+    );
+  }) as typeof fetch;
+  return originalFetch;
+}
+
 const PROVIDER_ID = "custom-oauth-retry-deactivation";
 const TOKEN_URL = "https://token-retry.test.invalid/token";
 const PROVIDER_CONFIG = {
@@ -281,6 +306,47 @@ test("checkConnection strictly skips deactivated connection with exhausted retry
       );
       assert.equal(updated?.isActive, false, "isActive must remain false");
       assert.equal(updated?.testStatus, "expired", "testStatus must remain 'expired'");
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("successful expired retry reactivates a previously inactive connection", async () => {
+  await resetStorage();
+  const originalFetch = createMockFetchForSuccessfulRefresh(TOKEN_URL);
+
+  try {
+    await withPatchedProvider(PROVIDER_ID, PROVIDER_CONFIG, async () => {
+      const connection = await createRetryTestConnection({
+        isActive: false,
+        testStatus: "expired",
+        providerSpecificData: {
+          expiredRetry: { count: 1, at: new Date(Date.now() - 10 * 60 * 1000).toISOString() },
+        },
+        lastError: "invalid_grant",
+        lastErrorAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        lastErrorType: "unrecoverable_refresh_error",
+        lastErrorSource: "oauth",
+        errorCode: "invalid_grant",
+      });
+
+      await tokenHealthCheck.checkConnection({
+        ...connection,
+        lastHealthCheckAt: new Date(Date.now() - 61 * 60 * 1000).toISOString(),
+      });
+
+      const updated = await providersDb.getProviderConnectionById(connection.id);
+
+      assert.equal(updated?.accessToken, "at_retry_recovered");
+      assert.equal(updated?.refreshToken, "rt_retry_recovered");
+      assert.equal(updated?.isActive, true, "successful refresh must restore routing eligibility");
+      assert.equal(updated?.testStatus, "active");
+      assert.equal(updated?.lastError ?? null, null);
+      assert.equal(updated?.lastErrorType ?? null, null);
+      assert.equal(updated?.lastErrorSource ?? null, null);
+      assert.equal(updated?.errorCode ?? null, null);
+      assert.equal(updated?.providerSpecificData?.expiredRetry, undefined);
     });
   } finally {
     globalThis.fetch = originalFetch;

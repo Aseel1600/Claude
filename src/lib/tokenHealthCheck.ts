@@ -957,6 +957,7 @@ export async function checkConnection(conn) {
         const now = new Date().toISOString();
         const updateData: ConnectionUpdate = {
           accessToken: refreshResult.accessToken,
+          isActive: true,
           lastHealthCheckAt: now,
           testStatus: "active",
           lastError: null,
