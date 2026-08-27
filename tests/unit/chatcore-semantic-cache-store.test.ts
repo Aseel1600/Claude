@@ -45,6 +45,7 @@ function baseArgs(overrides: Record<string, unknown> = {}) {
     apiKeyId: "key-1",
     usage: { prompt_tokens: 10, completion_tokens: 5 },
     log: undefined,
+    videoTranscriptSensitive: false,
     ...overrides,
   } as Parameters<typeof storeSemanticCacheResponse>[0];
 }
@@ -65,6 +66,7 @@ function assertNumericSignatureInputs(
         headers: undefined,
         translatedResponse: {},
         model: "gpt-x",
+        videoTranscriptSensitive: false,
       },
       deps
     );

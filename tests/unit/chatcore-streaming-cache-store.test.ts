@@ -39,6 +39,7 @@ function baseArgs(overrides: Record<string, unknown> = {}) {
     apiKeyId: "key-1",
     streamUsage: { prompt_tokens: 12, completion_tokens: 8 },
     log: undefined,
+    videoTranscriptSensitive: false,
     ...overrides,
   } as Parameters<typeof storeStreamingSemanticCacheResponse>[0];
 }
@@ -60,6 +61,7 @@ function assertNumericSignatureInputs(
         },
         headers: undefined,
         model: "gpt-x",
+        videoTranscriptSensitive: false,
       },
       deps
     );

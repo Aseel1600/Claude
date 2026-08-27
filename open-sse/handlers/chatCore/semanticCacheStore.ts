@@ -50,10 +50,12 @@ export function storeSemanticCacheResponse(
     apiKeyId?: string;
     usage?: UsageLike;
     log?: LoggerLike;
+    videoTranscriptSensitive: boolean;
   },
   deps: SemanticCacheStoreDeps = DEFAULT_DEPS
 ): void {
   if (
+    args.videoTranscriptSensitive ||
     !args.enabled ||
     !deps.isCacheableForWrite(args.body, args.headers) ||
     !deps.isSmallEnoughForSemanticCache(args.translatedResponse)
