@@ -32,6 +32,27 @@ test("Dockerfile's --ignore-scripts npm ci is compensated for tls-client-node's 
     "expected postinstall.mjs to repair wreq-js's native binary"
   );
 
+  assert.match(
+    dockerfile,
+    /COPY scripts\/build\/fixTlsClientNodeBinary\.mjs \.\/scripts\/build\/fixTlsClientNodeBinary\.mjs/,
+    "Docker builder must copy the checksum-verifying repair helper"
+  );
+  assert.match(
+    dockerfile,
+    /COPY open-sse\/config\/tlsClientNativeManifest\.json \.\/open-sse\/config\/tlsClientNativeManifest\.json/,
+    "Docker builder must copy the pinned version and official SHA-256 manifest"
+  );
+  assert.match(
+    dockerfile,
+    /node scripts\/build\/fixTlsClientNodeBinary\.mjs --strict/,
+    "Docker build must fail closed when the pinned native binary is absent or unverified"
+  );
+  assert.doesNotMatch(
+    dockerfile,
+    /node node_modules\/tls-client-node\/scripts\/postinstall\.js/,
+    "Docker must not bypass checksum verification by invoking the upstream downloader directly"
+  );
+
   const dockerfileHandlesIt = /tls-client-node[\s\S]{0,200}(postinstall|rebuild|download)/i.test(
     dockerfile
   );

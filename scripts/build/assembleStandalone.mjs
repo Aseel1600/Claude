@@ -113,6 +113,13 @@ export const NATIVE_ASSET_ENTRIES = [
 /** @type {{label:string, src:string[], dest:string[]}[]} */
 const EXTRA_MODULE_ENTRIES = [
   {
+    // Legal notices must travel with every standalone bundle. Docker copies the
+    // complete standalone tree into /app, so this one entry covers both outputs.
+    label: "third-party license notices",
+    src: ["THIRD_PARTY_NOTICES.md"],
+    dest: ["THIRD_PARTY_NOTICES.md"],
+  },
+  {
     // tlsClient.ts intentionally resolves wreq-js through a runtime-dynamic
     // require so Turbopack cannot rewrite the package name to a hashed external.
     // That also makes the package invisible to static tracing, so copy the whole

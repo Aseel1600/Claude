@@ -140,7 +140,7 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   "scripts/build/postinstallSupport.mjs",
   "scripts/build/colocateOptionals.mjs",
   // #7802: imported by scripts/build/postinstall.mjs to repair tls-client-node's
-  // native binary (chatgpt-web/claude-web/grok-web/lmarena/perplexity-web transport).
+  // native binary (chatgpt-web/claude-web/perplexity-web/grok-web/notion-web/lmarena).
   "scripts/build/fixTlsClientNodeBinary.mjs",
   // #8859: imported by scripts/build/postinstall.mjs to repair playwright-core's
   // browser resolution on Termux/Android (no glibc, no bundled browsers).
@@ -197,6 +197,7 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   // #7065: regression guard for the HEAD response guard (dist/server-ws.mjs import).
   "dist/head-response-guard.cjs",
   "dist/webdav-handler.mjs",
+  "open-sse/config/tlsClientNativeManifest.json",
   "bin/cli/program.mjs",
   // Direct imports of bin/omniroute.mjs — bin/cli/ is only an allowlist PREFIX, so a
   // file vanishing from the tarball never fails the unexpected-paths check; only these
@@ -220,6 +221,7 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   // or the CLI fails to boot — list them REQUIRED so a regression is loud.
   "bin/aliasResolver.mjs",
   "bin/aliasResolverHook.mjs",
+  "THIRD_PARTY_NOTICES.md",
   "package.json",
   "scripts/build/native-binary-compat.mjs",
   "scripts/build/postinstall.mjs",
