@@ -770,6 +770,7 @@
     "batchListDeleteAllCompletedTitle": "Excluir todos os lotes concluídos",
     "batchListBatchesTable": "Lotes",
     "changelogViewerLoading": "Carregando changelog do GitHub...",
+    "profile": "Perfil",
     "profileLoading": "Carregando perfil...",
     "profileHowToEarn": "Como ganhar",
     "bootstrapBannerDismiss": "Dispensar",
