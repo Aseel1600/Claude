@@ -22,6 +22,7 @@ const {
   extractVideoTranscriptDescriptionFingerprints,
   fingerprintVideoTranscriptDescription,
   omitVideoTranscriptForLog,
+  omitVideoTranscriptFromLogString,
   resolveVideoTranscriptLogSensitivity,
   VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER,
 } = await import("../../src/lib/guardrails/videoTranscriptLogRedaction.ts");
@@ -554,6 +555,32 @@ test("fails closed after a bounded number of trusted-description candidate hashe
   ) as { content: string };
 
   assert.equal(omitted.content, VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER);
+});
+
+test("trusted malformed or over-budget serialized cues fail closed", () => {
+  const privateTranscript = "PRIVATE_MALFORMED_SERIALIZED_CUE_SENTINEL";
+  const malformedDescriptions = [
+    `[Video description: transcript[source=embedded${";metadata=x".repeat(100)}] text=${JSON.stringify(privateTranscript)}]`,
+    `[Video description: transcript[source=embedded text=${JSON.stringify(privateTranscript)}]`,
+    `[Video description: transcript[source=embedded]text=${JSON.stringify(privateTranscript)}]`,
+    `[Video description: transcript[source=embedded] payload=${JSON.stringify(privateTranscript)}]`,
+    `[Video description: transcript[source=embedded] text=${JSON.stringify("safe cue")}; transcript[source=audio-bridge${";metadata=x".repeat(100)}] text=${JSON.stringify(privateTranscript)}]`,
+  ];
+
+  for (const description of malformedDescriptions) {
+    const context = {
+      trustedDescriptionFingerprints: [fingerprintVideoTranscriptDescription(description)],
+    };
+    const direct = omitVideoTranscriptFromLogString(description, context);
+    const structured = omitVideoTranscriptForLog({ content: description }, context) as {
+      content: string;
+    };
+
+    assert.equal(direct, VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER, description);
+    assert.equal(structured.content, VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER, description);
+    assert.equal(direct.includes(privateTranscript), false, description);
+    assert.equal(structured.content.includes(privateTranscript), false, description);
+  }
 });
 
 test("bounds cyclic objects and fails closed when the transcript-security depth is exceeded", () => {
