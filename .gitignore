@@ -292,6 +292,10 @@ docker-compose.yml.bak
 
 # Ad-hoc test sandboxes (never tracked — may contain local DBs)
 /.sandbox/
-.aider*
-# Google OAuth client secrets (never commit)
+.aider*
+
+# Google OAuth client secrets (never commit)
+
 client_secrets*
+# OmniRoute runtime data (boards, jobs, media) — never commit
+voice-agents/data/
