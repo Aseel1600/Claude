@@ -1,10 +1,7 @@
-import {
-  getProviderConnections,
-  createProviderConnection,
-  updateProviderConnection,
-} from "@/lib/localDb";
+
 import { CodexAuthFileError } from "@/lib/oauth/utils/codexAuthFile";
 import { pickCodexConnectionForUser } from "@/lib/oauth/utils/codexConnectionSelection";
+import { getProviderConnections, createProviderConnection, updateProviderConnection } from "@/lib/db/providers";
 
 type JsonRecord = Record<string, unknown>;
 

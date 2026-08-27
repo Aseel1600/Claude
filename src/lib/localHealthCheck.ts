@@ -11,8 +11,9 @@
  * Uses Promise.allSettled so one slow/down node doesn't block others.
  */
 
-import { getCachedProviderNodes } from "@/lib/localDb";
+
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
 
 // ── Types ────────────────────────────────────────────────────────────────
 

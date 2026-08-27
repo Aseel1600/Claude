@@ -18,7 +18,8 @@ import { parseImageModel } from "@omniroute/open-sse/config/imageRegistry.ts";
 import { resolveComboTargets } from "@omniroute/open-sse/services/combo.ts";
 
 import { getComboByName, getCombos } from "@/lib/db/combos";
-import { getCachedProviderNodes } from "@/lib/localDb";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
+
 
 /**
  * Rewrite a `prefix/model` custom image model to its internal `<nodeId>/<model>` form.

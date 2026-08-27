@@ -1,6 +1,7 @@
 import crypto from "crypto";
-import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
+
 import { buildConfigSyncEnvelope, toLegacyCloudSyncPayload } from "@/lib/sync/bundle";
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/providers";
 
 const CLOUD_URL = process.env.CLOUD_URL || process.env.NEXT_PUBLIC_CLOUD_URL;
 const CLOUD_SYNC_TIMEOUT_MS = Number(process.env.CLOUD_SYNC_TIMEOUT_MS || 12000);

@@ -8,10 +8,11 @@
  */
 
 import { getPool, getPoolsByGroup } from "@/lib/db/quotaPools";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import { getApiKeyById, updateApiKeyPermissions } from "@/lib/db/apiKeys";
 import { quotaGroupSlug } from "./quotaModelNaming";
 import { getGroupName } from "@/lib/db/quotaGroups";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 // ---------------------------------------------------------------------------
 // Public interface

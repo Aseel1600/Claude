@@ -11,13 +11,7 @@
  * updates the DB, and logs the result.
  */
 
-import {
-  getProviderConnections,
-  getCachedProviderConnectionById,
-  updateProviderConnection,
-  getSettings,
-  resolveProxyForConnection,
-} from "@/lib/localDb";
+
 import {
   getAccessToken,
   getDeprecationNotice,
@@ -31,6 +25,9 @@ import { refreshGithubCopilotSubTokenIfNeeded } from "@/lib/tokenHealthCheckCopi
 import { checkCursorConnectionIfNeeded } from "@/lib/tokenHealthCheckCursor";
 import { checkKimiWebConnectionIfNeeded } from "@/lib/tokenHealthCheckKimi";
 import {
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/providers";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
+import { getSettings, resolveProxyForConnection } from "@/lib/db/settings";
   checkWebCookieConnectionIfNeeded,
   isWebCookieHealthProbeCandidate,
 } from "@/lib/tokenHealthCheckWebCookie";

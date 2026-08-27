@@ -12,9 +12,10 @@
  * Part of: Group B — Quota Sharing Engine (plan 22, frente F6).
  */
 
-import { getProviderPlan } from "@/lib/localDb";
+
 import { getKnownPlan } from "./planRegistry";
 import type { ProviderPlan } from "./dimensions";
+import { getPlan as getProviderPlan } from "@/lib/db/providerPlans";
 
 // ---------------------------------------------------------------------------
 // Types

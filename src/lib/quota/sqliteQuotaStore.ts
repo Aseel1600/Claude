@@ -15,11 +15,13 @@
  * Part of: Group B — Quota Sharing Engine (plan 22, frente F6).
  */
 
-import { getPool, getBucket, incrementBucket, getPair, sumPoolDimension } from "@/lib/localDb";
+
 import { WINDOW_MS, dimensionKeyToString } from "./dimensions";
 import type { DimensionKey } from "./dimensions";
 import type { QuotaStore, PoolUsageSnapshot } from "./types";
 import { computeBurnRateFromWindow } from "./burnRate";
+import { getPool } from "@/lib/db/quotaPools";
+import { getBucket, incrementBucket, getPair, sumPoolDimension } from "@/lib/db/quotaConsumption";
 
 // ---------------------------------------------------------------------------
 // In-memory mutex (anti-thundering-herd, same pattern as auth.ts)

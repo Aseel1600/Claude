@@ -18,7 +18,7 @@
  */
 
 import { testSingleConnection } from "@/app/api/providers/[id]/test/route";
-import { getProviderConnections } from "@/lib/localDb";
+
 import {
   setCredentialHealth,
   removeCredentialHealth,
@@ -31,6 +31,7 @@ import {
 import { emit } from "@/lib/events/eventBus";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 import { SEARCH_VALIDATOR_CONFIGS } from "@/lib/providers/validation/searchProviders";
+import { getProviderConnections } from "@/lib/db/providers";
 
 // ── Config ────────────────────────────────────────────────────────────────
 

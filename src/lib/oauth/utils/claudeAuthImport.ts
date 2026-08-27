@@ -1,11 +1,8 @@
 import crypto from "node:crypto";
-import {
-  getProviderConnections,
-  createProviderConnection,
-  updateProviderConnection,
-} from "@/lib/localDb";
+
 import { getClaudeCodeUserAgent } from "@/shared/constants/claudeCodeClient";
 import { ClaudeAuthFileError } from "@/lib/oauth/utils/claudeAuthFile";
+import { getProviderConnections, createProviderConnection, updateProviderConnection } from "@/lib/db/providers";
 
 type JsonRecord = Record<string, unknown>;
 

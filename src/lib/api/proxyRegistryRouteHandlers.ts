@@ -1,16 +1,9 @@
-import {
-  createProxy,
-  createProxyAndAssign,
-  deleteProxyById,
-  getProxyById,
-  getProxyWhereUsed,
-  updateProxy,
-  updateProxyAndAssign,
-} from "@/lib/localDb";
+
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { createProxyRegistrySchema, updateProxyRegistrySchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
+import { createProxy, createProxyAndAssign, deleteProxyById, getProxyById, getProxyWhereUsed, updateProxy, updateProxyAndAssign } from "@/lib/db/proxies";
 
 async function readJsonBody(request: Request) {
   try {

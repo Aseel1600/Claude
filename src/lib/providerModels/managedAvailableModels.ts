@@ -1,16 +1,12 @@
-import {
-  deleteModelAlias,
-  getModelAliases,
-  getModelIsHidden,
-  getProviderNodeById,
-  setModelAlias,
-} from "@/lib/localDb";
+
 import {
   getProviderAlias,
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
 import { resolveManagedModelAlias } from "@/shared/utils/providerModelAliases";
+import { deleteModelAlias, getModelAliases, getModelIsHidden, setModelAlias } from "@/lib/db/models";
+import { getProviderNodeById } from "@/lib/db/providers";
 
 function isCompatibleProvider(providerId: string): boolean {
   return isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);

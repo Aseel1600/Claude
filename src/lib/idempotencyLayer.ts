@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/db/settings";
 /**
  * Idempotency Layer — Phase 9.2
  *
@@ -10,7 +11,7 @@
  * @module lib/idempotencyLayer
  */
 
-import { getSettings } from "@/lib/localDb";
+
 
 const DEFAULT_WINDOW_MS = 5000;
 

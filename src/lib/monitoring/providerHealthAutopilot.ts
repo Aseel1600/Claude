@@ -1,9 +1,10 @@
 import { createHash } from "crypto";
 
 import { getProviderConnections, updateProviderConnection } from "@/lib/db/providers";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import { clearProviderFailure, clearModelLock } from "@omniroute/open-sse/services/accountFallback";
 import { resolveProviderAlias } from "@omniroute/open-sse/services/model";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 type JsonRecord = Record<string, unknown>;
 

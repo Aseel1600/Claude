@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import { createBackup } from "@/shared/services/backupService";
 import { getCliConfigPaths } from "@/shared/services/cliRuntime";
 import {
@@ -9,6 +9,7 @@ import {
   updateProviderCredentials,
 } from "@/sse/services/tokenRefresh";
 import { isUnrecoverableRefreshError } from "@omniroute/open-sse/services/tokenRefresh.ts";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 type JsonRecord = Record<string, unknown>;
 
