@@ -10,15 +10,15 @@
  * boundary token and defers it to the next chunk so the token is emitted in
  * one piece.
  *
- * Rules (all bounded by MAX_HOLD_CHARS):
+ * Rules (held suffixes are bounded by MAX_HOLD_CHARS):
  *   - 1-2 trailing backticks in an "opener" context (start, whitespace, or
  *     punctuation before the run) are held.
  *   - Three trailing backticks followed by a non-empty fence info string are
  *     held; plain "```" is emitted so a closing fence is not accidentally
  *     merged with following text.
- *   - A single trailing asterisk in an opener context is held. We never hold
- *     part of a "**" run, and we never hold when preceded by an alphanumeric
- *     character (which indicates a closing delimiter).
+ *   - One to three trailing asterisks in an opener context are held. We never
+ *     hold when preceded by an alphanumeric character (which indicates a
+ *     closing delimiter).
  */
 
 const MAX_HOLD_CHARS = 32;
@@ -29,6 +29,21 @@ function isOpenerContext(text: string, suffixStart: number): boolean {
   // Alphanumeric preceding characters usually mean the delimiter is closing
   // (e.g. "`code`" or "**bold**"), so do not hold those suffixes.
   return !/[A-Za-z0-9_]/.test(prev);
+}
+
+function hasUnclosedBacktickRun(text: string, suffixStart: number, runLength: number): boolean {
+  let matchingRuns = 0;
+  for (let index = 0; index < suffixStart;) {
+    if (text[index] !== "`") {
+      index++;
+      continue;
+    }
+    let runEnd = index + 1;
+    while (runEnd < suffixStart && text[runEnd] === "`") runEnd++;
+    if (runEnd - index === runLength) matchingRuns++;
+    index = runEnd;
+  }
+  return matchingRuns % 2 === 1;
 }
 
 export function splitMarkdownBoundary(text: string): { emit: string; hold: string } {
@@ -43,7 +58,10 @@ export function splitMarkdownBoundary(text: string): { emit: string; hold: strin
   const fenceMatch = text.match(/(?<!`)(`{1,2}[A-Za-z0-9_+#-]*|`{3,}[A-Za-z0-9_+#-]+)$/);
   if (fenceMatch) {
     const suffix = fenceMatch[0];
-    if (suffix.length <= MAX_HOLD_CHARS && isOpenerContext(text, text.length - suffix.length)) {
+    const suffixStart = text.length - suffix.length;
+    const runLength = suffix.match(/^`+/)?.[0].length ?? 0;
+    const closesKnownRun = hasUnclosedBacktickRun(text, suffixStart, runLength);
+    if (suffix.length <= MAX_HOLD_CHARS && !closesKnownRun && isOpenerContext(text, suffixStart)) {
       return { emit: text.slice(0, -suffix.length), hold: suffix };
     }
   }

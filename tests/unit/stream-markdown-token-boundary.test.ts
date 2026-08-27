@@ -69,6 +69,25 @@ test("splitMarkdownBoundary: does not defer closing delimiter after alphanumeric
   assert.equal(hold, "");
 });
 
+test("splitMarkdownBoundary: does not defer a matched closing backtick after punctuation", () => {
+  const text = "`(foo)`";
+  const { emit, hold } = splitMarkdownBoundary(text);
+  assert.equal(emit, text);
+  assert.equal(hold, "");
+});
+
+test("splitMarkdownBoundary: conservatively defers an unmatched backtick after punctuation", () => {
+  const { emit, hold } = splitMarkdownBoundary("(foo)`");
+  assert.equal(emit, "(foo)");
+  assert.equal(hold, "`");
+});
+
+test("splitMarkdownBoundary: keeps different backtick run lengths distinct", () => {
+  const { emit, hold } = splitMarkdownBoundary("``(foo)`");
+  assert.equal(emit, "``(foo)");
+  assert.equal(hold, "`");
+});
+
 test("splitMarkdownBoundary: preserves whitespace boundaries", () => {
   const { emit, hold } = splitMarkdownBoundary("Hello, ");
   assert.equal(emit, "Hello, ");
@@ -100,9 +119,7 @@ test("OpenAI to Claude: code fence language is not split across chunks", () => {
     {
       id: "chatcmpl-md1",
       model: "gpt-4.1",
-      choices: [
-        { index: 0, delta: { content: "ython\nprint(1)\n```" }, finish_reason: "stop" },
-      ],
+      choices: [{ index: 0, delta: { content: "ython\nprint(1)\n```" }, finish_reason: "stop" }],
       usage: { prompt_tokens: 2, completion_tokens: 10, total_tokens: 12 },
     },
     state
@@ -251,6 +268,62 @@ test("OpenAI to Claude: tool call flushes a fully-held boundary before tool use"
   );
 });
 
+test("OpenAI to Claude: reasoning flushes a fully-held boundary before thinking", () => {
+  const state = createOpenAIState();
+  const chunk1 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-held-reasoning",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: "`" }, finish_reason: null }],
+    },
+    state
+  );
+  const chunk2 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-held-reasoning",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { reasoning_content: "Thinking" }, finish_reason: null }],
+    },
+    state
+  );
+  const result = flatten([chunk1, chunk2]);
+
+  assert.deepEqual(getTextDeltas(result), ["`"]);
+  assert.equal(state._markdownBuffer, "");
+  assert.deepEqual(
+    result.slice(1).map((event) => {
+      const record = event as Record<string, unknown>;
+      const contentBlock = record.content_block as Record<string, unknown> | undefined;
+      const delta = record.delta as Record<string, unknown> | undefined;
+      return [record.type, contentBlock?.type ?? delta?.type ?? null];
+    }),
+    [
+      ["content_block_start", "text"],
+      ["content_block_delta", "text_delta"],
+      ["content_block_stop", null],
+      ["content_block_start", "thinking"],
+      ["content_block_delta", "thinking_delta"],
+    ]
+  );
+});
+
+test("OpenAI to Claude: extends a held code span across multiple chunks", () => {
+  const state = createOpenAIState();
+  const chunks = ["`", "c", "ode` body"].map((content, index) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-multistep",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: index === 2 ? "stop" : null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["`code` body"]);
+  assert.equal(state._markdownBuffer, "");
+});
+
 test("OpenAI to Claude: whitespace between chunks is still preserved", () => {
   const state = createOpenAIState();
   const chunk1 = openaiToClaudeResponse(
@@ -377,9 +450,26 @@ test("Gemini to Claude: fully-held chunk emits no empty text_delta (#11606 R1)",
         (e as Record<string, unknown>)?.type === "content_block_delta" &&
         ((e as Record<string, unknown>).delta as Record<string, unknown>)?.type === "text_delta"
     )
-    .map(
-      (e) =>
-        ((e as Record<string, unknown>).delta as Record<string, unknown>).text ?? ""
-    );
+    .map((e) => ((e as Record<string, unknown>).delta as Record<string, unknown>).text ?? "");
   assert.deepEqual(chunk1TextDeltas, ["Run "]);
+});
+
+test("Gemini to Claude: finish flushes a fully-held boundary before message stop", () => {
+  const state = createGeminiState();
+  const chunk1 = geminiToClaudeResponse(geminiChunk("`"), state);
+  const chunk2 = geminiToClaudeResponse(geminiChunk("", true), state);
+  const result = flatten([chunk1, chunk2]);
+
+  assert.deepEqual(getTextDeltas(result), ["`"]);
+  assert.equal(state._markdownBuffer, "");
+  assert.deepEqual(
+    result.slice(1).map((event) => (event as Record<string, unknown>).type),
+    [
+      "content_block_start",
+      "content_block_delta",
+      "content_block_stop",
+      "message_delta",
+      "message_stop",
+    ]
+  );
 });
