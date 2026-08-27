@@ -103,7 +103,7 @@ describe("useApiKeySave.handleSaveApiKey — full-sync opt-out (#11324)", () => 
   });
 
   it("keeps the full /sync-models catalog fetch off when autoFetchModels is omitted", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/providers") return response(true, { connection: { id: "conn-1" } });
       if (url.includes("/sync-models")) {
@@ -128,7 +128,7 @@ describe("useApiKeySave.handleSaveApiKey — full-sync opt-out (#11324)", () => 
   });
 
   it("auto-triggers one client-owned sync when autoFetchModels is true", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/providers") return response(true, { connection: { id: "conn-1" } });
       if (url.includes("/sync-models")) {
