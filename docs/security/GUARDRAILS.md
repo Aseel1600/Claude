@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
 version: 3.8.51
-lastUpdated: 2026-08-26
+lastUpdated: 2026-08-27
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-08-26 — v3.8.51 (Video Bridge transcript-retention boundary)
+> **Last updated:** 2026-08-27 — v3.8.51 (Video Bridge transcript-retention boundary)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -471,20 +471,28 @@ The request-scoped bit protects OmniRoute-owned application paths in addition to
 clones. Native priority, round-robin, pinned, and fusion diagnostics; quality-rejection and live-event
 logs; terminal combo errors; proxy fast-fail logs; guardrail-registry logs; plugin-dispatcher failure
 logs; and stream lifecycle callbacks retain only the constant marker when their detail could echo the
-request. Transcript-sensitive requests do not generate Context Relay or Universal Handoff summaries,
-and Memory extraction is skipped. Daily-quota routing state uses the server-resolved model rather than
-promoting a model token parsed from transcript-sensitive upstream text. These rules affect retention,
-not the live request or the functional response returned to the same client.
+request. A request-scoped executor logger keeps the diagnostic tag but replaces arbitrary executor
+messages with the marker and drops attached metadata before those values reach the application
+logger. Context Relay and Universal Handoff summaries are still generated from a sanitized clone:
+safe adjacent conversation context remains available while recognized carriers and trusted generated
+descriptions are omitted. Memory may likewise extract safe request-derived text from the sanitized
+copy, but response-derived Memory extraction is skipped because an upstream response may echo the
+transcript. Daily-quota classification still inspects the original upstream error, while sensitive
+requests use the server-resolved model as the retained lockout key instead of promoting a model token
+parsed from that diagnostic. These rules affect retained copies, not the live provider request or the
+functional response returned to the same client.
 
 Inspection is bounded by depth, aggregate entries, trusted identities, description-prefix
 occurrences, candidate hashes, and total hashed text. Cycles and binary views are handled without
 retaining their contents. If a bound is exceeded, or an enumerable getter/proxy throws during
 inspection, the retained copy fails closed to the omission marker; the live request is not changed.
 
-Privacy-redacted Responses artifacts cannot safely reconstruct complete `previous_response_id`
-history. `responsesContinuationStore.ts` therefore rejects an artifact carrying the trusted
-pipeline-level redaction marker and asks the client to resend full history instead of replaying a
-silently incomplete conversation.
+Privacy-redacted Responses artifacts cannot reconstruct the omitted transcript portion of
+`previous_response_id` history. `responsesContinuationStore.ts` therefore reuses only valid,
+non-truncated retained `input` and `output` arrays, including the explicit omission marker, and never
+attempts to restore raw transcript text from the pipeline marker. This preserves continuation for the
+safe portions of the turn while making the missing private segment visible; a client that needs that
+context again must submit it as part of a new live request.
 
 Custom guardrails and plugins are privileged, in-process processors: they intentionally receive the
 live payload so they can inspect, transform, or block it. OmniRoute supplies the server-owned
