@@ -3173,6 +3173,7 @@ export async function handleChatCore({
                             userAgent
                           ),
                           clientResponseFormat,
+                          videoTranscriptSensitive,
                           onCredentialsRefreshed,
                           skipUpstreamRetry,
                           contextEditing: { enabled: contextEditingEnabled },
@@ -3489,6 +3490,7 @@ export async function handleChatCore({
                                 userAgent
                               ),
                               clientResponseFormat,
+                              videoTranscriptSensitive,
                               onCredentialsRefreshed,
                               skipUpstreamRetry,
                               contextEditing: { enabled: contextEditingEnabled },
@@ -4036,6 +4038,7 @@ export async function handleChatCore({
               upstreamExtraHeaders: buildUpstreamHeadersForExecute(retryModelId),
               clientHeaders: buildExecutorClientHeaders(clientRawRequest?.headers, userAgent),
               clientResponseFormat,
+              videoTranscriptSensitive,
               onCredentialsRefreshed,
               skipUpstreamRetry: isCombo,
               contextEditing: { enabled: contextEditingEnabled },

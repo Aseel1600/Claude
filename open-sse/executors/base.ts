@@ -202,6 +202,10 @@ export type ExecuteInput = {
    * this to apply client-format-aware policies such as `</think>` close-marker
    * suppression. */
   clientResponseFormat?: string | null;
+  /** True when upstream diagnostics may echo a video transcript. Executors must
+   * preserve operational responses/errors while omitting those echoes from
+   * retained logs. */
+  videoTranscriptSensitive?: boolean;
   /** Callback to persist tokens that are proactively refreshed during execution.
    * Accepts a partial credentials patch (e.g. `{ accessToken, refreshToken }` or
    * `{ testStatus: "expired", isActive: false }`); the caller merges into the

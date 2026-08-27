@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { redactVideoTranscriptSensitiveText } from "../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 import type { KeyHealth } from "../services/apiKeyRotator.ts";
 
 import { DefaultExecutor } from "./default.ts";
@@ -43,6 +44,11 @@ type GlmExecuteResult = Awaited<ReturnType<DefaultExecutor["execute"]>> & {
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
+}
+
+function retainGlmDiagnostic(error: unknown, input: ExecuteInput): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return redactVideoTranscriptSensitiveText(message, input.videoTranscriptSensitive === true);
 }
 
 function getEffectiveKey(credentials: ProviderCredentials): string {
@@ -465,6 +471,7 @@ export class GlmExecutor extends DefaultExecutor {
         timeoutMs: STREAM_READINESS_TIMEOUT_MS,
         provider: this.provider,
         model: input.model,
+        redactUpstreamDiagnosticForLog: input.videoTranscriptSensitive === true,
         log: input.log,
       });
       response = readiness.response;
@@ -559,7 +566,7 @@ export class GlmExecutor extends DefaultExecutor {
       if (!isRetryableGlmFallbackError(error)) throw error;
       input.log?.debug?.(
         "GLM_FALLBACK",
-        `${primaryTransport} error (${error instanceof Error ? error.message : String(error)}); trying ${fallbackTransport}`
+        `${primaryTransport} error (${retainGlmDiagnostic(error, input)}); trying ${fallbackTransport}`
       );
     }
 
@@ -572,7 +579,7 @@ export class GlmExecutor extends DefaultExecutor {
       if (!primaryResult) throw error;
       input.log?.debug?.(
         "GLM_FALLBACK",
-        `${fallbackTransport} fallback failed (${error instanceof Error ? error.message : String(error)}); returning primary response`
+        `${fallbackTransport} fallback failed (${retainGlmDiagnostic(error, input)}); returning primary response`
       );
     }
 

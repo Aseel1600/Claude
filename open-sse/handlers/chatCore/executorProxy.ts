@@ -17,8 +17,10 @@
  */
 
 import { getExecutor } from "../../executors/index.ts";
+import type { ExecuteInput } from "../../executors/base.ts";
 import { isCliproxyapiDeepModeEnabled } from "../../executors/cliproxyapi.ts";
 import { isDarioDeepModeEnabled } from "../../executors/dario.ts";
+import { redactVideoTranscriptSensitiveText } from "../../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 import { getCachedSettings } from "@/lib/db/readCache";
 import { getUpstreamProxyConfigCached } from "./comboContextCache.ts";
 import type { FallbackBackend } from "@/lib/db/upstreamProxy";
@@ -46,6 +48,11 @@ function parseFallbackCodes(raw: unknown): number[] | null {
     .map((s) => Number.parseInt(s.trim(), 10))
     .filter((n) => !Number.isNaN(n));
   return parsed.length > 0 ? parsed : null;
+}
+
+function retainExecutorDiagnostic(error: unknown, input: ExecuteInput): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return redactVideoTranscriptSensitiveText(message, input.videoTranscriptSensitive === true);
 }
 
 /**
@@ -155,25 +162,20 @@ export async function resolveExecutorWithProxy(
   const isRetryableStatus = (s: number) => fallbackCodes.includes(s) || s === 0;
 
   const wrapper = Object.create(nativeExec);
-  wrapper.execute = async (input: {
-    model: string;
-    body: unknown;
-    stream: boolean;
-    credentials: unknown;
-    signal?: AbortSignal | null;
-    log?: unknown;
-    upstreamExtraHeaders?: Record<string, string> | null;
-  }) => {
+  wrapper.execute = async (input: ExecuteInput) => {
     let result;
     try {
       result = await nativeExec.execute(input);
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      log?.info?.("UPSTREAM_PROXY", `${prov} native error (${errMsg}), retrying via ${backendLabel}`);
+      const errMsg = retainExecutorDiagnostic(err, input);
+      log?.info?.(
+        "UPSTREAM_PROXY",
+        `${prov} native error (${errMsg}), retrying via ${backendLabel}`
+      );
       try {
         return await proxyExec.execute(input);
       } catch (proxyErr) {
-        const proxyMsg = proxyErr instanceof Error ? proxyErr.message : String(proxyErr);
+        const proxyMsg = retainExecutorDiagnostic(proxyErr, input);
         log?.error?.("UPSTREAM_PROXY", `${prov} ${backendLabel} fallback also failed: ${proxyMsg}`);
         throw proxyErr;
       }
@@ -189,7 +191,7 @@ export async function resolveExecutorWithProxy(
     try {
       return await proxyExec.execute(input);
     } catch (proxyErr) {
-      const proxyMsg = proxyErr instanceof Error ? proxyErr.message : String(proxyErr);
+      const proxyMsg = retainExecutorDiagnostic(proxyErr, input);
       log?.error?.("UPSTREAM_PROXY", `${prov} ${backendLabel} fallback also failed: ${proxyMsg}`);
       throw proxyErr;
     }
