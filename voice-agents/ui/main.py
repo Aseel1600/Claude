@@ -37,7 +37,10 @@ STATUS_FILE = PROJECT_DIR / "data" / "status.json"
 load_dotenv(PROJECT_DIR / ".env")
 
 UI_ACCESS_TOKEN = os.getenv("UI_ACCESS_TOKEN", "")
-CONTINUUM_ARTIFACTS = os.getenv("CONTINUUM_ARTIFACTS_REGISTRY", r"C:\OmniRoute\repos\continuum\data\artifacts\registry.json")
+CONTINUUM_ARTIFACTS = os.getenv(
+    "CONTINUUM_ARTIFACTS_REGISTRY",
+    str(Path(os.getenv("OMNIROUTE_ROOT", PROJECT_DIR)).parent / "repos" / "continuum" / "data" / "artifacts" / "registry.json"),
+)
 OMNIROUTE_BASE_URL = os.getenv("OMNIROUTE_BASE_URL", "http://localhost:20128/v1")
 OMNIROUTE_API_KEY = os.getenv("OMNIROUTE_API_KEY", "")
 OMNIROUTE_MODEL = os.getenv("OMNIROUTE_MODEL", "auto/best-chat")
@@ -280,7 +283,10 @@ async def health():
         cards = kanban.list_cards()
     except Exception:
         cards = []
-    counts = queue.counts()
+    try:
+        counts = queue.counts()
+    except Exception:
+        counts = {}
     return no_cache({
         "status": "ok",
         "service": "omniroute-ui",

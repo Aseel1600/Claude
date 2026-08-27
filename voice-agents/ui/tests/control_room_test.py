@@ -21,7 +21,8 @@ if not BASE.endswith("/"):
 results = []
 console_errors = []
 
-ENV_PATH = Path(r"C:\OmniRoute\voice-agents\.env")
+PROJECT_ROOT = Path(os.environ.get("OMNIROUTE_ROOT", Path(__file__).resolve().parents[2]))
+ENV_PATH = PROJECT_ROOT / ".env"
 UI_TOKEN = ""
 if ENV_PATH.exists():
     m = re.search(r"^UI_ACCESS_TOKEN=(.*)$", ENV_PATH.read_text(encoding="utf-8"), re.M)

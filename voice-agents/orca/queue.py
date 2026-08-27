@@ -13,11 +13,19 @@ def now_ts() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def set_journal_mode(c: sqlite3.Connection) -> None:
+    """Prefer WAL, but fall back to DELETE where WAL is unsupported (e.g. Docker bind mounts)."""
+    try:
+        c.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.OperationalError:
+        c.execute("PRAGMA journal_mode=DELETE")
+
+
 def conn() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     c = sqlite3.connect(DB_PATH, check_same_thread=False)
     c.row_factory = sqlite3.Row
-    c.execute("PRAGMA journal_mode=WAL")
+    set_journal_mode(c)
     return c
 
 

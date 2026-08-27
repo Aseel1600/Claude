@@ -1,0 +1,2 @@
+# Test-only Abhängigkeiten — NICHT ins Runtime-Image (requirements-ui.txt bleibt unverändert)
+playwright==1.62.0

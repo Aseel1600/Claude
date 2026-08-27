@@ -8,7 +8,9 @@ chcp 65001 >nul
 setlocal
 set PORT=%1
 if "%PORT%"=="" set PORT=20139
-set ROOT=C:\OmniRoute\voice-agents
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..\..") do set "ROOT=%%~fI"
+if not "%OMNIROUTE_ROOT%"=="" set "ROOT=%OMNIROUTE_ROOT%"
 set SKILL=C:\Users\Sebastian\.agents\skills\webapp-testing
 set PY=%ROOT%\.venv\Scripts\python.exe
 

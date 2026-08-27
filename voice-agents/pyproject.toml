@@ -1,0 +1,12 @@
+[project]
+name = "omniroute-voice"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastrtc>=0.0.34",
+    "kokoro-onnx>=0.5.0",
+    "livekit-agents[avatario,codecs,google,lemonslice,mcp,openai,silero,turn-detector]~=1.6",
+    "moonshine-voice>=0.1.1",
+    "python-dotenv>=1.2.2",
+]
+
