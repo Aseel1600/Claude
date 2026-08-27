@@ -118,7 +118,7 @@ import {
 } from "./catalogRequest";
 import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
 import { isUnifiedChatSourceModelSelectable } from "./catalogModelPolicy";
-import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
+import { isFreeModel } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 
@@ -325,11 +325,15 @@ async function buildUnifiedModelsResponseCore(
     // explicitly — a disabled router rejects every auto/* id with a 400, so
     // listing them offers the client a choice that cannot succeed.
     const hideAuto = settings.hideAutoCombos === true || settings.autoRoutingEnabled === false;
-    const shouldHidePaid = (providerKey: string, modelId: string, pricing?: unknown): boolean => {
+    const shouldHidePaid = (providerKey: string, modelId: string, pricing?: unknown, isFree?: boolean): boolean => {
       if (!hidePaid) return false;
       const provider = aliasToProviderId[providerKey] || providerKey;
-      if (!providerHasFreeModels(provider)) return true;
-      return !isFreeModel(provider, { id: modelId, pricing: pricing as any });
+      // isFree:true is the first door — custom row kept even when its provider is outside FREE_MODEL_BUDGETS.
+      if (isFreeModel(provider, { id: modelId, pricing: pricing as any, isFree })) return false;
+      // hidePaid is on and model is non-free → hidden. No need to consult FREE_MODEL_BUDGETS
+      // separately: paid on a free-capable provider stays hidden, free on a non-budget provider
+      // already returned above.
+      return true;
     };
 
     // Get active provider connections
@@ -1157,10 +1161,10 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
           // #6328: apply hidePaidModels to synced provider rows too. Synced rows
-          // rarely carry pricing metadata, so shouldHidePaid() falls through to
-          // the FREE_MODEL_IDS_BY_PROVIDER catalog — providers with a curated
-          // free roster show only those; providers with none fall through to
-          // hide-all via providerHasFreeModels() === false.
+          // rarely carry pricing metadata, so shouldHidePaid() keeps only
+          // free-tier rows (catalog + isFree). Custom rows with isFree:true are
+          // already exempt via the isFreeModel gate; other non-free synced rows
+          // are hidden when hidePaid is on.
           if (shouldHidePaid(canonicalProviderId, sm.id, (sm as { pricing?: unknown }).pricing))
             continue;
 
@@ -1559,7 +1563,7 @@ async function buildUnifiedModelsResponseCore(
           // Custom entries do not carry pricing, so shouldHidePaid() decides
           // via FREE_MODEL_IDS_BY_PROVIDER — matches synced/PROVIDER_MODELS.
           if (
-            shouldHidePaid(canonicalProviderId, modelId, (model as { pricing?: unknown }).pricing)
+            shouldHidePaid(canonicalProviderId, modelId, (model as { pricing?: unknown }).pricing, (model as any).isFree)
           )
             continue;
           // noAuth providers have no connection rows; keep auth providers gated. (#2798/#3200)
