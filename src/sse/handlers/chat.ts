@@ -107,7 +107,7 @@ import { resolveConversationId } from "@omniroute/open-sse/services/conversation
 import {
   isAntigravityMissingProjectError,
   isProviderBreakerFailureStatus,
-  resolveDailyQuotaLockoutModel,
+  resolveDailyQuotaModelViews,
   resolveStreamReadinessClassificationError,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
@@ -2242,12 +2242,14 @@ async function handleSingleModelChat(
             : classify429FromError({ status: result.status, message: errorStr })
           : undefined;
       if (result.status === 429 && isDailyQuotaExhausted(errorStr)) {
-        // Parse which model is quota-limited
-        const limitedModel = resolveDailyQuotaLockoutModel(
-          errorStr,
-          model,
-          runtimeOptions.videoTranscriptSensitive === true
-        );
+        // Keep the raw provider token for routing state, but never retain it when a sensitive
+        // upstream diagnostic could have echoed transcript text.
+        const { operationalModel: limitedModel, retainedModel: retainedLimitedModel } =
+          resolveDailyQuotaModelViews(
+            errorStr,
+            model,
+            runtimeOptions.videoTranscriptSensitive === true
+          );
 
         const mlSettings = resolveModelLockoutSettings(runtimeOptions.cachedSettings);
         if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {
@@ -2268,7 +2270,7 @@ async function handleSingleModelChat(
             "MODEL_DAILY_QUOTA",
             JSON.stringify({
               connection: credentials.connectionId.slice(0, 8),
-              model: limitedModel,
+              model: retainedLimitedModel,
               cooldownMs: lockResult.cooldownMs,
               failureCount: lockResult.failureCount,
             })
