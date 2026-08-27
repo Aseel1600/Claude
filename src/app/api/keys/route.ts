@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getApiKeys,
-  getApiKeysCount,
-  createApiKey,
-  isCloudEnabled,
-  updateApiKeyPermissions,
-} from "@/lib/localDb";
+
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { syncToCloud } from "@/lib/cloudSync";
 import { createKeySchema } from "@/shared/validation/schemas";
@@ -14,6 +8,8 @@ import { isApiKeyRevealEnabled, maskStoredApiKey } from "@/lib/apiKeyExposure";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { normalizeSelfServiceScopesForCreate } from "@/shared/constants/selfServiceScopes";
 import * as log from "@/sse/utils/logger";
+import { getApiKeys, getApiKeysCount, createApiKey, updateApiKeyPermissions } from "@/lib/db/apiKeys";
+import { isCloudEnabled } from "@/lib/db/settings";
 
 function parsePagination(request: Request) {
   const url = new URL(request.url);

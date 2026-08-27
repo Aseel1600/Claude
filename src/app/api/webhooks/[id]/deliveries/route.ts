@@ -5,8 +5,10 @@
 
 import { NextResponse } from "next/server";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
-import { getWebhook, getDeliveries } from "@/lib/localDb";
+
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { getWebhook } from "@/lib/db/webhooks";
+import { getDeliveries } from "@/lib/db/webhookDeliveries";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireManagementAuth(request);

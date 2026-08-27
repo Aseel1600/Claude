@@ -1,9 +1,11 @@
-import { assignProxyToScope, getProxyAssignments, resolveProxyForConnection } from "@/lib/localDb";
+
 import { proxyAssignmentSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
+import { assignProxyToScope, getProxyAssignments } from "@/lib/db/proxies";
+import { resolveProxyForConnection } from "@/lib/db/settings";
 
 function toPagination(searchParams: URLSearchParams) {
   const limit = Math.max(1, Math.min(200, Number(searchParams.get("limit") || 100)));

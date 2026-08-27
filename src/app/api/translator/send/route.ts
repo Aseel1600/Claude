@@ -5,12 +5,13 @@ import {
   detectFormat,
   getTargetFormat,
 } from "@omniroute/open-sse/services/provider.ts";
-import { getProviderConnections } from "@/lib/localDb";
+
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { logTranslationEvent } from "@/lib/translatorEvents";
 import { translatorSendSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { getProviderConnections } from "@/lib/db/providers";
 
 function getProviderBaseUrl(providerSpecificData: unknown): string | undefined {
   if (!providerSpecificData || typeof providerSpecificData !== "object") return undefined;

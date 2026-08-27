@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getProviderConnections } from "@/lib/localDb";
+
 import {
   getLearnedLimits,
   getRateLimitStatus,
 } from "@omniroute/open-sse/services/rateLimitManager.ts";
 import {
+import { getProviderConnections } from "@/lib/db/providers";
   normalizeQuotaResponse,
   sanitizeQuotaProvider,
   type QuotaProviderEntry,

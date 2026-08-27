@@ -30,7 +30,7 @@ import {
   extractImageEditInputFromJson,
   validateCodexImageEditReferences,
 } from "@/lib/images/imageRouteModel";
-import { resolveProxyForConnection } from "@/lib/localDb";
+
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { isCodexFreePlan } from "@omniroute/open-sse/executors/codex/tools.ts";
 import {
@@ -40,6 +40,7 @@ import {
 } from "@/shared/middleware/bodySizeGuard";
 import { getCachedSettings } from "@/lib/db/readCache";
 import { z } from "zod";
+import { resolveProxyForConnection } from "@/lib/db/settings";
 
 // JSON edit body (Open WebUI / OpenAI-style). All fields optional — the prompt
 // and resolvable image are enforced after extraction in POST — but the top-level

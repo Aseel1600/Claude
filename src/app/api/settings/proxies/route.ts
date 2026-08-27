@@ -1,4 +1,4 @@
-import { listProxies } from "@/lib/localDb";
+
 import {
   handleProxyCreate,
   handleProxyDelete,
@@ -14,6 +14,7 @@ import {
   relayRepairMode,
 } from "@/lib/db/proxies/mappers";
 import { getRelayProbeStats } from "@/lib/db/relayProbeStats";
+import { listProxies } from "@/lib/db/proxies";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

@@ -3,12 +3,13 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { freeProxyBulkAddSchema } from "@/shared/validation/freeProxySchemas";
-import { getFreeProxyById, promoteFreeProxyToPool } from "@/lib/localDb";
+
 import {
   createProxyDispatcher,
   proxyConfigToUrl,
 } from "@omniroute/open-sse/utils/proxyDispatcher.ts";
 import { probeEchoTargets } from "@/lib/proxyEchoTarget";
+import { getFreeProxyById, promoteFreeProxyToPool } from "@/lib/db/freeProxies";
 
 type QuickTester = (
   host: string,

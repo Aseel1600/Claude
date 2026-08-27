@@ -3,9 +3,10 @@ import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 import { QdrantSettingsUpdateSchema } from "@/shared/schemas/qdrant";
 import { getQdrantConfig, normalizeQdrantConfig } from "@/lib/memory/qdrant";
-import { updateSettings, getSettings } from "@/lib/localDb";
+
 import { invalidateMemorySettingsCache } from "@/lib/memory/settings";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+import { updateSettings, getSettings } from "@/lib/db/settings";
 
 function maskApiKey(apiKey: string | null): { hasApiKey: boolean; apiKeyMasked: string | null } {
   if (!apiKey || apiKey.trim().length === 0) {

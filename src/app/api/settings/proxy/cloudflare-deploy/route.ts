@@ -3,9 +3,10 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { cloudflareDeploySchema } from "@/shared/validation/freeProxySchemas";
-import { createProxy } from "@/lib/localDb";
+
 import { encrypt } from "@/lib/db/encryption";
 import {
+import { createProxy } from "@/lib/db/proxies";
   buildCloudflareWorkerScript,
   buildCloudflareWorkerUploadRequest,
 } from "@/lib/proxyRelay/cloudflareWorkerScript";

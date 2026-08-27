@@ -1,8 +1,9 @@
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
-import { getBatch, deleteBatch } from "@/lib/localDb";
+
 import { NextResponse } from "next/server";
 import { getApiKeyRequestScope } from "@/app/api/v1/_helpers/apiKeyScope";
 import { formatBatchResponse } from "../formatBatchResponse";
+import { getBatch, deleteBatch } from "@/lib/db/batches";
 
 export async function OPTIONS() {
   return handleCorsOptions();

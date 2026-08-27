@@ -1,8 +1,9 @@
-import { migrateLegacyProxyConfigToRegistry } from "@/lib/localDb";
+
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { migrateLegacyProxyConfigToRegistry } from "@/lib/db/proxies";
 
 const migrateLegacyProxySchema = z.object({
   force: z.boolean().optional(),

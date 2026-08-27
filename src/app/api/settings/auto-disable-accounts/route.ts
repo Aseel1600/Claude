@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSettings, updateSettings } from "@/lib/localDb";
+
 import { updateAutoDisableAccountsSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { normalizeAutoDisableBannedScope } from "@/shared/utils/autoDisableBanned";
+import { getSettings, updateSettings } from "@/lib/db/settings";
 
 function toAutoDisableResponse(settings: Record<string, unknown>) {
   return {

@@ -15,9 +15,10 @@ import { NextResponse } from "next/server";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { PoolUpdateSchema } from "@/shared/schemas/quota";
-import { getPool, updatePool, deletePool } from "@/lib/localDb";
+
 import { logAuditEvent, getAuditRequestContext } from "@/lib/compliance/index";
 import { reconcilePoolExclusivity } from "@/lib/quota/quotaKey";
+import { getPool, updatePool, deletePool } from "@/lib/db/quotaPools";
 
 export const dynamic = "force-dynamic";
 

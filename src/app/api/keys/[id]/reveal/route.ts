@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getApiKeyById } from "@/lib/localDb";
+
 import { isApiKeyRevealEnabled } from "@/lib/apiKeyExposure";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import * as log from "@/sse/utils/logger";
+import { getApiKeyById } from "@/lib/db/apiKeys";
 
 // GET /api/keys/[id]/reveal - Reveal full API key for explicit copy actions
 export async function GET(request, { params }) {

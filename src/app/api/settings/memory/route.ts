@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSettings, updateSettings } from "@/lib/localDb";
+
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { MemorySettingsExtendedSchema } from "@/shared/schemas/memory";
@@ -9,6 +9,7 @@ import {
   toMemorySettingsUpdates,
 } from "@/lib/memory/settings";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+import { getSettings, updateSettings } from "@/lib/db/settings";
 
 export async function GET(request: NextRequest) {
   if (!(await isAuthenticated(request))) {

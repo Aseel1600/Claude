@@ -1,10 +1,4 @@
-import {
-  addProxyToScopePool,
-  removeProxyFromScopePool,
-  getScopeProxyPool,
-  getScopeRotationStrategy,
-  setScopeRotationStrategy,
-} from "@/lib/localDb";
+
 import {
   proxyPoolMemberSchema,
   proxyRotationStrategySchema,
@@ -13,6 +7,7 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { addProxyToScopePool, removeProxyFromScopePool, getScopeProxyPool, getScopeRotationStrategy, setScopeRotationStrategy } from "@/lib/db/proxies";
 
 // #6365 proxy pools — a scope (global/provider/account/combo) may hold MULTIPLE
 // proxies that a rotation strategy cycles through. Pure DB ops (no process spawn),

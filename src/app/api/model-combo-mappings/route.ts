@@ -7,10 +7,11 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { createModelComboMapping, getModelComboMappings } from "@/lib/localDb";
+
 import { paginationSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { validatedJsonBody } from "@/shared/validation/helpers";
+import { createModelComboMapping, getModelComboMappings } from "@/lib/db/modelComboMappings";
 
 const createMappingSchema = z.object({
   pattern: z.string().min(1, "Pattern is required").max(500),

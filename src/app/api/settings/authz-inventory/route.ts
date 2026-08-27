@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSettings } from "@/lib/localDb";
+
 import { isAuthRequired, isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { createErrorResponse } from "@/lib/api/errorResponse";
 import { extractApiKey, isValidApiKey } from "@/sse/services/auth";
@@ -10,6 +10,7 @@ import {
   SPAWN_CAPABLE_PREFIXES,
 } from "@/server/authz/routeGuard";
 import { getCorsStatus } from "@/server/cors/origins";
+import { getSettings } from "@/lib/db/settings";
 
 /**
  * Static MANAGEMENT-tier example prefixes. Render-only — never consulted by

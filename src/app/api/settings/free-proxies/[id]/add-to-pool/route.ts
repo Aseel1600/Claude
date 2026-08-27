@@ -1,12 +1,13 @@
 import { request as undiciRequest } from "undici";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
-import { getFreeProxyById, promoteFreeProxyToPool } from "@/lib/localDb";
+
 import {
   createProxyDispatcher,
   proxyConfigToUrl,
 } from "@omniroute/open-sse/utils/proxyDispatcher.ts";
 import { probeEchoTargets } from "@/lib/proxyEchoTarget";
+import { getFreeProxyById, promoteFreeProxyToPool } from "@/lib/db/freeProxies";
 
 type ConnectivityTester = (
   host: string,

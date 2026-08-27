@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addKeyToGroup, removeKeyFromGroup, getGroupMembers, getKeyGroup } from "@/lib/localDb";
+
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { addKeyToGroup, removeKeyFromGroup, getGroupMembers, getKeyGroup } from "@/lib/db/apiKeyGroups";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

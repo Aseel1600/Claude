@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  getKeyGroupWithPermissions,
-  updateKeyGroup,
-  deleteKeyGroup,
-  getGroupMembers,
-  addGroupPermission,
-  removeGroupPermission,
-  addKeyToGroup,
-  removeKeyFromGroup,
-} from "@/lib/localDb";
+
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { getKeyGroupWithPermissions, updateKeyGroup, deleteKeyGroup, getGroupMembers, addGroupPermission, removeGroupPermission, addKeyToGroup, removeKeyFromGroup } from "@/lib/db/apiKeyGroups";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

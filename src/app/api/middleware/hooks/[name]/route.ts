@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  getMiddlewareHook,
-  updateMiddlewareHook,
-  deleteMiddlewareHook,
-  getHookLogs,
-} from "@/lib/localDb";
+
 import { registerHook, unregisterHook, updateHook } from "@/lib/middleware/registry";
 import type { HookConfig } from "@/lib/middleware/types";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { getMiddlewareHook, updateMiddlewareHook, deleteMiddlewareHook, getHookLogs } from "@/lib/db/middleware";
 
 type RouteParams = { params: Promise<{ name: string }> };
 

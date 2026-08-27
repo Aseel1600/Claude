@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
-import { listBatches } from "@/lib/localDb";
+
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { listBatches } from "@/lib/db/batches";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

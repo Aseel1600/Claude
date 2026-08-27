@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getSettings,
-  getProviderConnections,
-  getCachedProviderNodes,
-  getCombos,
-  getApiKeys,
-} from "@/lib/localDb";
+
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 import {
   getAllUsageHistory,
@@ -13,6 +7,11 @@ import {
   getAllDomainBudgets,
 } from "@/lib/db/usageAnalytics";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
+import { getSettings } from "@/lib/db/settings";
+import { getProviderConnections } from "@/lib/db/providers";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
+import { getCombos } from "@/lib/db/combos";
+import { getApiKeys } from "@/lib/db/apiKeys";
 
 /**
  * When `settings.hidePaidModels === true`, exports must not leak paid model ids

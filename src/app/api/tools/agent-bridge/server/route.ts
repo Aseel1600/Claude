@@ -18,7 +18,8 @@ import {
 import path from "path";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { createErrorResponse } from "@/lib/api/errorResponse";
-import { pickApiKeyForInternalUse } from "@/lib/localDb";
+import { pickApiKeyForInternalUse } from "@/lib/db/apiKeys";
+
 
 /**
  * Resolve the OmniRoute API key the spawned MITM child (`server.cjs`) uses to

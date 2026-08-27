@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { listFiles } from "@/lib/localDb";
+
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { listFiles } from "@/lib/db/files";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

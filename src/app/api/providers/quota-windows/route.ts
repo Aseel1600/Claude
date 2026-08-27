@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAllProviderQuotaWindows } from "@omniroute/open-sse/services/quotaPreflight.ts";
-import { getCachedSettings } from "@/lib/localDb";
+
 import { resolveResilienceSettings } from "@/lib/resilience/settings";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { getCachedSettings } from "@/lib/db/readCache";
 
 // GET /api/providers/quota-windows
 // Returns the named quota windows registered by each provider's quota fetcher,

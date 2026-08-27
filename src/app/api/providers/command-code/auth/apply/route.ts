@@ -4,10 +4,11 @@ import {
   createProviderConnection,
   updateProviderConnection,
 } from "@/lib/db/providers";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import { sanitizeProviderSpecificDataForResponse } from "@/lib/providers/requestDefaults";
 
 import { commandCodeApplySchema, noStoreJson, stateHashFromState } from "../shared";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 function safeConnection(
   connection: Record<string, unknown> | null

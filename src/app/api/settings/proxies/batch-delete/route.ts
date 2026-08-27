@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { deleteProxyById } from "@/lib/localDb";
+
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { deleteProxyById } from "@/lib/db/proxies";
 
 const batchDeleteSchema = z.object({
   ids: z.array(z.string()).min(1).max(100),

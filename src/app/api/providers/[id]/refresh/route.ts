@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import { updateProviderConnection } from "@/lib/db/providers";
 import {
   getAccessToken,
@@ -8,6 +8,7 @@ import {
   resolveCopilotTokenBaseUrl,
 } from "@/sse/services/tokenRefresh";
 import { rotationGroupFor } from "@omniroute/open-sse/services/refreshSerializer.ts";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 type RefreshResult = {
   accessToken?: string;

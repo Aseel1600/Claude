@@ -17,8 +17,9 @@
 import { NextResponse } from "next/server";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { listProviderPlans } from "@/lib/localDb";
+
 import { knownProviders, getKnownPlan } from "@/lib/quota/planRegistry";
+import { listPlans as listProviderPlans } from "@/lib/db/providerPlans";
 
 export const dynamic = "force-dynamic";
 

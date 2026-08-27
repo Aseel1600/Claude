@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
-import { getAllCustomModels, getAllSyncedAvailableModels, getPricing } from "@/lib/localDb";
+
 import { getProviderPrefixIndex } from "@/lib/providerNodePrefixes";
+import { getAllCustomModels, getAllSyncedAvailableModels } from "@/lib/db/models";
+import { getPricing } from "@/lib/db/settings";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)

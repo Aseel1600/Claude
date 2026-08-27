@@ -3,9 +3,10 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { denoDeploySchema } from "@/shared/validation/freeProxySchemas";
-import { createProxy } from "@/lib/localDb";
+
 import { encrypt } from "@/lib/db/encryption";
 import { isPrivateRelayHostname } from "@/lib/proxyRelay/privateHostname";
+import { createProxy } from "@/lib/db/proxies";
 
 const DENO_API_BASE = process.env.DENO_DEPLOY_API_BASE || "https://api.deno.com/v2";
 const POLL_INTERVAL_MS = 2000;

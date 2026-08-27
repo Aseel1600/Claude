@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSettings, updateSettings } from "@/lib/localDb";
+
 import {
   setThinkingBudgetConfig,
   getThinkingBudgetConfig,
@@ -8,6 +8,7 @@ import {
 import { updateThinkingBudgetSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { getSettings, updateSettings } from "@/lib/db/settings";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

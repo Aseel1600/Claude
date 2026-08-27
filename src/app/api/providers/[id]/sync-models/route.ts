@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import {
   deleteImportedCustomModels,
   deleteSyncedAvailableModelsForProvider,
@@ -29,6 +29,7 @@ import { replaceSyncedAvailableModelsForConnection } from "@/lib/db/models";
 import { GET as getProviderModels } from "../models/route";
 import { isDegradedDiscovery } from "./degradedLocalCatalog";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 type JsonRecord = Record<string, unknown>;
 

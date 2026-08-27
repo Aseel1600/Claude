@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  getAllMiddlewareHooks,
-  createMiddlewareHook,
-  getMiddlewareHook,
-  getHookLogs,
-} from "@/lib/localDb";
+
 import { registerHook, getAllHooks } from "@/lib/middleware/registry";
 import type { HookConfig, CreateHookRequest } from "@/lib/middleware/types";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { getAllMiddlewareHooks, createMiddlewareHook, getMiddlewareHook, getHookLogs } from "@/lib/db/middleware";
 
 const hookScopeSchema = z.union([
   z.object({ type: z.literal("global") }),

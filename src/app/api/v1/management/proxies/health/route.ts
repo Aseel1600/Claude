@@ -1,6 +1,7 @@
-import { getProxyHealthStats } from "@/lib/localDb";
+
 import { createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { getProxyHealthStats } from "@/lib/db/proxies";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

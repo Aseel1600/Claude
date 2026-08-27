@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  listDbBackups,
-  restoreDbBackup,
-  backupDbFile,
-  cleanupDbBackups,
-  getDbBackupMaxFiles,
-  setDbBackupMaxFiles,
-  getDbBackupRetentionDays,
-  setDbBackupRetentionDays,
-} from "@/lib/localDb";
+
 import { dbBackupCleanupSchema, dbBackupRestoreSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { listDbBackups, restoreDbBackup, backupDbFile, cleanupDbBackups, getDbBackupMaxFiles, setDbBackupMaxFiles, getDbBackupRetentionDays, setDbBackupRetentionDays } from "@/lib/db/backup";
 
 async function readOptionalJsonBody(request: NextRequest | Request): Promise<unknown> {
   try {

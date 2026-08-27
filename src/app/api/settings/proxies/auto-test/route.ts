@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { deleteProxyById, listProxies, updateProxy } from "@/lib/localDb";
+
 import { createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createProxyDispatcher, proxyConfigToUrl } from "@omniroute/open-sse/utils/proxyDispatcher";
@@ -15,6 +15,7 @@ import {
 import { resolveProviderProbeTarget } from "@/lib/proxyHealth/providerProbeTarget";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse } from "@/lib/api/errorResponse";
+import { deleteProxyById, listProxies, updateProxy } from "@/lib/db/proxies";
 
 const TEST_TIMEOUT_MS = 5000;
 // Shared with the background sweep — see src/lib/proxyHealth/probeTarget.ts.

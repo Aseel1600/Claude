@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
-import { getProxyById, updateProxy } from "@/lib/localDb";
+
 import { decrypt } from "@/lib/db/encryption";
 import { isRelayProxyType, relayRepairMode } from "@/lib/db/proxies/mappers";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { getProxyById, updateProxy } from "@/lib/db/proxies";
 
 const idParamSchema = z.object({ id: z.string().min(1) });
 

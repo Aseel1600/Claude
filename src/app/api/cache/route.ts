@@ -9,9 +9,10 @@ import {
 } from "@/lib/semanticCache";
 import { getIdempotencyStats } from "@/lib/idempotencyLayer";
 import { getCacheMetrics, getCacheTrend } from "@/lib/db/settings";
-import { getCachedSettings } from "@/lib/localDb";
+
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { getCachedSettings } from "@/lib/db/readCache";
 
 function errorMessage(error: unknown): string {
   return sanitizeErrorMessage(error);

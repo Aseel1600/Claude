@@ -3,13 +3,14 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { vercelDeploySchema } from "@/shared/validation/freeProxySchemas";
-import { createProxy } from "@/lib/localDb";
+
 import { encrypt } from "@/lib/db/encryption";
 // Shared SSRF-safe relay-path resolver — the same pure guard embedded in the
 // Deno Deploy worker. Both edge relays must enforce identical path validation,
 // so they import one source of truth rather than diverging copies.
 import { resolveRelayTarget } from "../deno-deploy/route";
 import { isPrivateRelayHostname } from "@/lib/proxyRelay/privateHostname";
+import { createProxy } from "@/lib/db/proxies";
 
 const VERCEL_API_BASE = process.env.VERCEL_API_BASE || "https://api.vercel.com";
 const POLL_INTERVAL_MS = 3000;

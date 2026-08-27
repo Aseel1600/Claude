@@ -8,13 +8,14 @@
  * routing details (account/connection ids, weights, internal labels).
  */
 import { NextResponse } from "next/server";
-import { getCombos } from "@/lib/localDb";
+
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { extractApiKey, isValidApiKey } from "@/sse/services/auth";
 import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { isRequireApiKeyEnabled } from "@/shared/utils/featureFlags";
 import { projectCombo, type PublicCombo } from "./projectCombo";
+import { getCombos } from "@/lib/db/combos";
 
 export async function OPTIONS() {
   return new Response(null, {

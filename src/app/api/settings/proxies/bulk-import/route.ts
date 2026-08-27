@@ -1,8 +1,9 @@
-import { upsertProxy } from "@/lib/localDb";
+
 import { bulkImportProxiesSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { upsertProxy } from "@/lib/db/proxies";
 
 export async function POST(request: Request) {
   const authError = await requireManagementAuth(request);

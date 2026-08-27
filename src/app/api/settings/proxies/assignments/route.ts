@@ -1,9 +1,11 @@
-import { assignProxyToScope, getProxyAssignments, resolveProxyForConnection } from "@/lib/localDb";
+
 import { proxyAssignmentSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { assignProxyToScope, getProxyAssignments } from "@/lib/db/proxies";
+import { resolveProxyForConnection } from "@/lib/db/settings";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

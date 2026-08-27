@@ -3,9 +3,10 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 import { MemoryReindexSchema } from "@/shared/schemas/memory";
 import { runReindexBatch, getReindexPending } from "@/lib/memory/reindex";
-import { markAllMemoriesNeedReindex } from "@/lib/localDb";
+
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 import { logger } from "@omniroute/open-sse/utils/logger.ts";
+import { markAllMemoriesNeedReindex } from "@/lib/db/memoryVec";
 
 const log = logger("MEMORY_REINDEX_ROUTE");
 

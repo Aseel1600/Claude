@@ -1,7 +1,8 @@
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
-import { getFile, deleteFile, formatFileResponse } from "@/lib/localDb";
+
 import { NextResponse } from "next/server";
 import { getApiKeyRequestScope } from "@/app/api/v1/_helpers/apiKeyScope";
+import { getFile, deleteFile, formatFileResponse } from "@/lib/db/files";
 
 export async function OPTIONS() {
   return handleCorsOptions();

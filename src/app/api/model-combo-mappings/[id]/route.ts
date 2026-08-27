@@ -7,12 +7,9 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import {
-  updateModelComboMapping,
-  deleteModelComboMapping,
-  getModelComboMappingById,
-} from "@/lib/localDb";
+
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
+import { updateModelComboMapping, deleteModelComboMapping, getModelComboMappingById } from "@/lib/db/modelComboMappings";
 
 const updateMappingSchema = z.object({
   pattern: z.string().min(1).max(500).optional(),

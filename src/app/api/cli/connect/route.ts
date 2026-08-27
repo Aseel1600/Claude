@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuditRequestContext, logAuditEvent } from "@/lib/compliance/index";
-import { getCachedSettings } from "@/lib/localDb";
+
 import {
   ensurePersistentManagementPasswordHash,
   getStoredManagementPassword,
@@ -11,6 +11,7 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { checkLoginGuard, clearLoginAttempts, recordLoginFailure } from "@/server/auth/loginGuard";
 import { createAccessToken } from "@/lib/db/accessTokens";
 import { ACCESS_SCOPES } from "@/lib/accessTokens/scopes";
+import { getCachedSettings } from "@/lib/db/readCache";
 
 /**
  * POST /api/cli/connect — remote-mode bootstrap.

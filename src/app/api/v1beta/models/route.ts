@@ -5,10 +5,11 @@ import {
   getAllSyncedAvailableModels,
   getSyncedAvailableModels,
 } from "@/lib/db/models";
-import { getProviderConnections } from "@/lib/localDb";
+
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import { getSyncedCapabilities } from "@/lib/modelsDevSync";
 import { mergeCustomModelMetadata } from "@/lib/providers/modelMetadataPrecedence";
+import { getProviderConnections } from "@/lib/db/providers";
 
 /**
  * Build the set of provider keys (raw id + alias) that have at least one active/validated

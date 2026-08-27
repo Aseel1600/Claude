@@ -5,8 +5,9 @@
  * Used by TokenHealthBadge in the Header.
  */
 
-import { getProviderConnections } from "@/lib/localDb";
+
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+import { getProviderConnections } from "@/lib/db/providers";
 
 export async function GET() {
   try {

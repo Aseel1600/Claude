@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updateSettings } from "@/lib/localDb";
+
 import {
   getPayloadRulesConfig,
   normalizePayloadRulesConfig,
@@ -7,6 +7,7 @@ import {
 import { updatePayloadRulesSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { updateSettings } from "@/lib/db/settings";
 
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);

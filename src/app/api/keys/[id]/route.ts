@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  deleteApiKey,
-  getApiKeyById,
-  updateApiKeyPermissions,
-  isCloudEnabled,
-  ApiKeyPolicyInvariantError,
-} from "@/lib/localDb";
+
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { syncToCloud } from "@/lib/cloudSync";
 import { updateKeyPermissionsSchema } from "@/shared/validation/schemas";
@@ -13,6 +7,8 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import * as log from "@/sse/utils/logger";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error.ts";
+import { deleteApiKey, getApiKeyById, updateApiKeyPermissions, ApiKeyPolicyInvariantError } from "@/lib/db/apiKeys";
+import { isCloudEnabled } from "@/lib/db/settings";
 
 // GET /api/keys/[id] - Get single API key
 export async function GET(request, { params }) {

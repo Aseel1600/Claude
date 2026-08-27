@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSettings, updateSettings } from "@/lib/localDb";
+
 import { updateComboDefaultsSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { isPaidModelTarget } from "@/shared/utils/freeModels";
+import { getSettings, updateSettings } from "@/lib/db/settings";
 
 const LEGACY_COMBO_RESILIENCE_KEYS = new Set([
   "timeoutMs",

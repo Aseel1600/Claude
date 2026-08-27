@@ -1,4 +1,4 @@
-import { listProxies } from "@/lib/localDb";
+
 import {
   handleProxyCreate,
   handleProxyDelete,
@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/proxyRegistryRouteHandlers";
 import { createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { listProxies } from "@/lib/db/proxies";
 
 function toPagination(searchParams: URLSearchParams) {
   const limit = Math.max(1, Math.min(200, Number(searchParams.get("limit") || 50)));

@@ -1,5 +1,5 @@
 import { getMachineId } from "@/shared/utils/machine";
-import { getSettings } from "@/lib/localDb";
+
 import HomePageClient from "../dashboard/HomePageClient";
 import BootstrapBanner from "../dashboard/BootstrapBanner";
 import KimiSponsorBanner from "../dashboard/KimiSponsorBanner";
@@ -7,6 +7,7 @@ import CheaperInferenceSponsorBanner from "../dashboard/CheaperInferenceSponsorB
 import VscodeCopilotBanner from "../dashboard/VscodeCopilotBanner";
 import NewsBanner from "../dashboard/NewsBanner";
 import FirstRunReadinessCard from "../dashboard/FirstRunReadinessCard";
+import { getSettings } from "@/lib/db/settings";
 
 export const dynamic = "force-dynamic";
 

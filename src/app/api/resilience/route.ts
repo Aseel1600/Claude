@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCachedSettings, getSettings, updateSettings } from "@/lib/localDb";
+
 import {
   buildLegacyResilienceCompat,
   mergeResilienceSettings,
@@ -11,6 +11,8 @@ import { updateResilienceSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { resetAllCircuitBreakers } from "@/shared/utils/circuitBreaker";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { getCachedSettings } from "@/lib/db/readCache";
+import { getSettings, updateSettings } from "@/lib/db/settings";
 
 type JsonRecord = Record<string, unknown>;
 

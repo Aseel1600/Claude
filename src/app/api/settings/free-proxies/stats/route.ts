@@ -1,8 +1,9 @@
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
-import { getFreeProxyStats } from "@/lib/localDb";
+
 import { getAllProviders } from "@/lib/freeProxyProviders";
 import {
+import { getFreeProxyStats } from "@/lib/db/freeProxies";
   isFreeProxyAutoSyncEnabled,
   getFreeProxyAutoSyncIntervalMs,
 } from "@/lib/freeProxyProviders/scheduler";

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { getProviderConnections, getCachedSettings } from "@/lib/localDb";
+
 import { buildHealthPayload } from "@/lib/monitoring/observability";
 import { readRunningBuildSha } from "@/lib/monitoring/buildSha";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { getProviderConnections } from "@/lib/db/providers";
+import { getCachedSettings } from "@/lib/db/readCache";
 
 /**
  * GET /api/monitoring/health — System health overview

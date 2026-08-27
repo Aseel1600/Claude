@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { deleteCustomEvalSuite, getCustomEvalSuite, saveCustomEvalSuite } from "@/lib/localDb";
+
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { evalSuiteSaveSchema } from "@/shared/validation/schemas";
+import { deleteCustomEvalSuite, getCustomEvalSuite, saveCustomEvalSuite } from "@/lib/db/evals";
 
 export async function GET(request: Request, { params }: { params: Promise<{ suiteId: string }> }) {
   const authError = await requireManagementAuth(request);

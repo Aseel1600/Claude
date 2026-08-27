@@ -1,17 +1,4 @@
-import {
-  getCustomModels,
-  getAllCustomModels,
-  addCustomModel,
-  removeCustomModel,
-  replaceCustomModels,
-  deleteSyncedAvailableModelsForProvider,
-  removeSyncedAvailableModel,
-  updateCustomModel,
-  getModelCompatOverrides,
-  mergeModelCompatOverride,
-  getHiddenModelsByProvider,
-  type ModelCompatPatch,
-} from "@/lib/localDb";
+
 import {
   getModelContextOverrideRecord,
   setModelContextOverride,
@@ -31,6 +18,8 @@ import { isAuthenticated } from "@/shared/utils/apiAuth";
 export const dynamic = "force-dynamic";
 import { providerModelMutationSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { getCustomModels, getAllCustomModels, addCustomModel, removeCustomModel, replaceCustomModels, deleteSyncedAvailableModelsForProvider, removeSyncedAvailableModel, updateCustomModel, getModelCompatOverrides, mergeModelCompatOverride, getHiddenModelsByProvider } from "@/lib/db/models";
+import { ModelCompatPatch } from "@/lib/db/models";
 
 function normalizeRequestedModelIds(
   searchParams: URLSearchParams,
