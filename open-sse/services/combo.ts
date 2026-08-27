@@ -66,6 +66,7 @@ import { checkCredentialGate, logCredentialSkip } from "./credentialGate.ts";
 import { emit } from "../../src/lib/events/eventBus";
 import { notifyWebhookEvent } from "../../src/lib/webhookDispatcher";
 import { type ProviderCandidate } from "./autoCombo/scoring.ts";
+import { getProviderCapacity } from "./providerCapacity.ts";
 import { estimateTokens } from "./contextManager.ts";
 import { getSessionConnection } from "./sessionManager.ts";
 import {
@@ -309,6 +310,7 @@ export async function buildAutoCandidates(
   const quotaCutoffEnabled =
     (resilienceSettings ?? resolveResilienceSettings(null))?.quotaPreflight?.enabled === true;
   const { getPricingForModel } = await import("../../src/lib/localDb");
+  const { getSaturation } = await import("../../src/lib/quota/saturationSignals");
   const quotaPromises = new Map<string, Promise<unknown>>();
   let historicalLatencyStats: Record<string, HistoricalLatencyStatsEntry> = {};
   try {
@@ -443,6 +445,21 @@ export async function buildAutoCandidates(
       let quotaCutoffReason: string | undefined;
       const fetcher = getQuotaFetcher(provider);
       const connection = target.connectionId ? connectionById.get(target.connectionId) : undefined;
+      const providerCapacity = getProviderCapacity(provider);
+
+      // Live runtime saturation from the existing quota/header telemetry path.
+      // The saturation engine is cached and fail-open, so this must never make
+      // candidate construction fail.
+      let runtimeSaturation = 0;
+      if (target.connectionId) {
+        runtimeSaturation = await getSaturation(
+          target.connectionId,
+          provider,
+          { unit: "percent", window: "5h" },
+          connection
+        ).catch(() => 0);
+      }
+      runtimeSaturation = Math.max(0, Math.min(1, runtimeSaturation));
       // Gate the terminal-status cutoff behind the same opt-in as the quota-percent
       // cutoff (#4483): when quota cutoff is disabled, a connection in a terminal
       // testStatus must still fall through to normal connection-cooldown / model-lockout
@@ -524,6 +541,17 @@ export async function buildAutoCandidates(
         statusPenaltyReason,
         connectionPoolSize: connectionPoolCounts.get(provider) ?? 1,
         connectionId: target.connectionId ?? undefined,
+        documentedCapacity: providerCapacity.documented,
+        documentedRequestsPerMinute: providerCapacity.requestsPerMinute,
+        documentedRequestsPerHour: providerCapacity.requestsPerHour,
+        documentedRequestsPerDay: providerCapacity.requestsPerDay,
+        documentedTokensPerMinute: providerCapacity.tokensPerMinute,
+        documentedTokensPerDay: providerCapacity.tokensPerDay,
+        documentedConcurrency: providerCapacity.concurrency,
+        runtimeSaturation,
+        runtimePressure: 1 - runtimeSaturation,
+        runtimeResetAt: null,
+        runtimePressureSource: target.connectionId ? ("quota" as const) : ("none" as const),
       };
     })
   );

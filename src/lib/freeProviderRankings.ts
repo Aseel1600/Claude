@@ -14,6 +14,7 @@ import { listModelIntelligence } from "./db/modelIntelligence";
 import { getProviderConnections } from "./db/providers";
 import { getCustomModels } from "./db/models";
 import type { ProviderAuthType } from "./freeProviderRankingsAuthType";
+import { getProviderIntelligence } from "../../open-sse/config/providerIntelligence.generated.ts";
 
 // Re-exported for backward-compat / same-module ergonomics (#6915) — the
 // actual implementations live in `freeProviderRankingsAuthType.ts` (DB-free,
@@ -99,6 +100,29 @@ function getFreeProviders() {
   }
 
   return providers;
+}
+
+/**
+ * Provider-level research gate.
+ *
+ * Unknown providers preserve the existing behavior so the research snapshot
+ * does not become a hard dependency for newly-added providers.
+ *
+ * Known providers:
+ *   Primary / Secondary / Opportunistic -> eligible
+ *   Promotional / Experimental / Specialized / Exclude / Unclassified -> not
+ *   promoted into the main sustainable free-provider ranking.
+ */
+export function isIntelligenceEligibleFreeProvider(providerId: string): boolean {
+  const intelligence = getProviderIntelligence(providerId);
+
+  if (!intelligence) return true;
+
+  return (
+    intelligence.tier === "Primary" ||
+    intelligence.tier === "Secondary" ||
+    intelligence.tier === "Opportunistic"
+  );
 }
 
 /** Minimal shape shared by registry models and user-added custom models. */
@@ -250,7 +274,10 @@ const TERMINAL_CONNECTION_STATUSES = new Set(["credits_exhausted", "banned", "ex
  * quota lockout (model lockout, `open-sse/services/accountFallback.ts`) is a
  * deferred Phase 3 and is intentionally NOT consulted here.
  */
-export function isProviderUsable(connections: ConnectionState[], now: number = Date.now()): boolean {
+export function isProviderUsable(
+  connections: ConnectionState[],
+  now: number = Date.now()
+): boolean {
   return connections.some((conn) => {
     const status = (conn.testStatus || "").trim().toLowerCase();
     if (TERMINAL_CONNECTION_STATUSES.has(status)) return false;
@@ -313,7 +340,9 @@ export async function computeFreeProviderRankings(
   limit: number = 50,
   opts: FreeProviderRankingFilterOptions = {}
 ): Promise<FreeProviderRanking[]> {
-  const freeProviders = getFreeProviders();
+  const freeProviders = getFreeProviders().filter((provider) =>
+    isIntelligenceEligibleFreeProvider(provider.id)
+  );
   const intelligenceEntries = listModelIntelligence({
     source: "arena_elo",
     category: category || undefined,

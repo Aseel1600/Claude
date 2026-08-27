@@ -26,6 +26,8 @@ export const MODE_PACKS: Record<string, ScoringWeights> = {
     contextAffinity: 0.01,
     resetWindowAffinity: 0,
     connectionDensity: 0.05,
+    capacity: 0,
+    runtimePressure: 0,
   },
   // Prioritize cost. tierPriority replaces 0.05 from stability.
   "cost-saver": {
@@ -41,6 +43,8 @@ export const MODE_PACKS: Record<string, ScoringWeights> = {
     contextAffinity: 0.0,
     resetWindowAffinity: 0,
     connectionDensity: 0.05,
+    capacity: 0,
+    runtimePressure: 0,
   },
   // Prioritize task fitness. tierPriority replaces 0.05 from latencyInv.
   "quality-first": {
@@ -56,6 +60,8 @@ export const MODE_PACKS: Record<string, ScoringWeights> = {
     contextAffinity: 0.0,
     resetWindowAffinity: 0,
     connectionDensity: 0.05,
+    capacity: 0,
+    runtimePressure: 0,
   },
   // Prioritize quota availability. tierPriority replaces 0.05 from taskFit.
   "offline-friendly": {
@@ -71,6 +77,8 @@ export const MODE_PACKS: Record<string, ScoringWeights> = {
     contextAffinity: 0.0,
     resetWindowAffinity: 0,
     connectionDensity: 0.05,
+    capacity: 0,
+    runtimePressure: 0,
   },
   // #4235 `:reliable` — prioritize healthy, low-variance providers (high availability).
   // health (circuit-breaker) + stability (latency std-dev) dominate; weights sum to 1.0.
@@ -87,6 +95,8 @@ export const MODE_PACKS: Record<string, ScoringWeights> = {
     contextAffinity: 0.0,
     resetWindowAffinity: 0,
     connectionDensity: 0.05,
+    capacity: 0,
+    runtimePressure: 0,
   },
   // Chaos mode — priority: health > stability > taskFit > latency.
   // Selects top-N healthy providers for parallel dispatch. Favors providers with
@@ -107,6 +117,8 @@ export const MODE_PACKS: Record<string, ScoringWeights> = {
     contextAffinity: 0.03,
     resetWindowAffinity: 0,
     connectionDensity: 0.05,
+    capacity: 0,
+    runtimePressure: 0,
   },
 };
 

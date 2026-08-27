@@ -105,12 +105,7 @@ test("filter: configuredOnly keeps only providers with ≥1 connection", () => {
 
 test("filter: availableOnly drops exhausted-only provider, keeps healthy", () => {
   const connections = [conn("glm"), conn("groq", { testStatus: "credits_exhausted" })];
-  const out = filterFreeProviderRankings(
-    RANKINGS,
-    connections,
-    { availableOnly: true },
-    FIXED_NOW
-  );
+  const out = filterFreeProviderRankings(RANKINGS, connections, { availableOnly: true }, FIXED_NOW);
   assert.deepEqual(
     out.map((r) => r.id),
     ["glm"]
@@ -146,12 +141,7 @@ test("filter: availableOnly keeps a provider that has at least one usable connec
     conn("glm", { testStatus: "banned" }),
     conn("glm"), // second connection is healthy
   ];
-  const out = filterFreeProviderRankings(
-    RANKINGS,
-    connections,
-    { availableOnly: true },
-    FIXED_NOW
-  );
+  const out = filterFreeProviderRankings(RANKINGS, connections, { availableOnly: true }, FIXED_NOW);
   assert.deepEqual(
     out.map((r) => r.id),
     ["glm"]
@@ -162,4 +152,30 @@ test("filter: availableOnly implies configured (unconfigured provider excluded)"
   // no connections at all → nothing survives availableOnly
   const out = filterFreeProviderRankings(RANKINGS, [], { availableOnly: true }, FIXED_NOW);
   assert.equal(out.length, 0);
+});
+
+/* ──────────────── provider intelligence gate ──────────────── */
+
+test("intelligence gate: Primary providers remain eligible", async () => {
+  const mod = await import("../../src/lib/freeProviderRankings.ts");
+
+  assert.equal(mod.isIntelligenceEligibleFreeProvider("navy"), true);
+  assert.equal(mod.isIntelligenceEligibleFreeProvider("agnes"), true);
+  assert.equal(mod.isIntelligenceEligibleFreeProvider("bazaarlink"), true);
+});
+
+test("intelligence gate: Exclude providers are not eligible", async () => {
+  const mod = await import("../../src/lib/freeProviderRankings.ts");
+
+  assert.equal(mod.isIntelligenceEligibleFreeProvider("adapta-web"), false);
+  assert.equal(mod.isIntelligenceEligibleFreeProvider("galadriel"), false);
+});
+
+test("intelligence gate: unknown providers preserve existing behavior", async () => {
+  const mod = await import("../../src/lib/freeProviderRankings.ts");
+
+  assert.equal(
+    mod.isIntelligenceEligibleFreeProvider("__provider_not_in_research_snapshot__"),
+    true
+  );
 });

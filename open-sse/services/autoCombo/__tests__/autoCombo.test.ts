@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { calculateFactors, calculateScore, DEFAULT_WEIGHTS, validateWeights } from "../scoring";
+import {
+  calculateFactors,
+  calculateScore,
+  calculateCapacityScore,
+  DEFAULT_WEIGHTS,
+  validateWeights,
+} from "../scoring";
 import type { ProviderCandidate, ScoringWeights } from "../scoring";
 import {
   getTaskFitness,
@@ -67,6 +73,123 @@ describe("Scoring", () => {
     expect(validateWeights(DEFAULT_WEIGHTS)).toBe(true);
     expect(validateWeights({ ...DEFAULT_WEIGHTS, quota: 0.5 })).toBe(false);
   });
+
+  it("capacity score rewards stronger documented capacity", () => {
+    const highCapacity: ProviderCandidate = {
+      ...candidate,
+      provider: "high-capacity",
+      documentedCapacity: true,
+      documentedTokensPerDay: 1_000_000,
+    };
+
+    const lowCapacity: ProviderCandidate = {
+      ...candidate,
+      provider: "low-capacity",
+      documentedCapacity: true,
+      documentedTokensPerDay: 100_000,
+    };
+
+    const pool = [highCapacity, lowCapacity];
+
+    expect(calculateCapacityScore(highCapacity, pool)).toBeGreaterThan(
+      calculateCapacityScore(lowCapacity, pool)
+    );
+  });
+
+  it("capacity score keeps undocumented providers neutral", () => {
+    const documented: ProviderCandidate = {
+      ...candidate,
+      documentedCapacity: true,
+      documentedRequestsPerDay: 100,
+    };
+
+    const undocumented: ProviderCandidate = {
+      ...candidate,
+      documentedCapacity: false,
+    };
+
+    const pool = [documented, undocumented];
+
+    expect(calculateCapacityScore(undocumented, pool)).toBe(0.5);
+    expect(calculateCapacityScore(documented, pool)).toBeGreaterThan(0.5);
+  });
+
+  it("capacity participates in the weighted score", () => {
+    const low: ProviderCandidate = {
+      ...candidate,
+      provider: "low-capacity",
+      documentedCapacity: true,
+      documentedRequestsPerDay: 10,
+    };
+
+    const high: ProviderCandidate = {
+      ...candidate,
+      provider: "high-capacity",
+      documentedCapacity: true,
+      documentedRequestsPerDay: 10_000,
+    };
+
+    const pool = [low, high];
+
+    const lowFactors = calculateFactors(low, pool, "coding", getTaskFitness);
+    const highFactors = calculateFactors(high, pool, "coding", getTaskFitness);
+
+    expect(highFactors.capacity).toBeGreaterThan(lowFactors.capacity);
+    expect(calculateScore(highFactors, DEFAULT_WEIGHTS)).toBeGreaterThan(
+      calculateScore(lowFactors, DEFAULT_WEIGHTS)
+    );
+  });
+
+  it("documents capacity without numeric limits conservatively", () => {
+    const documented: ProviderCandidate = {
+      ...candidate,
+      documentedCapacity: true,
+    };
+
+    const pool = [documented];
+
+    expect(calculateCapacityScore(documented, pool)).toBe(0.55);
+  });
+});
+
+it("runtime pressure penalizes saturated providers", () => {
+  const baseCandidate: ProviderCandidate = {
+    provider: "runtime-base",
+    model: "test-model",
+    quotaRemaining: 80,
+    quotaTotal: 100,
+    circuitBreakerState: "CLOSED",
+    costPer1MTokens: 0.5,
+    p95LatencyMs: 500,
+    latencyStdDev: 50,
+    errorRate: 0.01,
+    connectionPoolSize: 2,
+  };
+
+  const healthy: ProviderCandidate = {
+    ...baseCandidate,
+    provider: "healthy-runtime",
+    runtimeSaturation: 0.1,
+    runtimePressure: 0.9,
+  };
+
+  const saturated: ProviderCandidate = {
+    ...baseCandidate,
+    provider: "saturated-runtime",
+    runtimeSaturation: 0.9,
+    runtimePressure: 0.1,
+  };
+
+  const pool = [healthy, saturated];
+
+  const healthyFactors = calculateFactors(healthy, pool, "coding", getTaskFitness);
+  const saturatedFactors = calculateFactors(saturated, pool, "coding", getTaskFitness);
+
+  expect(healthyFactors.runtimePressure).toBeGreaterThan(saturatedFactors.runtimePressure);
+
+  expect(calculateScore(healthyFactors, DEFAULT_WEIGHTS)).toBeGreaterThan(
+    calculateScore(saturatedFactors, DEFAULT_WEIGHTS)
+  );
 });
 
 describe("Task Fitness", () => {

@@ -79,6 +79,12 @@ function toSpeedCandidate(c: ProviderCandidate): SpeedCandidate {
     resetWindowAffinity: c.resetWindowAffinity,
     connectionPoolSize: c.connectionPoolSize,
     connectionId: c.connectionId,
+    documentedCapacity: c.documentedCapacity,
+    documentedRequestsPerMinute: c.documentedRequestsPerMinute,
+    documentedRequestsPerHour: c.documentedRequestsPerHour,
+    documentedRequestsPerDay: c.documentedRequestsPerDay,
+    documentedTokensPerDay: c.documentedTokensPerDay,
+    documentedConcurrency: c.documentedConcurrency,
   };
 }
 
