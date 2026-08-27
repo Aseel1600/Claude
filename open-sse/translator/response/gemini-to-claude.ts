@@ -323,7 +323,7 @@ export function geminiToClaudeResponse(chunk, state) {
           const { emit: textToEmit, hold: textToHold } = splitMarkdownBoundary(combinedText);
           state._markdownBuffer = textToHold;
 
-          // Fully-held chunk (e.g. "`" + "code" → whole text deferred to the
+          // Fully-held chunk (e.g. "`" + "code" -> whole text deferred to the
           // boundary buffer): emitting an empty delta here opens a text block
           // and fires a zero-length text_delta for nothing. The held content
           // flushes on the next chunk; skip the event pair entirely.

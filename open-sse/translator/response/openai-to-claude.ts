@@ -178,8 +178,8 @@ function flushMarkdownBuffer(state, results) {
 
 // Helper: stop text block if started
 function stopTextBlock(state, results) {
-  if (!state.textBlockStarted || state.textBlockClosed) return;
   flushMarkdownBuffer(state, results);
+  if (!state.textBlockStarted || state.textBlockClosed) return;
   state.textBlockClosed = true;
   results.push({
     type: "content_block_stop",

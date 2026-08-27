@@ -160,6 +160,97 @@ test("OpenAI to Claude: flushes held boundary on finish", () => {
   assert.deepEqual(textDeltas, ["inline ", "`code"]);
 });
 
+test("OpenAI to Claude: finish flushes a fully-held boundary before message stop", () => {
+  const state = createOpenAIState();
+  const chunk1 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-held-finish",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: "`" }, finish_reason: null }],
+    },
+    state
+  );
+  const chunk2 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-held-finish",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+    },
+    state
+  );
+  const result = flatten([chunk1, chunk2]);
+
+  assert.deepEqual(getTextDeltas(result), ["`"]);
+  assert.equal(state._markdownBuffer, "");
+  assert.deepEqual(
+    result.slice(1).map((event) => (event as Record<string, unknown>).type),
+    [
+      "content_block_start",
+      "content_block_delta",
+      "content_block_stop",
+      "message_delta",
+      "message_stop",
+    ]
+  );
+});
+
+test("OpenAI to Claude: tool call flushes a fully-held boundary before tool use", () => {
+  const state = createOpenAIState();
+  const chunk1 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-held-tool",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: "`" }, finish_reason: null }],
+    },
+    state
+  );
+  const chunk2 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-held-tool",
+      model: "gpt-4.1",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: "call_held_tool",
+                function: { name: "bash", arguments: '{"command":"pwd"}' },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+    },
+    state
+  );
+  const result = flatten([chunk1, chunk2]);
+  const contentEvents = result.filter((event) =>
+    String((event as Record<string, unknown>).type).startsWith("content_block_")
+  );
+
+  assert.deepEqual(getTextDeltas(result), ["`"]);
+  assert.equal(state._markdownBuffer, "");
+  assert.deepEqual(
+    contentEvents.map((event) => {
+      const record = event as Record<string, unknown>;
+      const contentBlock = record.content_block as Record<string, unknown> | undefined;
+      const delta = record.delta as Record<string, unknown> | undefined;
+      return [record.type, contentBlock?.type ?? delta?.type ?? null];
+    }),
+    [
+      ["content_block_start", "text"],
+      ["content_block_delta", "text_delta"],
+      ["content_block_stop", null],
+      ["content_block_start", "tool_use"],
+      ["content_block_delta", "input_json_delta"],
+      ["content_block_stop", null],
+    ]
+  );
+});
+
 test("OpenAI to Claude: whitespace between chunks is still preserved", () => {
   const state = createOpenAIState();
   const chunk1 = openaiToClaudeResponse(
