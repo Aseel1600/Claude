@@ -1,6 +1,7 @@
 import { getConsistentMachineId } from "@/shared/utils/machineId";
-import { isCloudEnabled } from "@/lib/localDb";
+
 import { getRuntimePorts } from "@/lib/runtime/ports";
+import { isCloudEnabled } from "@/lib/db/settings";
 
 const { dashboardPort } = getRuntimePorts();
 

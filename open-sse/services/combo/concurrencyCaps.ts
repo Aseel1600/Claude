@@ -19,9 +19,10 @@
  * shrinking (Quality Gate / #3501).
  */
 
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import { effectiveMaxConcurrency } from "./comboPredicates.ts";
 import type { ResolvedComboTarget } from "./types.ts";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 /** Read a connection's positive `maxConcurrent`, or null when unset / <= 0 / on error. */
 export async function lookupPositiveCap(connectionId: string): Promise<number | null> {

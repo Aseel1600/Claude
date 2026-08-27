@@ -1,6 +1,7 @@
-import { getSettings } from "@/lib/localDb";
+
 import { isProviderBlockedByIdOrAlias } from "@/shared/utils/noAuthProviders";
 import * as log from "../utils/logger";
+import { getSettings } from "@/lib/db/settings";
 
 export async function isNoAuthProviderBlockedBySettings(providerId: string): Promise<boolean> {
   try {

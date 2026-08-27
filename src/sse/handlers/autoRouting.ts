@@ -14,8 +14,9 @@ import {
   isValidModelFamily,
   type ModelFamily,
 } from "@omniroute/open-sse/services/autoCombo/modelFamily.ts";
-import { getCachedSettings } from "@/lib/localDb";
+
 import * as log from "../utils/logger";
+import { getCachedSettings } from "@/lib/db/readCache";
 
 export type AutoRoutingState = {
   model: string;
