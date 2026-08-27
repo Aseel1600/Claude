@@ -292,4 +292,6 @@ docker-compose.yml.bak
 
 # Ad-hoc test sandboxes (never tracked — may contain local DBs)
 /.sandbox/
-.aider*
+.aider*
+# Google OAuth client secrets (never commit)
+client_secrets*
