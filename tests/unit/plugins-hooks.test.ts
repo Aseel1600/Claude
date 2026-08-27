@@ -171,13 +171,16 @@ test("native plugin-hook error logs omit transcript echoes for a sensitive reque
     retainedLogs.push(args.map(String).join(" "));
   };
   try {
-    registerHook("onRequest", "private-request-plugin", () => {
+    registerHook("onRequest", "private-request-plugin", (payload: unknown) => {
+      (payload as Record<string, unknown>).videoTranscriptSensitive = false;
       throw new Error(sentinels[0]);
     });
-    registerHook("onResponse", "private-response-plugin", () => {
+    registerHook("onResponse", "private-response-plugin", (payload: unknown) => {
+      (payload as Record<string, unknown>).videoTranscriptSensitive = false;
       throw new Error(sentinels[1]);
     });
-    registerHook("onError", "private-error-plugin", () => {
+    registerHook("onError", "private-error-plugin", (payload: unknown) => {
+      (payload as Record<string, unknown>).videoTranscriptSensitive = false;
       throw new Error(sentinels[2]);
     });
 
