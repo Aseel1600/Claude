@@ -460,6 +460,22 @@ request are omitted because an upstream may echo request text. Safe operational 
 status, timing, provider, model, headers-presence, token counts, and the fact that redaction occurred
 remains available. The constant retained marker is `[omitted: video transcript]`.
 
+Sensitivity is resolved before the guardrail chain from the original client body and resolved again
+after the chain from the original body, processed body, and trusted description identities. A
+guardrail that removes or replaces the raw carrier therefore cannot clear the request-scoped bit.
+Explicit video parts remain sensitive when malformed, and nested carrier objects are inspected under
+the same bounds. Rejected-request persistence also inspects the body itself, so forgetting to pass the
+bit at one caller does not expose a raw carrier.
+
+The request-scoped bit protects OmniRoute-owned application paths in addition to structured payload
+clones. Native priority, round-robin, pinned, and fusion diagnostics; quality-rejection and live-event
+logs; terminal combo errors; proxy fast-fail logs; guardrail-registry logs; plugin-dispatcher failure
+logs; and stream lifecycle callbacks retain only the constant marker when their detail could echo the
+request. Transcript-sensitive requests do not generate Context Relay or Universal Handoff summaries,
+and Memory extraction is skipped. Daily-quota routing state uses the server-resolved model rather than
+promoting a model token parsed from transcript-sensitive upstream text. These rules affect retention,
+not the live request or the functional response returned to the same client.
+
 Inspection is bounded by depth, aggregate entries, trusted identities, description-prefix
 occurrences, candidate hashes, and total hashed text. Cycles and binary views are handled without
 retaining their contents. If a bound is exceeded, or an enumerable getter/proxy throws during
@@ -469,6 +485,14 @@ Privacy-redacted Responses artifacts cannot safely reconstruct complete `previou
 history. `responsesContinuationStore.ts` therefore rejects an artifact carrying the trusted
 pipeline-level redaction marker and asks the client to resend full history instead of replaying a
 silently incomplete conversation.
+
+Custom guardrails and plugins are privileged, in-process processors: they intentionally receive the
+live payload so they can inspect, transform, or block it. OmniRoute supplies the server-owned
+`videoTranscriptSensitive` bit, wraps `GuardrailContext.log`, and protects errors emitted by its native
+plugin dispatcher. It cannot control a third-party processor that independently writes the live body
+to `console`, a file, a database, or the network. Operators must audit such code and treat its own
+sinks as outside the OmniRoute-owned retention boundary; clearing or ignoring the bit does not make
+the transcript safe to persist.
 
 An advanced caller may provide an already-authorized `audioTranscript` track
 for the same video. The fusion seam runs visual and audio observations under
