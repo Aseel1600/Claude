@@ -282,9 +282,10 @@ test("handleComboChat context-relay persists a handoff when codex quota reaches 
   assert.equal(saved.fromAccount, connectionId);
 });
 
-test("handleComboChat does not persist a transcript-sensitive context-relay handoff", async () => {
+test("handleComboChat persists a transcript-sensitive handoff from a safely retained copy", async () => {
   const sessionId = "sess-private-video";
   const connectionId = "conn-private-video";
+  const transcriptSentinel = "PRIVATE_COMBO_CONTEXT_RELAY_TRANSCRIPT_SENTINEL";
   touchSession(sessionId, connectionId);
   registerCodexConnection(connectionId, {
     accessToken: "token-private-video",
@@ -292,6 +293,8 @@ test("handleComboChat does not persist a transcript-sensitive context-relay hand
   });
 
   let summaryCalls = 0;
+  let liveRequest = "";
+  let retainedSummaryRequest = "";
   globalThis.fetch = async (url) => {
     if (String(url).includes("/backend-api/wham/usage")) return buildQuotaResponse(90);
     throw new Error(`Unexpected fetch: ${String(url)}`);
@@ -299,7 +302,19 @@ test("handleComboChat does not persist a transcript-sensitive context-relay hand
 
   const result = await handleComboChat({
     body: {
-      messages: [{ role: "user", content: "guardrail-produced video description" }],
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "Keep this adjacent combo context" },
+            {
+              type: "input_video",
+              video_url: "data:video/mp4;base64,AA==",
+              transcript: transcriptSentinel,
+            },
+          ],
+        },
+      ],
     },
     combo: {
       name: "relay-private-video",
@@ -308,7 +323,25 @@ test("handleComboChat does not persist a transcript-sensitive context-relay hand
       config: { maxRetries: 0, handoffThreshold: 0.85, handoffProviders: ["codex"] },
     },
     handleSingleModel: async (body) => {
-      if (body._omnirouteInternalRequest === "context-handoff") summaryCalls += 1;
+      if (body._omnirouteInternalRequest === "context-handoff") {
+        summaryCalls += 1;
+        retainedSummaryRequest = JSON.stringify(body);
+        return okResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "Safe combo-level handoff",
+                  keyDecisions: [],
+                  taskProgress: "continue",
+                  activeEntities: [],
+                }),
+              },
+            },
+          ],
+        });
+      }
+      liveRequest = JSON.stringify(body);
       return okResponse();
     },
     isModelAvailable: async () => true,
@@ -322,10 +355,14 @@ test("handleComboChat does not persist a transcript-sensitive context-relay hand
     videoTranscriptSensitive: true,
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 75));
+  const saved = await waitFor(() => handoffDb.getHandoff(sessionId, "relay-private-video"));
   assert.equal(result.ok, true);
-  assert.equal(summaryCalls, 0);
-  assert.equal(handoffDb.getHandoff(sessionId, "relay-private-video"), null);
+  assert.match(liveRequest, new RegExp(transcriptSentinel));
+  assert.equal(summaryCalls, 1);
+  assert.ok(saved);
+  assert.match(retainedSummaryRequest, /Keep this adjacent combo context/);
+  assert.doesNotMatch(retainedSummaryRequest, new RegExp(transcriptSentinel));
+  assert.doesNotMatch(retainedSummaryRequest, /data:video/);
 });
 
 test("handleComboChat context-relay respects handoffProviders and skips generation when codex is disabled", async () => {

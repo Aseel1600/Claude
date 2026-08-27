@@ -17,7 +17,7 @@ test("daily quota model uses the upstream model token for ordinary operational a
   );
 });
 
-test("daily quota keeps the raw operational key but redacts its retained sensitive view", () => {
+test("daily quota uses the server-resolved key when the upstream token may echo a transcript", () => {
   const transcriptSentinel = "PRIVATE_DAILY_QUOTA_TRANSCRIPT_SENTINEL";
   const views = resolveDailyQuotaModelViews(
     `You have exceeded today's quota for model ${transcriptSentinel}, try tomorrow`,
@@ -25,8 +25,9 @@ test("daily quota keeps the raw operational key but redacts its retained sensiti
     true
   );
 
-  assert.equal(views.operationalModel, transcriptSentinel);
-  assert.equal(views.retainedModel, "[omitted: video transcript]");
+  assert.equal(views.operationalModel, "server-resolved-model");
+  assert.equal(views.retainedModel, "server-resolved-model");
+  assert.equal(views.operationalModel.includes(transcriptSentinel), false);
   assert.equal(views.retainedModel.includes(transcriptSentinel), false);
 });
 
