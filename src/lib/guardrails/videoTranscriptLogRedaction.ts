@@ -72,9 +72,7 @@ type TrustedDescriptionRange = {
   start: number;
 };
 
-type VideoTranscriptCuePrefix = {
-  textStart: number;
-};
+type VideoTranscriptCuePrefix = { kind: "valid"; textStart: number } | { kind: "malformed" };
 
 function parseTrustedDescriptionIdentity(value: unknown): TrustedDescriptionIdentity | null {
   if (typeof value !== "string") return null;
@@ -101,43 +99,41 @@ function findNextVideoTranscriptCuePrefix(
   fromIndex: number,
   end: number
 ): VideoTranscriptCuePrefix | null {
-  let start = value.indexOf(VIDEO_TRANSCRIPT_CUE_PREFIX, fromIndex);
-  while (start >= 0 && start < end) {
-    const sourceStart = start + VIDEO_TRANSCRIPT_CUE_PREFIX.length;
-    const source = VIDEO_TRANSCRIPT_CUE_SOURCES.find((candidate) =>
-      value.startsWith(candidate, sourceStart)
-    );
-    if (source) {
-      const metadataStart = sourceStart + source.length;
-      const metadataLimit = Math.min(
-        end,
-        metadataStart + MAX_VIDEO_TRANSCRIPT_CUE_METADATA_CODE_UNITS + 1
-      );
-      let metadataEnd = -1;
-      for (let cursor = metadataStart; cursor < metadataLimit; cursor += 1) {
-        if (value[cursor] === "\r" || value[cursor] === "\n") break;
-        if (value[cursor] === "]") {
-          metadataEnd = cursor;
-          break;
-        }
-      }
+  const start = value.indexOf(VIDEO_TRANSCRIPT_CUE_PREFIX, fromIndex);
+  if (start < 0 || start >= end) return null;
 
-      if (metadataEnd >= metadataStart) {
-        let cursor = metadataEnd + 1;
-        const whitespaceStart = cursor;
-        while (cursor < end && isWhitespaceCodeUnit(value, cursor)) cursor += 1;
-        if (
-          cursor > whitespaceStart &&
-          cursor + "text=".length <= end &&
-          value.startsWith("text=", cursor)
-        ) {
-          return { textStart: cursor + "text=".length };
-        }
-      }
+  const sourceStart = start + VIDEO_TRANSCRIPT_CUE_PREFIX.length;
+  const source = VIDEO_TRANSCRIPT_CUE_SOURCES.find((candidate) =>
+    value.startsWith(candidate, sourceStart)
+  );
+  if (!source) return { kind: "malformed" };
+
+  const metadataStart = sourceStart + source.length;
+  const metadataLimit = Math.min(
+    end,
+    metadataStart + MAX_VIDEO_TRANSCRIPT_CUE_METADATA_CODE_UNITS + 1
+  );
+  let metadataEnd = -1;
+  for (let cursor = metadataStart; cursor < metadataLimit; cursor += 1) {
+    if (value[cursor] === "\r" || value[cursor] === "\n") break;
+    if (value[cursor] === "]") {
+      metadataEnd = cursor;
+      break;
     }
-    start = value.indexOf(VIDEO_TRANSCRIPT_CUE_PREFIX, start + VIDEO_TRANSCRIPT_CUE_PREFIX.length);
   }
-  return null;
+  if (metadataEnd < metadataStart) return { kind: "malformed" };
+
+  let cursor = metadataEnd + 1;
+  const whitespaceStart = cursor;
+  while (cursor < end && isWhitespaceCodeUnit(value, cursor)) cursor += 1;
+  if (
+    cursor === whitespaceStart ||
+    cursor + "text=".length > end ||
+    !value.startsWith("text=", cursor)
+  ) {
+    return { kind: "malformed" };
+  }
+  return { kind: "valid", textStart: cursor + "text=".length };
 }
 
 function findQuotedStringEnd(value: string, quoteStart: number, end: number): number | null {
@@ -161,6 +157,7 @@ function redactSerializedVideoTranscriptCues(value: string): string {
   while (searchFrom < value.length) {
     const cue = findNextVideoTranscriptCuePrefix(value, searchFrom, value.length);
     if (!cue) break;
+    if (cue.kind === "malformed") return VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER;
     const quotedEnd = findQuotedStringEnd(value, cue.textStart, value.length);
     if (quotedEnd === null) return VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER;
     pieces.push(
@@ -170,7 +167,10 @@ function redactSerializedVideoTranscriptCues(value: string): string {
     cursor = quotedEnd;
     searchFrom = quotedEnd;
   }
-  if (pieces.length === 0) return value;
+  // This parser is called only for a description whose exact fingerprint was emitted by the
+  // Video Bridge after applying at least one transcript cue. No parseable cue therefore means
+  // malformed trusted data: omit the whole retained range instead of returning it verbatim.
+  if (pieces.length === 0) return VIDEO_TRANSCRIPT_LOG_OMISSION_MARKER;
   pieces.push(value.slice(cursor));
   return pieces.join("");
 }
