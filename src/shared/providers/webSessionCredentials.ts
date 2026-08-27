@@ -56,13 +56,6 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: false,
     storageKeys: ["apiKey", "token", "uuid", "app-config-uuid"],
   },
-  "chatgpt-web": {
-    kind: "cookie",
-    credentialName: "__Secure-next-auth.session-token",
-    placeholder: "__Secure-next-auth.session-token=...",
-    acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "sessionToken", "session-token", "__Secure-next-auth.session-token"],
-  },
   "grok-web": {
     kind: "cookie",
     credentialName: "sso + sso-rw",
