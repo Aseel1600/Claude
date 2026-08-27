@@ -99,6 +99,7 @@ function extractXmlInvokeBlocks(
 // Helper: flush any buffered Markdown boundary text before closing the open text block
 function flushMarkdownBuffer(state, results) {
   const buffered = state._markdownBuffer;
+  state._markdownCodeSpanRun = 0;
   if (!buffered) return;
   state._markdownBuffer = "";
   if (state.openTextBlockIdx === null) {
@@ -145,6 +146,7 @@ export function geminiToClaudeResponse(chunk, state) {
     // Track open text block so we can keep it open across chunks
     state.openTextBlockIdx = null;
     state._markdownBuffer = "";
+    state._markdownCodeSpanRun = 0;
 
     results.push({
       type: "message_start",
@@ -320,8 +322,13 @@ export function geminiToClaudeResponse(chunk, state) {
           const bufferedPrefix = state._markdownBuffer || "";
           state._markdownBuffer = "";
           const combinedText = bufferedPrefix + cleaned;
-          const { emit: textToEmit, hold: textToHold } = splitMarkdownBoundary(combinedText);
+          const {
+            emit: textToEmit,
+            hold: textToHold,
+            backtickRun,
+          } = splitMarkdownBoundary(combinedText, state._markdownCodeSpanRun || 0);
           state._markdownBuffer = textToHold;
+          state._markdownCodeSpanRun = backtickRun || 0;
 
           // Fully-held chunk (e.g. "`" + "code" -> whole text deferred to the
           // boundary buffer): emitting an empty delta here opens a text block

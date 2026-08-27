@@ -51,6 +51,12 @@ test("splitMarkdownBoundary: defers fence opener plus partial language", () => {
   assert.equal(hold, "```p");
 });
 
+test("splitMarkdownBoundary: defers fence info containing CommonMark punctuation", () => {
+  const { emit, hold } = splitMarkdownBoundary("\n```text/x-c");
+  assert.equal(emit, "\n");
+  assert.equal(hold, "```text/x-c");
+});
+
 test("splitMarkdownBoundary: emits plain triple backticks unchanged", () => {
   const { emit, hold } = splitMarkdownBoundary("code\n```");
   assert.equal(emit, "code\n```");
@@ -324,6 +330,54 @@ test("OpenAI to Claude: extends a held code span across multiple chunks", () => 
   assert.equal(state._markdownBuffer, "");
 });
 
+test("OpenAI to Claude: emits punctuation-adjacent closer opened in a prior chunk", () => {
+  const state = createOpenAIState();
+  const chunks = ["Use `foo ", "(bar)`", " done"].map((content, index) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-cross-chunk-code",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: index === 2 ? "stop" : null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["Use `foo ", "(bar)`", " done"]);
+});
+
+test("OpenAI to Claude: ignores escaped backticks while tracking cross-chunk code spans", () => {
+  const state = createOpenAIState();
+  const chunks = ["\\` foo `bar", "`"].map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-escaped-code",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["\\` foo ", "`bar`"]);
+});
+
+test("OpenAI to Claude: ignores literal backtick runs inside longer code spans", () => {
+  const state = createOpenAIState();
+  const chunks = ["`` ` `` `foo", "`"].map((content) =>
+    openaiToClaudeResponse(
+      {
+        id: "chatcmpl-nested-code",
+        model: "gpt-4.1",
+        choices: [{ index: 0, delta: { content }, finish_reason: null }],
+      },
+      state
+    )
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["`` ` `` ", "`foo`"]);
+});
+
 test("OpenAI to Claude: whitespace between chunks is still preserved", () => {
   const state = createOpenAIState();
   const chunk1 = openaiToClaudeResponse(
@@ -387,6 +441,24 @@ test("Gemini to Claude: bold marker is not split across chunks", () => {
   const result = flatten([chunk1, chunk2]);
   const textDeltas = getTextDeltas(result);
   assert.deepEqual(textDeltas, ["This is ", "**bold** text"]);
+});
+
+test("Gemini to Claude: emits punctuation-adjacent closer opened in a prior chunk", () => {
+  const state = createGeminiState();
+  const chunks = ["Use `foo ", "(bar)`", " done"].map((text, index) =>
+    geminiToClaudeResponse(geminiChunk(text, index === 2), state)
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["Use `foo ", "(bar)`", " done"]);
+});
+
+test("Gemini to Claude: joins a closing backtick run split across chunks", () => {
+  const state = createGeminiState();
+  const chunks = ["``a`", "`", " done"].map((text, index) =>
+    geminiToClaudeResponse(geminiChunk(text, index === 2), state)
+  );
+
+  assert.deepEqual(getTextDeltas(flatten(chunks)), ["``a", "``", " done"]);
 });
 
 test("Gemini to Claude: flushes held boundary before tool call transition", () => {

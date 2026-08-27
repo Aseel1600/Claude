@@ -155,6 +155,7 @@ function stopThinkingBlock(state, results) {
 // Helper: flush any buffered Markdown boundary text before closing a text block
 function flushMarkdownBuffer(state, results) {
   const buffered = state._markdownBuffer;
+  state._markdownCodeSpanRun = 0;
   if (!buffered) return;
   state._markdownBuffer = "";
   if (!state.textBlockStarted) {
@@ -245,6 +246,7 @@ export function openaiToClaudeResponse(chunk, state) {
     state._pendingXmlToolCalls = [];
     state._xmlInvokeBuffer = "";
     state._markdownBuffer = "";
+    state._markdownCodeSpanRun = 0;
     results.push({
       type: "message_start",
       message: {
@@ -325,8 +327,13 @@ export function openaiToClaudeResponse(chunk, state) {
       }
 
       // Defer any trailing incomplete Markdown boundary token to the next chunk.
-      const { emit: textToEmit, hold: textToHold } = splitMarkdownBoundary(cleaned);
+      const {
+        emit: textToEmit,
+        hold: textToHold,
+        backtickRun,
+      } = splitMarkdownBoundary(cleaned, state._markdownCodeSpanRun || 0);
       state._markdownBuffer = textToHold;
+      state._markdownCodeSpanRun = backtickRun || 0;
 
       // Emit remaining non-XML text content
       if (!textToEmit) {
