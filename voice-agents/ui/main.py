@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 
-from orca import queue, routing, skills, worker as orca_worker
+from orca import llm as llm_mod, queue, routing, skills, worker as orca_worker
 from orca.scheduler import run_scheduled_jobs
 from ui.auth import (
     Token,
@@ -156,17 +156,13 @@ async def ask_llm(prompt: str, context: str = "") -> str:
     if context:
         messages.append({"role": "user", "content": context})
     messages.append({"role": "user", "content": prompt})
-    payload = {
-        "model": OMNIROUTE_MODEL,
-        "messages": messages,
-        "stream": False,
-    }
-    headers = {"Authorization": f"Bearer {OMNIROUTE_API_KEY}"} if OMNIROUTE_API_KEY else {}
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(f"{OMNIROUTE_BASE_URL}/chat/completions", json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
+    return await llm_mod.chat(
+        messages,
+        model=OMNIROUTE_MODEL,
+        timeout=120,
+        base_url=OMNIROUTE_BASE_URL,
+        api_key=OMNIROUTE_API_KEY,
+    )
 
 
 async def describe_image(path: Path, user_text: str = "") -> str | None:
@@ -176,8 +172,6 @@ async def describe_image(path: Path, user_text: str = "") -> str | None:
     prompt = "Beschreibe den Inhalt dieses Bildes auf Deutsch, kurz und praezise. Maximal 4 Saetze."
     if user_text.strip():
         prompt = f"Kontext des Nutzers: {user_text.strip()}." + prompt
-
-    headers = {"Authorization": f"Bearer {OMNIROUTE_API_KEY}"} if OMNIROUTE_API_KEY else {}
 
     if GOOGLE_API_KEY:
         try:
@@ -210,13 +204,14 @@ async def describe_image(path: Path, user_text: str = "") -> str | None:
             {"type": "image_url", "image_url": {"url": f"data:{kind};base64," + base64.b64encode(img).decode()}},
         ],
     }]
-    payload = {"model": OMNIROUTE_MODEL, "messages": messages, "stream": False}
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(f"{OMNIROUTE_BASE_URL}/chat/completions", json=payload, headers=headers)
-            if resp.status_code != 200:
-                return None
-            return resp.json()["choices"][0]["message"]["content"]
+        return await llm_mod.chat(
+            messages,
+            model=OMNIROUTE_MODEL,
+            timeout=120,
+            base_url=OMNIROUTE_BASE_URL,
+            api_key=OMNIROUTE_API_KEY,
+        )
     except Exception:
         return None
 

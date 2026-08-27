@@ -1,8 +1,10 @@
+import asyncio
 import re
 from pathlib import Path
 
-import httpx
 import yaml
+
+from orca import llm as llm_mod
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_DIR / "skills"
@@ -353,16 +355,14 @@ def _run_media_step(step: dict, result: dict, input_text: str, workdir: Path) ->
 
 
 def _llm_call(base_url: str, api_key: str, model: str, system: str, prompt: str) -> str:
-    payload = {
-        "model": model,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-        "stream": False,
-    }
-    r = httpx.post(
-        f"{base_url}/chat/completions",
-        json=payload,
-        headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
-        timeout=240,
+    # Läuft im Worker-Thread (run_in_executor) — dort gibt es keinen laufenden
+    # Event-Loop, daher asyncio.run als sync-Brücke zur gemeinsamen chat()-Naht.
+    return asyncio.run(
+        llm_mod.chat(
+            [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            model=model,
+            timeout=240,
+            base_url=base_url,
+            api_key=api_key,
+        )
     )
-    r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"]

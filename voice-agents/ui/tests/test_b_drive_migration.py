@@ -130,3 +130,74 @@ def test_cutover_runbook_has_backup_and_rollback_sections():
     assert "Rollback" in text
     assert r"B:\OmniRoute\voice-agents" in text
     assert "20129" in text
+
+
+def _load_llm():
+    import asyncio
+    import importlib.machinery
+
+    mod = {"captured": {}, "asyncio": asyncio}
+
+    class FakeResp:
+        status_code = 200
+
+        def __init__(self, data=None):
+            self._data = data or {"choices": [{"message": {"content": "Antwort"}}]}
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+
+        def json(self):
+            return self._data
+
+    class FakeClient:
+        async def post(self, url, json=None, headers=None, timeout=None):
+            mod["captured"].update(url=url, json=json, headers=headers, timeout=timeout)
+            return FakeResp()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return None
+
+    root = Path(__file__).parents[2]
+    loader = importlib.machinery.SourceFileLoader("orca_llm_under_test", str(root / "orca" / "llm.py"))
+    llm = loader.load_module()
+    llm.httpx.AsyncClient = lambda **kw: FakeClient()
+    return llm, mod
+
+
+def test_chat_sends_messages_model_and_uses_bearer_only_with_key():
+    llm, m = _load_llm()
+    out = m["asyncio"].run(llm.chat(
+        [{"role": "system", "content": "sys"}, {"role": "user", "content": "frag"}],
+        model="auto/best-chat",
+        timeout=7.0,
+        base_url="http://test/v1",
+        api_key="k",
+    ))
+    assert out == "Antwort"
+    assert m["captured"] == {
+        "url": "http://test/v1/chat/completions",
+        "json": {
+            "model": "auto/best-chat",
+            "messages": [{"role": "system", "content": "sys"}, {"role": "user", "content": "frag"}],
+            "stream": False,
+        },
+        "headers": {"Authorization": "Bearer k"},
+        "timeout": 7.0,
+    }
+
+
+def test_chat_omits_bearer_header_when_key_empty():
+    llm, m = _load_llm()
+    m["asyncio"].run(llm.chat(
+        [{"role": "user", "content": "x"}],
+        model="m",
+        timeout=1.0,
+        base_url="http://test/v1",
+        api_key="",
+    ))
+    assert m["captured"]["headers"] == {}
