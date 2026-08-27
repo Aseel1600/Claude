@@ -22,6 +22,7 @@ export interface MemoryFilter {
   type?: MemoryType;
   sessionId?: string;
   query?: string;
+  category?: string;
   limit?: number;
   offset?: number;
   orderBy?: "createdAt" | "updatedAt" | "lastAccessedAt";

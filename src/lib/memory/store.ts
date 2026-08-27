@@ -469,6 +469,7 @@ export async function listMemories(filters: {
   type?: MemoryType;
   sessionId?: string;
   query?: string;
+  category?: string;
   limit?: number;
   offset?: number;
   page?: number;
@@ -498,6 +499,11 @@ export async function listMemories(filters: {
     const likeQuery = `%${filters.query.trim().toLowerCase()}%`;
     whereClauses.push("(LOWER(content) LIKE ? OR LOWER(key) LIKE ?)");
     whereParams.push(likeQuery, likeQuery);
+  }
+
+  if (typeof filters.category === "string" && filters.category.trim().length > 0) {
+    whereClauses.push("json_extract(metadata, '$.category') = ?");
+    whereParams.push(filters.category.trim());
   }
 
   // Run COUNT query + byType aggregation in a single query
