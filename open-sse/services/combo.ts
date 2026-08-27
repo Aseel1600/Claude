@@ -20,6 +20,7 @@ import {
   recordModelLockoutFailure,
   recordProviderFailure,
   recordProviderSuccess,
+  retryHintBypassesMaxCooldownMs,
   selectLockoutCooldownMs,
 } from "./accountFallback.ts";
 import {
@@ -2142,12 +2143,12 @@ async function handleComboChatInner({
             fallbackResult.usedUpstreamRetryHint === true
               ? cooldownMs
               : (fallbackResult.quotaResetHintMs ?? 0);
-          // #6863 vs #7940: lockoutHintMs is only ever nonzero when it traces back to
-          // a genuine upstream signal (usedUpstreamRetryHint or a parsed quotaResetHintMs)
-          // — never a synthetic estimate. Tell recordModelLockoutFailure to honor it
-          // exactly instead of clamping it to maxCooldownMs (#7940's cap still applies
-          // to the exponential-backoff / synthetic-default paths).
-          const lockoutHintVerified = lockoutHintMs > 0;
+          // Only a transport header or google.rpc.RetryInfo is authoritative enough
+          // to bypass maxCooldownMs. Prose and generic JSON remain useful exact hints,
+          // but the operator cap still bounds them.
+          const lockoutHintVerified = retryHintBypassesMaxCooldownMs(
+            fallbackResult.retryHintSource
+          );
           const selectedConnectionId =
             result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
             result.headers?.get("x-omniroute-selected-connection-id") ||
@@ -2342,10 +2343,8 @@ async function handleComboChatInner({
                     // upstream reset (lockoutHintVerified) bypasses it.
                     exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                     maxCooldownMs: mlSettings.maxCooldownMs,
-                    // #6863: a parsed upstream quota reset is authoritative — the upstream
-                    // told us exactly when it resets, so honor it in full instead of
-                    // clamping to maxCooldownMs (which only bounds computed backoff).
-                    exactCooldownIsUpstreamReset: lockoutHintMs > mlSettings.baseCooldownMs,
+                    // Preserve authoritative structured/header resets; clamp body prose.
+                    exactCooldownIsUpstreamReset: lockoutHintVerified,
                   }
                 );
                 lockoutRecorded = true;
@@ -2434,9 +2433,8 @@ async function handleComboChatInner({
                   // upstream reset (lockoutHintVerified) bypasses it.
                   exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                   maxCooldownMs: mlSettings.maxCooldownMs,
-                  // #6863: an authoritative parsed upstream reset must be honored in full,
-                  // never clamped to maxCooldownMs (which only bounds computed backoff).
-                  exactCooldownIsUpstreamReset: lockoutHintMs > mlSettings.baseCooldownMs,
+                  // Preserve authoritative structured/header resets; clamp body prose.
+                  exactCooldownIsUpstreamReset: lockoutHintVerified,
                 }
               );
             }
