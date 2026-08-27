@@ -25,11 +25,13 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 import { getExecutor } from "@omniroute/open-sse/executors/index.ts";
 import type { BaseExecutor } from "@omniroute/open-sse/executors/base";
 import { getCodexUsage } from "@omniroute/open-sse/services/usage/codex.ts";
-import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
+
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { refreshAndUpdateCredentials } from "@/lib/usage/providerLimits";
 import { getCircuitBreaker } from "@/shared/utils/circuitBreaker";
 import {
+import { getSettings } from "@/lib/db/settings";
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/providers";
   QUOTA_AUTOPING_FAILURE_COOLDOWN_MS,
   QUOTA_AUTOPING_PROVIDERS,
   QUOTA_AUTOPING_REFRESH_AHEAD_MS,

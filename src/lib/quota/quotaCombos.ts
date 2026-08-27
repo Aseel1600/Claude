@@ -12,7 +12,7 @@
 
 import { getPool } from "@/lib/db/quotaPools";
 import { getGroupName } from "@/lib/db/quotaGroups";
-import { getCachedProviderConnectionById } from "@/lib/localDb";
+
 import {
   getCombos,
   createCombo,
@@ -29,6 +29,7 @@ import {
 } from "./quotaModelNaming";
 import { createLogger } from "@/shared/utils/logger";
 import type { AnyRoutingStrategyValue } from "@/shared/constants/routingStrategies";
+import { getCachedProviderConnectionById } from "@/lib/db/readCache";
 
 /**
  * Routing strategy for every auto-minted quota-share (qtSd/) combo. Internal

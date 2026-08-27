@@ -1,6 +1,7 @@
 import { jwtVerify } from "jose";
-import { getSettings } from "@/lib/localDb";
+
 import { validateApiKey } from "@/lib/db/apiKeys";
+import { getSettings } from "@/lib/db/settings";
 
 export const DEFAULT_WS_PATH = "/v1/ws";
 const WS_QUERY_TOKEN_KEYS = ["api_key", "token", "access_token"];

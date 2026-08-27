@@ -1,4 +1,4 @@
-import { getProviderConnectionById, resolveProxyForConnection } from "@/lib/localDb";
+
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import {
   fetchAndPersistProviderLimits,
@@ -8,6 +8,8 @@ import { invalidateCodexQuotaCache } from "@omniroute/open-sse/services/codexQuo
 import { getCodexBackendIdentityHeaders } from "@omniroute/open-sse/config/codexClient.ts";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+import { getProviderConnectionById } from "@/lib/db/providers";
+import { resolveProxyForConnection } from "@/lib/db/settings";
 
 const CODEX_RESET_CREDIT_CONSUME_URL =
   "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume";

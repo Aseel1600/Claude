@@ -3,16 +3,13 @@
  * Used by POST /api/memory/reindex (F6).
  */
 
-import {
-  getMemoryReindexQueue,
-  countMemoryReindexPending,
-  markMemoryNeedsReindex,
-} from "@/lib/localDb";
+
 import { resolveEmbeddingSource, embed } from "./embedding";
 import { getVectorStore } from "./vectorStore";
 import { getMemorySettings } from "./settings";
 import { logger } from "../../../open-sse/utils/logger.ts";
 import { sanitizeErrorMessage } from "../../../open-sse/utils/error.ts";
+import { getMemoryReindexQueue, countMemoryReindexPending, markMemoryNeedsReindex } from "@/lib/db/memoryVec";
 
 const log = logger("MEMORY_REINDEX");
 

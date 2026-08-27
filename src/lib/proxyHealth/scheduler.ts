@@ -22,7 +22,7 @@
  *                               same threshold, not independently tunable.
  */
 
-import { deleteProxyById, listProxies, updateProxy } from "@/lib/localDb";
+
 import { isProxyLogIncludeIps } from "@/lib/proxyLogger";
 import {
   getRecentEgressSharingSummary,
@@ -47,6 +47,7 @@ import {
   waitForProbeSlot,
 } from "./probeTarget.ts";
 import { resolveProviderProbeTarget } from "./providerProbeTarget.ts";
+import { deleteProxyById, listProxies, updateProxy } from "@/lib/db/proxies";
 
 // #6246: a HEAD to the public probe target through a legit (often loaded) proxy
 // can exceed a few seconds; the old 5s ceiling produced false negatives that

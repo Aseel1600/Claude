@@ -5,7 +5,7 @@ import {
   type EmbeddingProviderNodeRow,
 } from "@omniroute/open-sse/config/embeddingRegistry.ts";
 import { getProviderCredentials } from "@/sse/services/auth";
-import { getCachedProviderNodes } from "@/lib/localDb";
+
 import type { MemorySettingsExtended } from "@/shared/schemas/memory";
 import type {
   EmbeddingResolution,
@@ -18,6 +18,7 @@ import { embedStatic } from "./staticPotion";
 import { embedTransformers } from "./transformersLocal";
 import { buildCacheKey, get as cacheGet, set as cacheSet } from "./cache";
 import { resolveMemoryCustomEmbeddingProvider } from "./customProvider";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
 
 const STATIC_MODEL = process.env.MEMORY_STATIC_MODEL || "minishlab/potion-base-8M";
 const TRANSFORMERS_MODEL = process.env.MEMORY_TRANSFORMERS_MODEL || "Xenova/all-MiniLM-L6-v2";
