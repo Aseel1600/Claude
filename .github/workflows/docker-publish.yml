@@ -171,7 +171,7 @@ jobs:
             ${{ env.IMAGE_NAME }}
             ${{ env.GHCR_IMAGE_NAME }}
           cache-from: type=gha,scope=docker-${{ matrix.arch }}
-          cache-to: type=gha,scope=docker-${{ matrix.arch }},mode=max
+          cache-to: type=gha,scope=docker-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
         env:
           DOCKER_BUILDKIT_INLINE_CACHE: 1
@@ -188,7 +188,7 @@ jobs:
             ${{ env.IMAGE_NAME }}
             ${{ env.GHCR_IMAGE_NAME }}
           cache-from: type=gha,scope=docker-web-${{ matrix.arch }}
-          cache-to: type=gha,scope=docker-web-${{ matrix.arch }},mode=max
+          cache-to: type=gha,scope=docker-web-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
         env:
           DOCKER_BUILDKIT_INLINE_CACHE: 1
@@ -206,7 +206,7 @@ jobs:
             ${{ env.IMAGE_NAME }}
             ${{ env.GHCR_IMAGE_NAME }}
           cache-from: type=gha,scope=docker-bun-base-${{ matrix.arch }}
-          cache-to: type=gha,scope=docker-bun-base-${{ matrix.arch }},mode=max
+          cache-to: type=gha,scope=docker-bun-base-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
         env:
           DOCKER_BUILDKIT_INLINE_CACHE: 1
@@ -224,7 +224,7 @@ jobs:
             ${{ env.IMAGE_NAME }}
             ${{ env.GHCR_IMAGE_NAME }}
           cache-from: type=gha,scope=docker-bun-web-${{ matrix.arch }}
-          cache-to: type=gha,scope=docker-bun-web-${{ matrix.arch }},mode=max
+          cache-to: type=gha,scope=docker-bun-web-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
         env:
           DOCKER_BUILDKIT_INLINE_CACHE: 1
