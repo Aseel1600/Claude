@@ -264,3 +264,39 @@ test("transcript-sensitive round-robin masked-200 failures omit quality echoes f
   assert.equal(retainedLogs.includes(transcriptSentinel), false);
   assert.match(retainedLogs, /omitted: video transcript/);
 });
+
+test("transcript-sensitive terminal logs omit the echo while the functional client error stays intact", async () => {
+  const transcriptSentinel = "PRIVATE_COMBO_TERMINAL_TRANSCRIPT_SENTINEL";
+  const localWarnCalls: WarnCall[] = [];
+  const result = await handleComboChat({
+    body: { model: "test", messages: [{ role: "user", content: "processed video request" }] },
+    combo: {
+      name: "test-combo-10597-private-terminal",
+      strategy: "priority",
+      models: [{ model: "claude/private-video-terminal" }],
+      config: { maxRetries: 0 },
+    },
+    handleSingleModel: async () =>
+      new Response(JSON.stringify({ error: { message: transcriptSentinel } }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }),
+    log: {
+      info: () => {},
+      debug: () => {},
+      error: () => {},
+      warn: (tag: string, msg: string, meta?: unknown) => {
+        localWarnCalls.push({ tag, msg, meta });
+      },
+    },
+    settings: {},
+    allCombos: [],
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(await result.text(), new RegExp(transcriptSentinel));
+  const retainedLogs = JSON.stringify(localWarnCalls);
+  assert.equal(retainedLogs.includes(transcriptSentinel), false);
+  assert.match(retainedLogs, /omitted: video transcript/);
+});

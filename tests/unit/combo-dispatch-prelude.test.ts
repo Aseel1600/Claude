@@ -223,6 +223,36 @@ test("tryFusionDispatch: owns the request and synthesizes for the fusion strateg
   assert.ok(dispatched.includes("p/panelA") && dispatched.includes("p/panelB"));
 });
 
+test("tryFusionDispatch: propagates transcript sensitivity into native fusion logs", async () => {
+  const transcriptSentinel = "PRIVATE_FUSION_PRELUDE_TRANSCRIPT_SENTINEL";
+  const ctx = setup({
+    name: "private-fusion",
+    strategy: "fusion",
+    models: [{ model: "p/failing" }, { model: "p/healthy" }],
+    config: { minPanel: 1 },
+  });
+  const res = await tryFusionDispatch({
+    body: ctx.body,
+    combo: ctx.combo,
+    cfg: ctx.config as unknown as Record<string, unknown>,
+    config: ctx.config,
+    strategy: "fusion",
+    allCombos: [],
+    handleSingleModel: async () => okResponse("unused"),
+    handleSingleModelWithTimeout: async (_body, modelStr) => {
+      if (modelStr === "p/failing") throw new Error(transcriptSentinel);
+      return okResponse("safe answer");
+    },
+    log: ctx.log,
+    runCombo: async () => okResponse("recursed"),
+    videoTranscriptSensitive: true,
+  });
+  assert.ok(res);
+  const retainedLogs = JSON.stringify(ctx.records);
+  assert.equal(retainedLogs.includes(transcriptSentinel), false);
+  assert.match(retainedLogs, /omitted: video transcript/);
+});
+
 test("tryRuntimeUnitDispatch: falls through when the combo has no executable combo-ref", async () => {
   const ctx = setup({
     name: "flat",

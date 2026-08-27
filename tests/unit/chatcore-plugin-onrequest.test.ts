@@ -56,6 +56,17 @@ test("no headers arg → backward compatible (undefined in ctx)", async () => {
   assert.equal(capturedCtx!.headers, undefined);
 });
 
+test("transcript sensitivity is propagated as server-owned plugin context", async () => {
+  let capturedCtx: Record<string, unknown> | undefined;
+  registerHook("onRequest", PLUGIN, async (ctx: Record<string, unknown>) => {
+    capturedCtx = ctx;
+    return {};
+  });
+  const gate = await runPluginOnRequestHook(baseArgs({ videoTranscriptSensitive: true }));
+  assert.equal(gate.blocked, false);
+  assert.equal(capturedCtx?.videoTranscriptSensitive, true);
+});
+
 test("a blocking hook → blocked:true with a 403 JSON Response", async () => {
   registerHook("onRequest", PLUGIN, async () => ({
     blocked: true,
