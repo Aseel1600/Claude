@@ -5123,7 +5123,8 @@ export async function handleChatCore({
     if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
       const requestMemoryText = extractMemoryTextFromRequestBody(
         body as Record<string, unknown>,
-        videoTranscriptSensitive
+        videoTranscriptSensitive,
+        { trustedDescriptionFingerprints: videoTranscriptDescriptionFingerprints }
       );
       if (requestMemoryText) {
         extractFacts(requestMemoryText, memoryOwnerId, pipelineSessionId);
@@ -5765,7 +5766,8 @@ export async function handleChatCore({
     ) {
       const requestMemoryText = extractMemoryTextFromRequestBody(
         body as Record<string, unknown>,
-        videoTranscriptSensitive
+        videoTranscriptSensitive,
+        { trustedDescriptionFingerprints: videoTranscriptDescriptionFingerprints }
       );
       if (requestMemoryText) {
         extractFacts(requestMemoryText, memoryOwnerId, pipelineSessionId);

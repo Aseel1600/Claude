@@ -1,8 +1,37 @@
+import {
+  containsVideoTranscriptForLog,
+  omitVideoTranscriptDerivedTextForMemory,
+  type VideoTranscriptLogContext,
+} from "../../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 import { capMemoryExtractionText, MEMORY_EXTRACTION_TEXT_LIMIT } from "./logTruncation.ts";
 
-function normalizeMemoryInputText(value: unknown): string {
+function normalizeMemoryInputText(value: unknown, context: VideoTranscriptLogContext = {}): string {
   if (typeof value !== "string") return "";
-  return value.trim();
+  return omitVideoTranscriptDerivedTextForMemory(value, context).trim();
+}
+
+function extractMemoryTextPart(
+  part: Record<string, unknown>,
+  transcriptSensitive: boolean,
+  context: VideoTranscriptLogContext
+): string {
+  try {
+    const rawText = typeof part?.text === "string" ? part.text : "";
+    if (!rawText) return "";
+
+    const retainedText = normalizeMemoryInputText(rawText, context);
+    if (!retainedText) return "";
+    if (
+      transcriptSensitive &&
+      containsVideoTranscriptForLog(part, context) &&
+      retainedText === rawText.trim()
+    ) {
+      return "";
+    }
+    return retainedText;
+  } catch {
+    return "";
+  }
 }
 
 export function extractMemoryTextFromResponse(
@@ -35,13 +64,15 @@ export function extractMemoryTextFromResponse(
 
 export function extractMemoryTextFromRequestBody(
   body: Record<string, unknown> | null | undefined,
-  videoTranscriptSensitive = false
+  videoTranscriptSensitive = false,
+  context: VideoTranscriptLogContext = {}
 ): string {
-  // This bit is derived from the guardrail result. Caller-shaped lookalike text
-  // cannot suppress Memory extraction, while real media-derived cues cannot
-  // become durable facts (including through an adjacent response echo).
-  if (videoTranscriptSensitive) return "";
   if (!body || typeof body !== "object") return "";
+  // Re-check the structured body at the sink boundary. The explicit bit covers
+  // processed requests whose raw carrier was already replaced; trusted hashes
+  // identify only descriptions emitted by a modified Video Bridge guardrail.
+  const transcriptSensitive =
+    videoTranscriptSensitive || containsVideoTranscriptForLog(body, context);
 
   const messages = Array.isArray(body.messages) ? body.messages : null;
   if (messages && messages.length > 0) {
@@ -49,18 +80,16 @@ export function extractMemoryTextFromRequestBody(
       const msg = messages[i] as Record<string, unknown>;
       if (msg?.role !== "user") continue;
 
-      const messageText = normalizeMemoryInputText(msg.content);
+      const messageText = normalizeMemoryInputText(msg.content, context);
       if (messageText) {
         return capMemoryExtractionText(messageText);
       }
 
       if (Array.isArray(msg.content)) {
         const text = msg.content
-          .map((part: Record<string, unknown>) => {
-            if (typeof part?.text === "string") return normalizeMemoryInputText(part.text);
-            if (part?.type === "input_text") return normalizeMemoryInputText(part.text);
-            return "";
-          })
+          .map((part: Record<string, unknown>) =>
+            extractMemoryTextPart(part, transcriptSensitive, context)
+          )
           .filter(Boolean)
           .join("\n")
           .trim();
@@ -78,17 +107,15 @@ export function extractMemoryTextFromRequestBody(
       if (role && role !== "user") continue;
       if (itemType && itemType !== "message") continue;
 
-      const itemText = normalizeMemoryInputText(item?.content);
+      const itemText = normalizeMemoryInputText(item?.content, context);
       if (itemText) {
         return capMemoryExtractionText(itemText);
       }
       if (Array.isArray(item?.content)) {
         const text = item.content
-          .map((part: Record<string, unknown>) => {
-            if (typeof part?.text === "string") return normalizeMemoryInputText(part.text);
-            if (part?.type === "input_text") return normalizeMemoryInputText(part.text);
-            return "";
-          })
+          .map((part: Record<string, unknown>) =>
+            extractMemoryTextPart(part, transcriptSensitive, context)
+          )
           .filter(Boolean)
           .join("\n")
           .trim();
@@ -106,14 +133,14 @@ export function extractMemoryTextFromRequestBody(
         if (role && role !== "user") return "";
         if (itemType && itemType !== "message") return "";
 
-        if (typeof item?.content === "string") return normalizeMemoryInputText(item.content);
+        if (typeof item?.content === "string") {
+          return normalizeMemoryInputText(item.content, context);
+        }
         if (Array.isArray(item?.content)) {
           return item.content
-            .map((part: Record<string, unknown>) => {
-              if (typeof part?.text === "string") return normalizeMemoryInputText(part.text);
-              if (part?.type === "input_text") return normalizeMemoryInputText(part.text);
-              return "";
-            })
+            .map((part: Record<string, unknown>) =>
+              extractMemoryTextPart(part, transcriptSensitive, context)
+            )
             .filter(Boolean)
             .join("\n")
             .trim();

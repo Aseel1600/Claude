@@ -5,7 +5,11 @@ import {
   type HandoffPayload,
   upsertHandoff,
 } from "../../src/lib/db/contextHandoffs.ts";
-import { containsVideoTranscriptForLog } from "../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
+import {
+  containsVideoTranscriptForLog,
+  omitVideoTranscriptForLog,
+  type VideoTranscriptLogContext,
+} from "../../src/lib/guardrails/videoTranscriptLogRedaction.ts";
 import { estimateTokens } from "./contextManager.ts";
 import { stripMarkdownCodeFence } from "../utils/aiSdkCompat.ts";
 
@@ -43,6 +47,23 @@ export type MessageLike = {
   role?: string;
   content?: unknown;
 };
+
+type HandoffTranscriptContext = VideoTranscriptLogContext & {
+  videoTranscriptSensitive?: boolean;
+};
+
+function retainHandoffMessages(
+  messages: MessageLike[],
+  context: HandoffTranscriptContext
+): MessageLike[] | null {
+  const source = Array.isArray(messages) ? messages : [];
+  const transcriptSensitive =
+    context.videoTranscriptSensitive === true || containsVideoTranscriptForLog(source, context);
+  if (!transcriptSensitive) return source;
+
+  const retained = omitVideoTranscriptForLog(source, context);
+  return Array.isArray(retained) ? (retained as MessageLike[]) : null;
+}
 
 export interface ContextRelayConfig {
   handoffModel?: string;
@@ -448,20 +469,22 @@ export function maybeGenerateHandoff(options: {
   config?: ContextRelayConfig | null;
   /** Trusted request bit for carriers already replaced by the Video Bridge guardrail. */
   videoTranscriptSensitive?: boolean;
+  /** Exact bounded identities emitted by a modified Video Bridge guardrail. */
+  trustedDescriptionFingerprints?: readonly string[];
   handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
 }): void {
   if (!options.sessionId || !options.connectionId) return;
-  if (
-    options.videoTranscriptSensitive === true ||
-    containsVideoTranscriptForLog(options.messages)
-  ) {
-    return;
-  }
 
   const relayConfig = resolveContextRelayConfig(options.config as Record<string, unknown>);
   if (relayConfig.handoffProviders.length === 0) return;
   if (options.percentUsed < relayConfig.handoffThreshold) return;
   if (options.percentUsed >= HANDOFF_EXHAUSTION_THRESHOLD) return;
+
+  const retainedMessages = retainHandoffMessages(options.messages, {
+    videoTranscriptSensitive: options.videoTranscriptSensitive,
+    trustedDescriptionFingerprints: options.trustedDescriptionFingerprints,
+  });
+  if (!retainedMessages) return;
 
   cleanupExpiredHandoffs();
   if (hasActiveHandoff(options.sessionId, options.comboName)) return;
@@ -472,6 +495,7 @@ export function maybeGenerateHandoff(options: {
   setImmediate(() => {
     generateHandoffAsync({
       ...options,
+      messages: retainedMessages,
       sessionId: options.sessionId as string,
       connectionId: options.connectionId as string,
       config: relayConfig,
@@ -701,14 +725,10 @@ export function maybeGenerateUniversalHandoff(options: {
   universalConfig: UniversalHandoffConfig;
   /** Trusted request bit for carriers already replaced by the Video Bridge guardrail. */
   videoTranscriptSensitive?: boolean;
+  /** Exact bounded identities emitted by a modified Video Bridge guardrail. */
+  trustedDescriptionFingerprints?: readonly string[];
   handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
 }): void {
-  if (
-    options.videoTranscriptSensitive === true ||
-    containsVideoTranscriptForLog(options.messages)
-  ) {
-    return;
-  }
   const decision = shouldGenerateUniversalHandoff({
     sessionId: options.sessionId,
     comboName: options.comboName,
@@ -720,6 +740,12 @@ export function maybeGenerateUniversalHandoff(options: {
   if (decision !== "generate") return;
   if (!options.sessionId) return;
 
+  const retainedMessages = retainHandoffMessages(options.messages, {
+    videoTranscriptSensitive: options.videoTranscriptSensitive,
+    trustedDescriptionFingerprints: options.trustedDescriptionFingerprints,
+  });
+  if (!retainedMessages) return;
+
   const inflightKey = getInflightKey(options.sessionId, options.comboName);
   if (inflightHandoffGenerations.has(inflightKey)) return;
   inflightHandoffGenerations.add(inflightKey);
@@ -730,7 +756,7 @@ export function maybeGenerateUniversalHandoff(options: {
     generateUniversalHandoffAsync({
       sessionId: options.sessionId as string,
       comboName: options.comboName,
-      messages: options.messages,
+      messages: retainedMessages,
       prevModel: options.prevModel || "unknown",
       currModel: options.currModel,
       handoffModel: options.universalConfig.handoffModel || options.currModel,

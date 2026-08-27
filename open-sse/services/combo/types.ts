@@ -116,6 +116,8 @@ export type HandleComboChatOptions = {
   hiddenModelsByProvider?: HiddenModelsByProvider;
   /** Request-scoped retention bit derived before guardrails can replace a video carrier. */
   videoTranscriptSensitive?: boolean;
+  /** Exact bounded identities emitted by a modified Video Bridge guardrail. */
+  videoTranscriptDescriptionFingerprints?: readonly string[];
   /** Native Responses clients (for example Codex CLI/Desktop) manage compaction themselves. */
   clientManagedResponsesContext?: boolean;
   /**

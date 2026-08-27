@@ -86,6 +86,7 @@ type PreludeBaseOptionArgs = {
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
   videoTranscriptSensitive?: boolean;
+  videoTranscriptDescriptionFingerprints?: readonly string[];
   clientManagedResponsesContext?: boolean;
   /** #9654 Wave 2: per-target lane-aware admission probe (see HandleComboChatOptions). */
   perTargetAdmission?: PerTargetAdmissionHook | null;
@@ -114,6 +115,7 @@ function buildBaseOptions(a: PreludeBaseOptionArgs): HandleComboChatOptions {
     apiKeyAllowedConnections: a.apiKeyAllowedConnections,
     hiddenModelsByProvider: a.hiddenModelsByProvider,
     videoTranscriptSensitive: a.videoTranscriptSensitive,
+    videoTranscriptDescriptionFingerprints: a.videoTranscriptDescriptionFingerprints,
     invocationId: a.invocationId,
     clientManagedResponsesContext: a.clientManagedResponsesContext,
     perTargetAdmission: a.perTargetAdmission,
@@ -418,6 +420,7 @@ export async function tryFusionDispatch(args: {
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
   videoTranscriptSensitive?: boolean;
+  videoTranscriptDescriptionFingerprints?: readonly string[];
   perTargetAdmission?: PerTargetAdmissionHook | null;
   deferContextOverflowWhenCompressible?: boolean;
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
@@ -701,6 +704,7 @@ export async function tryRuntimeUnitDispatch(args: {
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
   videoTranscriptSensitive?: boolean;
+  videoTranscriptDescriptionFingerprints?: readonly string[];
   perTargetAdmission?: PerTargetAdmissionHook | null;
   deferContextOverflowWhenCompressible?: boolean;
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;

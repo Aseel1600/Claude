@@ -1067,6 +1067,7 @@ async function handleChatImplementation(
       endpointPath: new URL(request.url).pathname,
       requestHeaders: request.headers,
       videoTranscriptSensitive,
+      videoTranscriptDescriptionFingerprints,
       clientManagedResponsesContext:
         sourceFormat === "openai-responses" &&
         new URL(request.url).pathname.split("/").includes("responses") &&
@@ -1359,6 +1360,9 @@ async function handleSingleModelChat(
   comboStrategy: string | null = null,
   isCombo: boolean = false
 ) {
+  const videoTranscriptDescriptionFingerprints =
+    runtimeOptions.videoTranscriptDescriptionFingerprints ?? [];
+
   // 1. Resolve model → provider/model
   const resolved = await resolveModelOrError(
     modelStr,
@@ -1395,6 +1399,7 @@ async function handleSingleModelChat(
       endpointPath: clientRawRequest?.endpoint || "",
       requestHeaders: clientRawRequest?.headers,
       videoTranscriptSensitive: runtimeOptions.videoTranscriptSensitive === true,
+      videoTranscriptDescriptionFingerprints,
       clientManagedResponsesContext:
         sNetSourceFormat === "openai-responses" &&
         String(clientRawRequest?.endpoint || "")
@@ -1427,8 +1432,7 @@ async function handleSingleModelChat(
             conversationId: runtimeOptions?.conversationId ?? null,
             managedLease: runtimeOptions.managedLease ?? null,
             videoTranscriptSensitive: runtimeOptions.videoTranscriptSensitive === true,
-            videoTranscriptDescriptionFingerprints:
-              runtimeOptions.videoTranscriptDescriptionFingerprints ?? [],
+            videoTranscriptDescriptionFingerprints,
             // #7360 follow-up — see the primary handleSingleModel closure above.
             modelAbortSignal: target?.modelAbortSignal ?? null,
           },
@@ -1903,8 +1907,7 @@ async function handleSingleModelChat(
             reasoningTransportFallback: runtimeOptions.reasoningTransportFallback ?? "drop",
             managedLease: runtimeOptions.managedLease ?? null,
             videoTranscriptSensitive: runtimeOptions.videoTranscriptSensitive === true,
-            videoTranscriptDescriptionFingerprints:
-              runtimeOptions.videoTranscriptDescriptionFingerprints ?? [],
+            videoTranscriptDescriptionFingerprints,
           },
           runtimeOptions
         );

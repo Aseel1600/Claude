@@ -291,6 +291,34 @@ export function omitVideoTranscriptFromLogString(
   return result + value.slice(cursor);
 }
 
+/**
+ * Remove complete trusted Video Bridge descriptions before Memory extraction.
+ * Logs may retain the non-transcript portion of a description, but durable
+ * user facts must come only from caller text, never from media-derived prose.
+ * Exact server-issued fingerprints let adjacent caller text survive even when
+ * both appear in the same string. Unknown/over-budget input fails closed.
+ */
+export function omitVideoTranscriptDerivedTextForMemory(
+  value: string,
+  context: VideoTranscriptLogContext = {}
+): string {
+  try {
+    const ranges = findTrustedDescriptionRanges(value, context);
+    if (ranges === null) return "";
+    if (ranges.length === 0) return value;
+
+    let result = "";
+    let cursor = 0;
+    for (const range of ranges) {
+      result += value.slice(cursor, range.start);
+      cursor = range.end;
+    }
+    return result + value.slice(cursor);
+  } catch {
+    return "";
+  }
+}
+
 function fieldIsTranscript(key: string, carrier: boolean): boolean {
   return carrier && VIDEO_TRANSCRIPT_PAYLOAD_KEYS.has(key);
 }

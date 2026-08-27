@@ -19,7 +19,6 @@
  */
 
 import { getDbInstance } from "./core";
-import { VIDEO_TRANSCRIPT_REDACTION_PIPELINE_KEY } from "../guardrails/videoTranscriptLogRedaction";
 import { readCallArtifact } from "../usage/callLogArtifacts";
 
 export type ResponsesContinuationState = {
@@ -81,12 +80,6 @@ export function resolvePreviousResponseState(
 
   const { artifact, state } = readCallArtifact(row.artifact_relpath);
   if (state !== "ready" || !artifact?.pipeline) return null;
-  // Video Bridge transcript descriptions are deliberately omitted from the
-  // persisted pipeline. Replaying that incomplete history would silently
-  // change the conversation, so require the client to resend full history.
-  // This marker is written by the server at the pipeline level; caller prose
-  // is never treated as authority for this privacy decision.
-  if (artifact.pipeline[VIDEO_TRANSCRIPT_REDACTION_PIPELINE_KEY] === true) return null;
 
   const clientRawRequest = artifact.pipeline.clientRawRequest as { body?: unknown } | undefined;
   const clientResponse = artifact.pipeline.clientResponse as
