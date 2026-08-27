@@ -80,6 +80,7 @@ test("checkIdempotencyCache returns { hit:null, idempotencyKey } on a miss", asy
     effectiveServiceTier: undefined,
     startTime: 0,
     log: undefined,
+    videoTranscriptSensitive: false,
   });
   assert.equal(result.hit, null);
   // #6558: the raw header key is now namespaced by provider/model + a messages
@@ -115,11 +116,36 @@ test("checkIdempotencyCache returns a hit Response reusing the same key after a 
     effectiveServiceTier: undefined,
     startTime: 0,
     log: undefined,
+    videoTranscriptSensitive: false,
   });
 
   assert.equal(result.idempotencyKey, key, "the resolved key is returned for the save site to reuse");
   assert.ok(result.hit, "a cached entry produces a hit");
   assert.equal(result.hit!.response.headers.get("X-OmniRoute-Idempotent"), "true");
+});
+
+test("checkIdempotencyCache bypasses an existing transcript-sensitive entry", async () => {
+  const rawKey = "idem-private-video-3821";
+  const key = composeIdempotencyKey({
+    rawKey,
+    provider: "openai",
+    model: "gpt-4.1",
+    messages: undefined,
+  })!;
+  saveIdempotency(key, { content: "PRIVATE_IDEMPOTENCY_TRANSCRIPT_SENTINEL" }, 200);
+
+  const result = await checkIdempotencyCache({
+    clientRawRequest: { headers: new Headers({ "idempotency-key": rawKey }) },
+    provider: "openai",
+    model: "gpt-4.1",
+    effectiveServiceTier: undefined,
+    startTime: 0,
+    log: undefined,
+    videoTranscriptSensitive: true,
+  });
+
+  assert.equal(result.hit, null);
+  assert.equal(result.idempotencyKey, null);
 });
 
 test("checkIdempotencyCache resolves a null key when no idempotency headers are present", async () => {
@@ -130,6 +156,7 @@ test("checkIdempotencyCache resolves a null key when no idempotency headers are 
     effectiveServiceTier: undefined,
     startTime: 0,
     log: undefined,
+    videoTranscriptSensitive: false,
   });
   assert.equal(result.hit, null);
   assert.equal(result.idempotencyKey, null);

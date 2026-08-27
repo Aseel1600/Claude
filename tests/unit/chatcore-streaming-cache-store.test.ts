@@ -95,6 +95,20 @@ test("disabled → no store", () => {
   assert.equal(stored.length, 0);
 });
 
+test("transcript-sensitive streams never enter the durable semantic cache", () => {
+  const sentinel = "PRIVATE_STREAM_SEMANTIC_CACHE_SENTINEL";
+  const { deps, stored } = makeDeps();
+  storeStreamingSemanticCacheResponse(
+    baseArgs({
+      streamResponseBody: { choices: [{ message: { content: sentinel } }] },
+      videoTranscriptSensitive: true,
+    }),
+    deps
+  );
+
+  assert.equal(stored.length, 0);
+});
+
 test("missing response body → no store", () => {
   const { deps, stored } = makeDeps();
   storeStreamingSemanticCacheResponse(baseArgs({ streamResponseBody: null }), deps);
