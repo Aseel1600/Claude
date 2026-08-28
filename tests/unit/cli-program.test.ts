@@ -153,18 +153,36 @@ test("nodes endpoint commands reserve --base-url for the global server target", 
 
 test("nodes endpoint commands keep the global server target separate from payload baseUrl", async () => {
   const cases = [
-    { command: "add", args: ["--provider", "openai"] },
-    { command: "update", args: ["node-1"] },
-    { command: "validate", args: ["--provider", "openai"] },
+    {
+      command: "add",
+      args: ["--provider", "openai"],
+      expectedUrl: "https://server.example/api/provider-nodes",
+      expectedMethod: "POST",
+    },
+    {
+      command: "update",
+      args: ["node-1"],
+      expectedUrl: "https://server.example/api/provider-nodes/node-1",
+      expectedMethod: "PUT",
+    },
+    {
+      command: "validate",
+      args: ["--provider", "openai"],
+      expectedUrl: "https://server.example/api/provider-nodes/validate",
+      expectedMethod: "POST",
+    },
   ];
   const originalFetch = globalThis.fetch;
+  const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
 
   try {
-    for (const { command, args } of cases) {
+    for (const { command, args, expectedUrl, expectedMethod } of cases) {
       let capturedUrl = "";
+      let capturedMethod = "";
       let capturedBody: Record<string, unknown> = {};
       globalThis.fetch = (async (url, init) => {
         capturedUrl = String(url);
+        capturedMethod = String(init?.method);
         capturedBody = JSON.parse(String(init?.body));
         return new Response(JSON.stringify({ id: "node-1" }), {
           status: 200,
@@ -185,11 +203,41 @@ test("nodes endpoint commands keep the global server target separate from payloa
         "https://provider.example/v1",
       ]);
 
-      assert.ok(capturedUrl.startsWith("https://server.example/api/provider-nodes"));
+      assert.equal(capturedUrl, expectedUrl);
+      assert.equal(capturedMethod, expectedMethod);
       assert.equal(capturedBody.baseUrl, "https://provider.example/v1");
     }
+
+    process.env.OMNIROUTE_BASE_URL = "https://env-server.example";
+    let envCapturedUrl = "";
+    let envCapturedBody: Record<string, unknown> = {};
+    globalThis.fetch = (async (url, init) => {
+      envCapturedUrl = String(url);
+      envCapturedBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ id: "node-1" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const envProgram = createProgram();
+    await envProgram.parseAsync([
+      "node",
+      "omniroute",
+      "nodes",
+      "validate",
+      "--provider",
+      "openai",
+      "--endpoint",
+      "https://provider.example/v1",
+    ]);
+
+    assert.equal(envCapturedUrl, "https://env-server.example/api/provider-nodes/validate");
+    assert.equal(envCapturedBody.baseUrl, "https://provider.example/v1");
   } finally {
     globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
+    else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
   }
 });
 
