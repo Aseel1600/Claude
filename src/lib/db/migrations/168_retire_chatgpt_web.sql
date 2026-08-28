@@ -29,7 +29,7 @@ UPDATE provider_connections
 SET is_active = 0,
     test_status = 'unavailable',
     error_code = 'PROVIDER_REMOVED',
-    last_error = 'Provider integration retired from OmniRoute v3.8.50',
+    last_error = 'Provider integration retired from OmniRoute v3.8.51',
     last_error_type = 'provider_removed',
     last_error_source = 'migration:retire-chatgpt-web',
     last_error_at = datetime('now'),
@@ -40,7 +40,7 @@ WHERE lower(trim(provider, char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,81
     is_active IS NOT 0
     OR test_status IS NOT 'unavailable'
     OR error_code IS NOT 'PROVIDER_REMOVED'
-    OR last_error IS NOT 'Provider integration retired from OmniRoute v3.8.50'
+    OR last_error IS NOT 'Provider integration retired from OmniRoute v3.8.51'
     OR last_error_type IS NOT 'provider_removed'
     OR last_error_source IS NOT 'migration:retire-chatgpt-web'
     OR last_error_at IS NULL
@@ -59,7 +59,7 @@ BEGIN
   SET is_active = 0,
       test_status = 'unavailable',
       error_code = 'PROVIDER_REMOVED',
-      last_error = 'Provider integration retired from OmniRoute v3.8.50',
+      last_error = 'Provider integration retired from OmniRoute v3.8.51',
       last_error_type = 'provider_removed',
       last_error_source = 'migration:retire-chatgpt-web',
       last_error_at = datetime('now'),
@@ -69,7 +69,7 @@ BEGIN
       is_active IS NOT 0
       OR test_status IS NOT 'unavailable'
       OR error_code IS NOT 'PROVIDER_REMOVED'
-      OR last_error IS NOT 'Provider integration retired from OmniRoute v3.8.50'
+      OR last_error IS NOT 'Provider integration retired from OmniRoute v3.8.51'
       OR last_error_type IS NOT 'provider_removed'
       OR last_error_source IS NOT 'migration:retire-chatgpt-web'
       OR last_error_at IS NULL
@@ -93,7 +93,7 @@ BEGIN
   SET is_active = 0,
       test_status = 'unavailable',
       error_code = 'PROVIDER_REMOVED',
-      last_error = 'Provider integration retired from OmniRoute v3.8.50',
+      last_error = 'Provider integration retired from OmniRoute v3.8.51',
       last_error_type = 'provider_removed',
       last_error_source = 'migration:retire-chatgpt-web',
       last_error_at = datetime('now'),
@@ -103,7 +103,7 @@ BEGIN
       is_active IS NOT 0
       OR test_status IS NOT 'unavailable'
       OR error_code IS NOT 'PROVIDER_REMOVED'
-      OR last_error IS NOT 'Provider integration retired from OmniRoute v3.8.50'
+      OR last_error IS NOT 'Provider integration retired from OmniRoute v3.8.51'
       OR last_error_type IS NOT 'provider_removed'
       OR last_error_source IS NOT 'migration:retire-chatgpt-web'
       OR last_error_at IS NULL

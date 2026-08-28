@@ -7,14 +7,14 @@ import { AI_PROVIDERS } from "../../src/shared/constants/providers.ts";
 
 const RETIRED_PROVIDER_IDS = ["chatgpt-web", "cgpt-web"] as const;
 
-test("common ChatGPT Web is unavailable while ChatGPT Web Codex remains registered", () => {
+test("common ChatGPT Web is unavailable while ChatGPT Web Codex remains registered", async () => {
   assert.equal(REGISTRY["chatgpt-web"], undefined);
   assert.equal(AI_PROVIDERS["chatgpt-web"], undefined);
 
   for (const providerId of RETIRED_PROVIDER_IDS) {
     assert.equal(getRegistryEntry(providerId), null);
     assert.equal(hasSpecializedExecutor(providerId), false);
-    assert.throws(
+    await assert.rejects(
       () => getExecutor(providerId),
       (error: unknown) => {
         const typed = error as Error & { code?: string; status?: number };
