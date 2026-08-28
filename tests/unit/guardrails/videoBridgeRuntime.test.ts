@@ -67,7 +67,7 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
   assert.ok(calls[0].args.includes("-format_whitelist"));
   assert.equal(
     calls[0].args[calls[0].args.indexOf("-show_entries") + 1],
-    "format=duration,format_name:stream=index,codec_type,width,height:stream_disposition=default,attached_pic"
+    "format=duration,format_name:stream=index,codec_name,codec_type,width,height:stream_disposition=default,attached_pic"
   );
   assert.equal(
     calls.slice(1).every((call) => call.executable === "ffmpeg"),
@@ -351,6 +351,29 @@ test("malformed playable stream disposition or index fails closed without select
   await assert.rejects(
     () => probeLocalVideo("/tmp/malformed-stream.mp4", { runner }),
     /dimensions|stream metadata/
+  );
+});
+
+test("rejects non-binary FFprobe disposition flags", async () => {
+  const runner: VideoCommandRunner = async () => ({
+    stdout: JSON.stringify({
+      format: { duration: "4", format_name: "mp4" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "video",
+          width: 640,
+          height: 360,
+          disposition: { attached_pic: 2, default: 0 },
+        },
+      ],
+    }),
+    stderr: "",
+  });
+
+  await assert.rejects(
+    () => probeLocalVideo("/tmp/non-binary-disposition.mp4", { runner }),
+    /stream metadata/
   );
 });
 
