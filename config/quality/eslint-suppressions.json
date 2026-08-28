@@ -194,11 +194,6 @@
       "count": 7
     }
   },
-  "open-sse/executors/raycast.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "open-sse/executors/t3-chat-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11
@@ -315,11 +310,6 @@
   "open-sse/handlers/videoGeneration/openai.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
-    }
-  },
-  "open-sse/lib/deepseek-pow.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
     }
   },
   "open-sse/mcp-server/__tests__/a2aLifecycle.test.ts": {
@@ -3433,7 +3423,7 @@
       "count": 15
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "tests/integration/traffic-inspector-error-sanitization.test.ts": {
@@ -3680,11 +3670,6 @@
       "count": 15
     }
   },
-  "tests/unit/authz/probe-9033-repro.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "tests/unit/autoCombo/tieredRotation.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 3
@@ -3893,11 +3878,6 @@
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 31
-    }
-  },
-  "tests/unit/chatgpt-web-tools-5240.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 6
     }
   },
   "tests/unit/check-docs-symbols.test.ts": {
@@ -4544,11 +4524,6 @@
       "count": 1
     }
   },
-  "tests/unit/compression/result-memo.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "tests/unit/compression/rtk-grouping.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -4953,11 +4928,6 @@
   "tests/unit/executor-pollinations.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
-    }
-  },
-  "tests/unit/executor-qwen-web.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 40
     }
   },
   "tests/unit/fetch-timeout.test.ts": {
@@ -5577,11 +5547,6 @@
       "count": 6
     }
   },
-  "tests/unit/provider-validation-qwen-web-5855.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "tests/unit/provider-validation-specialty.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 4
@@ -5733,11 +5698,6 @@
   },
   "tests/unit/quota-summed-budget.test.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "tests/unit/qwen-web-cookie-validation-3958.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
       "count": 1
     }
   },
