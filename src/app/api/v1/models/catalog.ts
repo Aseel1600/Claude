@@ -1359,13 +1359,13 @@ async function buildUnifiedModelsResponseCore(
       return activeAliases.has(alias) || activeAliases.has(provider);
     };
 
-    const hasEquivalentSpecialtyModel = (
+    const findEquivalentSpecialtyModel = (
       providerId: string,
       rawModelId: string,
       type: string,
       scopedModelId: string
     ) =>
-      models.some((model: any) => {
+      models.find((model: any) => {
         if (model?.id === scopedModelId) return true;
         if (model?.owned_by !== providerId || model?.type !== type) return false;
         const existingRoot =
@@ -1376,6 +1376,13 @@ async function buildUnifiedModelsResponseCore(
               : null;
         return existingRoot === rawModelId;
       });
+
+    const hasEquivalentSpecialtyModel = (
+      providerId: string,
+      rawModelId: string,
+      type: string,
+      scopedModelId: string
+    ) => findEquivalentSpecialtyModel(providerId, rawModelId, type, scopedModelId) !== undefined;
 
     // Helper: strip the provider prefix from a specialty model ID to get the
     // provider-relative path (e.g. "openrouter/google/chirp-3" -> "google/chirp-3").
@@ -1391,7 +1398,22 @@ async function buildUnifiedModelsResponseCore(
       const rawModelId = getSpecialtyModelRelativeId(embModel.id, embModel.provider);
       if (!providerSupportsModel(embModel.provider, rawModelId)) continue;
       if (isModelHiddenBulk(embModel.provider, rawModelId)) continue;
-      if (hasEquivalentSpecialtyModel(embModel.provider, rawModelId, "embedding", embModel.id)) {
+      const existingEmbedding = findEquivalentSpecialtyModel(
+        embModel.provider,
+        rawModelId,
+        "embedding",
+        embModel.id
+      );
+      if (existingEmbedding) {
+        // Discovery publishes no vector width, so the registry is the authority.
+        if (embModel.dimensions !== undefined) {
+          existingEmbedding.dimensions = embModel.dimensions;
+        }
+        // A provider that does not report its endpoints leaves the model unclassified. Being in
+        // the embedding registry is that statement, so make it rather than leave it untyped.
+        if (!existingEmbedding.type) {
+          existingEmbedding.type = "embedding";
+        }
         continue;
       }
       models.push({
