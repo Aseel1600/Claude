@@ -12,7 +12,10 @@ import {
 test("known -web provider returns the host derived from its `website`", () => {
   const link = resolveWebProviderHost("perplexity-web");
   assert.ok(link, "expected a resolved link for perplexity-web");
-  assert.equal(link.host, "perplexity.ai");
+  // perplexity-web's registered website is "https://www.perplexity.ai", and
+  // resolveWebProviderHost returns URL.host verbatim (no www-stripping), so
+  // both host and url carry the "www." prefix.
+  assert.equal(link.host, "www.perplexity.ai");
   assert.equal(link.url, "https://www.perplexity.ai");
 });
 
