@@ -157,10 +157,10 @@ test("Doubao Web executor is registered", async () => {
   assert.ok(executor instanceof DoubaoWebExecutor);
 });
 
-test("Qwen Web aliases stay removed while Qwen Cloud remains routable", () => {
+test("Qwen Web aliases stay removed while Qwen Cloud remains routable", async () => {
   assert.equal(hasSpecializedExecutor("qwen-web"), false);
   assert.equal(hasSpecializedExecutor("qw"), false);
-  assert.equal(getExecutor("qwen-cloud").getProvider(), "qwen-cloud");
+  assert.equal((await getExecutor("qwen-cloud")).getProvider(), "qwen-cloud");
 });
 
 // ── Constructor Tests ────────────────────────────────────────────────────────

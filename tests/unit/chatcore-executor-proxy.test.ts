@@ -154,5 +154,5 @@ test("retired Qwen Web ids cannot bypass the tombstone through a connection prox
   const qwenCloud = await resolveExecutorWithProxy("qwen-cloud", undefined, {
     cliproxyapiMode: "claude-native",
   });
-  assert.equal(qwenCloud, getExecutor("cliproxyapi"));
+  assert.equal(qwenCloud, await getExecutor("cliproxyapi"));
 });
