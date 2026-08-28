@@ -2027,6 +2027,32 @@ test("handleImageGeneration (codex) forwards size and maps GPT-Image quality to 
   }
 });
 
+test("handleImageGeneration (codex) skips imported free-plan accounts and marks them retryable", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("free-plan image request should not reach upstream");
+  };
+
+  try {
+    const result = await handleImageGeneration({
+      body: { model: "codex/gpt-5.6-terra", prompt: "kitten" },
+      credentials: {
+        accessToken: "codex-token",
+        providerSpecificData: { chatgptPlanType: "free" },
+      },
+      log: null,
+    });
+    assert.equal(result.success, false);
+    assert.equal(result.status, 403);
+    assert.equal(result.retryable, true);
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 // #8307 — some ChatGPT accounts can run Codex but lack entitlement for the specific
 // requested image model, and the upstream 400 for that exact case is retryable on a
 // sibling account: executeImageWithCredentialFallback (route.ts) already retries on
