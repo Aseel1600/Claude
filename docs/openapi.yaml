@@ -111,13 +111,15 @@ paths:
     post:
       tags:
         - Session Leases
-      summary: Acquire, renew, or release an exclusive managed connection lease
+      summary: Acquire, inspect, renew, or release an exclusive managed connection lease
       description: |
         Requires an API key with `lease:exclusive` and an explicit non-empty
         `allowedConnections` policy. The opaque owner is bound to the authenticated API key;
         the lease owns an eligible connection, not a provider or model. Managed inference
         requests present the owner and exact generation headers. Temporary foreign occupancy
-        returns 429 `WAITING_FOR_CAPACITY` with `Retry-After`.
+        returns 429 `WAITING_FOR_CAPACITY` with `Retry-After`. Acquire, renew, and release retain
+        their connection-free response shapes. The explicit status action is owner-, key-, and
+        generation-fenced and returns only privacy-safe display metadata for an active binding.
       security:
         - BearerAuth: []
       parameters:
@@ -141,6 +143,11 @@ paths:
                 - type: object
                   required: [action, generation]
                   properties:
+                    action: { type: string, const: status }
+                    generation: { type: integer, minimum: 1 }
+                - type: object
+                  required: [action, generation]
+                  properties:
                     action: { type: string, const: renew }
                     generation: { type: integer, minimum: 1 }
                 - type: object
@@ -153,7 +160,7 @@ paths:
                       enum: [OWNER_EXIT, CLIENT_CANCELLED]
       responses:
         "200":
-          description: Lease lifecycle state without connection or credential disclosure
+          description: Lease lifecycle state, with privacy-safe connection display metadata only for status
           content:
             application/json:
               schema:
@@ -7837,6 +7844,10 @@ components:
   schemas:
     ExclusiveConnectionLeaseLifecycle:
       type: object
+      description: >-
+        Shared lease lifecycle response. The optional connection object is present only for an
+        explicit, successful owner-authenticated status action; acquire, renew, and release never
+        include connection metadata.
       required: [state, generation, acquiredAt, renewedAt, expiresAt]
       properties:
         state: { type: string, enum: [ACTIVE, RELEASED] }
@@ -7844,6 +7855,22 @@ components:
         acquiredAt: { type: string, format: date-time }
         renewedAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
+        connection:
+          type: object
+          description: >-
+            Privacy-safe metadata for the exact active binding. Wrong-key, wrong-owner,
+            stale-generation, missing, expired, released, or invalidated leases return a generic
+            409 without this object. No credential, internal id, owner identity, or email fallback
+            is serialized.
+          required: [displayName, provider]
+          properties:
+            displayName:
+              type: [string, "null"]
+              description: Trimmed operator-configured name, or null when no privacy-safe name exists.
+            provider:
+              type: string
+              minLength: 1
+              description: Non-sensitive provider display label, never a generated compatible-provider id.
     ExclusiveConnectionLeaseCapacity:
       type: object
       required: [state, error, reason, retryAfter, eligibleCount, freeCount]
