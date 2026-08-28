@@ -401,11 +401,6 @@
       "count": 3
     }
   },
-  "open-sse/services/adobeFireflyClient.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "open-sse/services/adobeFireflySession.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -1118,11 +1113,6 @@
       "count": 1
     }
   },
-  "src/app/(dashboard)/dashboard/settings/components/ModelAliasesTab.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/(dashboard)/dashboard/settings/components/ModelCapabilityOverridesTab.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -1163,11 +1153,6 @@
       "count": 1
     }
   },
-  "src/app/(dashboard)/dashboard/settings/components/useProxyPoolModal.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentList.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -1198,22 +1183,12 @@
       "count": 1
     }
   },
-  "src/app/(dashboard)/dashboard/usage/components/ProviderLimits/ProviderLimitCard.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
-    }
-  },
   "src/app/(dashboard)/dashboard/usage/components/ProviderLimits/index.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
   "src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/(dashboard)/dashboard/usage/components/RateLimitStatus.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
@@ -1621,16 +1596,6 @@
       "count": 1
     }
   },
-  "src/app/api/settings/__tests__/memory.test.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/settings/__tests__/settings.test.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/settings/authz-inventory/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1667,11 +1632,6 @@
     }
   },
   "src/app/api/settings/free-proxies/stats/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/settings/memory/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -2063,11 +2023,6 @@
   },
   "src/app/api/webhooks/route.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/docs/components/FeedbackWidget.tsx": {
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -2566,11 +2521,6 @@
       "count": 1
     }
   },
-  "src/lib/providers/validation/webProvidersA.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    }
-  },
   "src/lib/providers/validation/webProvidersB.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -2820,11 +2770,6 @@
       "count": 3
     }
   },
-  "src/shared/components/PricingModal.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/shared/components/ProxyConfigModal.tsx": {
     "react-hooks/exhaustive-deps": {
       "count": 1
@@ -2864,26 +2809,6 @@
   "src/shared/components/analytics/rechartsUsageCharts.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/shared/components/docs/CodeBlock.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/shared/components/docs/DocsBreadcrumbs.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/shared/components/docs/DocsSidebar.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/shared/components/docs/DocsThemeProvider.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "src/shared/constants/agentSkills.ts": {
