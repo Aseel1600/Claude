@@ -201,27 +201,22 @@ test("checkConnection clears stale no_refresh_token state for usable GitHub Copi
   }
 });
 
-// Boundary between #8182's terminal-skip and the retry-budget exemption that later
-// widened it (`isRecoverableExpiredWithRetryBudget` in tokenHealthCheck.ts).
+// #11611 / #8182: GitHub access-token-only connections have no refresh token and cannot
+// self-heal from a non-`no_refresh_token` error (such as operator invalidation or invalid_grant).
+// Therefore, they must NOT be un-skipped by the retry budget — they stay skipped during
+// health checks to avoid wasting probes against unrecoverable accounts and clobbering meaningful errors.
 //
-// #8182 skipped every "expired" connection to stop wasting a probe per sweep on rows
-// that can never self-heal. That was too wide: a transient OAuth failure parks a healthy
-// connection at "expired" and it could then never come back. The current guard therefore
-// exempts an expired connection while it still has retry budget AND is not
-// `account_deactivated`, so only genuinely dead accounts stay unprobed.
-//
-// This case used to assert the pre-exemption behaviour — that ANY non-`no_refresh_token`
-// expired GitHub connection is skipped — which is no longer the policy. Both halves of
-// the real boundary are pinned below instead, so the wasted-probe protection is still
-// covered where it actually applies.
-test("checkConnection probes an expired GitHub connection that still has retry budget", async () => {
+// The skip is structural, not a policy choice: for any connection without a refresh token,
+// the `!conn.refreshToken` branch returns unconditionally before the EXPIRED_RETRY_MAX
+// backoff block is ever reached, so the retry budget cannot apply to this class at all.
+test("checkConnection skips a non-recoverable expired GitHub Copilot connection even if retry budget is remaining (#11611 #8182)", async () => {
   await resetStorage();
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify({ message: "Bad credentials" }), {
-      status: 401,
-      headers: { "content-type": "application/json" },
-    })) as typeof fetch;
+  let fetchCallCount = 0;
+  globalThis.fetch = (async () => {
+    fetchCallCount++;
+    throw new Error("fetch must NOT be called for a skipped connection (#8182/#11611 boundary)");
+  }) as typeof fetch;
 
   try {
     const connection = await providersDb.createProviderConnection({
@@ -243,9 +238,17 @@ test("checkConnection probes an expired GitHub connection that still has retry b
     await tokenHealthCheck.checkConnection(connection);
 
     const updated = await providersDb.getProviderConnectionById(getCreatedConnectionId(connection));
-    assert.ok(
-      updated?.lastHealthCheckAt,
-      "retry budget remaining — the sweep must probe so a transient failure can self-heal"
+    // #11611: GitHub token-only connections without a refresh token and with
+    // errorCode !== 'no_refresh_token' must be skipped under #8182 semantics.
+    assert.equal(
+      fetchCallCount,
+      0,
+      "fetch must not be invoked for an unrecoverable expired connection"
+    );
+    assert.equal(
+      updated?.lastHealthCheckAt ?? null,
+      null,
+      "GitHub access-token-only connection without refresh token must be skipped under #8182"
     );
   } finally {
     globalThis.fetch = originalFetch;
