@@ -124,6 +124,75 @@ test("program registers 'update' command", () => {
   assert.ok(cmd, "update command exists");
 });
 
+test("nodes endpoint commands reserve --base-url for the global server target", () => {
+  const program = createProgram();
+  const nodes = program.commands.find((c) => c.name() === "nodes");
+  assert.ok(nodes, "nodes command exists");
+
+  for (const commandName of ["add", "update", "validate"]) {
+    const command = nodes.commands.find((c) => c.name() === commandName);
+    assert.ok(command, `nodes ${commandName} command exists`);
+    assert.ok(
+      command.options.some((option) => option.long === "--endpoint"),
+      `nodes ${commandName} exposes --endpoint for the provider-node URL`
+    );
+    assert.equal(
+      command.options.some((option) => option.long === "--base-url"),
+      false,
+      `nodes ${commandName} does not shadow the global --base-url option`
+    );
+    command.parseOptions([
+      ...(commandName === "update" ? ["node-1"] : []),
+      ...(commandName === "add" || commandName === "validate" ? ["--provider", "openai"] : []),
+      "--endpoint",
+      "https://api.openai.com/v1",
+    ]);
+    assert.equal(command.opts().endpoint, "https://api.openai.com/v1");
+  }
+});
+
+test("nodes endpoint commands keep the global server target separate from payload baseUrl", async () => {
+  const cases = [
+    { command: "add", args: ["--provider", "openai"] },
+    { command: "update", args: ["node-1"] },
+    { command: "validate", args: ["--provider", "openai"] },
+  ];
+  const originalFetch = globalThis.fetch;
+
+  try {
+    for (const { command, args } of cases) {
+      let capturedUrl = "";
+      let capturedBody: Record<string, unknown> = {};
+      globalThis.fetch = (async (url, init) => {
+        capturedUrl = String(url);
+        capturedBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ id: "node-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }) as typeof fetch;
+
+      const program = createProgram();
+      await program.parseAsync([
+        "node",
+        "omniroute",
+        "--base-url",
+        "https://server.example",
+        "nodes",
+        command,
+        ...args,
+        "--endpoint",
+        "https://provider.example/v1",
+      ]);
+
+      assert.ok(capturedUrl.startsWith("https://server.example/api/provider-nodes"));
+      assert.equal(capturedBody.baseUrl, "https://provider.example/v1");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 // ─── exitOverride / --help via Commander ─────────────────────────────────────
 
 test("--help throws CommanderError with exit code 0", async () => {
