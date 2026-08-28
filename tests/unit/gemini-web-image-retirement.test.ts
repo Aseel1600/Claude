@@ -111,9 +111,9 @@ test("Gemini Web image-only parser and handler artifacts are retired", () => {
   );
 });
 
-test("Gemini Web chat and legitimate Gemini image providers remain available", () => {
+test("Gemini Web chat and legitimate Gemini image providers remain available", async () => {
   assert.equal(hasSpecializedExecutor("gemini-web"), true);
-  assert.equal(getExecutor("gemini-web").getProvider(), "gemini-web");
+  assert.equal((await getExecutor("gemini-web")).getProvider(), "gemini-web");
   assert.equal(REGISTRY["gemini-web"]?.executor, "gemini-web");
   assert.deepEqual(
     REGISTRY["gemini-web"]?.models.map(({ id }) => id),
