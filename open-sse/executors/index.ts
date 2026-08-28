@@ -1,4 +1,5 @@
 import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
+import { assertMicrosoftDesignerWebProviderAvailable } from "@/shared/constants/designerWebRetirement";
 import {
   registerLazyExecutor,
   loadRegisteredExecutor,
@@ -124,10 +125,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
   "copilot-m365-web": () =>
     import("./copilot-m365-web.ts").then((m) => new m.CopilotM365WebExecutor()),
   copilot: () => import("./copilot-web.ts").then((m) => new m.CopilotWebExecutor()), // Alias
-  "microsoft-designer-web": () =>
-    import("./microsoft-designer-web.ts").then((m) => new m.MicrosoftDesignerWebExecutor()),
-  msdesigner: () =>
-    import("./microsoft-designer-web.ts").then((m) => new m.MicrosoftDesignerWebExecutor()), // Alias
   "adobe-firefly": () => import("./adobe-firefly.ts").then((m) => new m.AdobeFireflyExecutor()),
   firefly: () => import("./adobe-firefly.ts").then((m) => new m.AdobeFireflyExecutor()), // Alias
   "veoaifree-web": () => import("./veoaifree-web.ts").then((m) => new m.VeoAIFreeWebExecutor()),
@@ -242,6 +239,7 @@ const CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS = new Set(["jules"]);
 const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS));
 
 export async function getExecutor(provider: string): Promise<BaseExecutor> {
+  assertMicrosoftDesignerWebProviderAvailable(provider);
   const loaded = await loadRegisteredExecutor(provider);
   if (loaded) return loaded;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {

@@ -32,6 +32,7 @@ import {
 import { buildJinaEnvCredentials } from "@/lib/providers/jina";
 import { buildGeminiEnvCredentials } from "@/lib/providers/gemini";
 import { toNumber } from "@/shared/utils/numeric";
+import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
 import {
   createLazyConnectionView,
   toProviderConnection,
@@ -1283,6 +1284,12 @@ export async function getProviderCredentials(
   requestedModel: string | null = null,
   options: CredentialSelectionOptions = {}
 ) {
+  if (isMicrosoftDesignerWebRetiredProviderId(provider)) {
+    invalidateManagedLease(options, "AUTHORIZATION_CHANGED");
+    log.warn("AUTH", "Retired provider credential selection denied");
+    return null;
+  }
+
   const selectionLock = options._leaseRetryWithLockHeld
     ? null
     : createSelectionLock(getSelectionMutexKey(provider, options));

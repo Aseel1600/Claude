@@ -35,6 +35,10 @@ import {
   getConfiguredTimeout,
 } from "@/shared/utils/fetchTimeout";
 import { sanitizeErrorMessage, sanitizeUpstreamDetails } from "../utils/error.ts";
+import {
+  isMicrosoftDesignerWebRetiredProviderId,
+  MICROSOFT_DESIGNER_WEB_RETIRED_MESSAGE,
+} from "@/shared/constants/designerWebRetirement";
 
 import { handleSDWebUIImageGeneration } from "./imageGeneration/providers/sdWebUI.ts";
 import { handleHyperbolicImageGeneration } from "./imageGeneration/providers/hyperbolic.ts";
@@ -52,7 +56,6 @@ import {
 } from "./imageGeneration/providers/chatgptWeb.ts";
 import { handleNvidiaNimImageGeneration } from "./imageGeneration/providers/nvidiaNim.ts";
 import { handleSegmindImageGeneration } from "./imageGeneration/providers/segmind.ts";
-import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/designerWeb.ts";
 import { handleCursorAgentImageGeneration } from "./imageGeneration/providers/cursorAgentImage.ts";
 import { handleMinimaxImageGeneration } from "./imageGeneration/providers/minimax.ts";
 import { handleAdobeFireflyImageGeneration } from "./imageGeneration/providers/adobeFirefly.ts";
@@ -382,6 +385,20 @@ export async function handleImageGeneration({
   clientHeaders = null,
   peerLocality = null,
 }) {
+  const requestedModel = typeof body?.model === "string" ? body.model : "";
+  const slash = requestedModel.indexOf("/");
+  const requestedPrefix = slash > 0 ? requestedModel.slice(0, slash) : requestedModel;
+  if (
+    isMicrosoftDesignerWebRetiredProviderId(resolvedProvider) ||
+    isMicrosoftDesignerWebRetiredProviderId(requestedPrefix)
+  ) {
+    return {
+      success: false,
+      status: HTTP_STATUS.GONE,
+      error: MICROSOFT_DESIGNER_WEB_RETIRED_MESSAGE,
+    };
+  }
+
   let provider, model;
 
   if (resolvedProvider) {
@@ -587,17 +604,6 @@ export async function handleImageGeneration({
       credentials,
       log,
       peerLocality,
-    });
-  }
-
-  if (providerConfig.format === "designer-web") {
-    return handleDesignerWebImageGeneration({
-      model,
-      provider,
-      providerConfig,
-      body,
-      credentials,
-      log,
     });
   }
 
