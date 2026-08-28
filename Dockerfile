@@ -123,22 +123,23 @@ RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-npm-cache,targe
   && (test -n "$(find node_modules/tls-client-node/bin -mindepth 1 -print -quit 2>/dev/null)" \
       || (echo "tls-client-node native binary missing after postinstall — GitHub API fetch likely rate-limited or failed (#7802)" >&2 && exit 1))
 
-# Build with Turbopack (stable in Next 16, the repo default). The v3.8.27-era
-# TurbopackInternalError panic ("entered unreachable code: there must be a path to a
-# root" in ImportTracer::get_traces) no longer reproduces on Next 16.2.9 — validated
-# 2026-07-05 with clean amd64 (12min14s, image smoke-tested: /api/monitoring/health
-# 200) and arm64 (qemu, exit 0, zero panic strings) builds. Turbopack cut the bare
-# build from 17min to 9min on the same 32-core box. Webpack stays available as the
-# escape hatch: `--build-arg`/-e OMNIROUTE_USE_TURBOPACK=0.
-# See docs/ops/QUALITY_GATE_PLAYBOOK.md Parte 6.
+# Build with Webpack by default. Turbopack (the repo default for local/dev
+# builds) cuts build time ~2x, but its compile runs in native Rust memory that
+# lives OUTSIDE the V8 heap, so --max-old-space-size/OMNIROUTE_BUILD_MEMORY_MB
+# cannot bound it (#6409). On RAM-constrained hosts — including the 16 GB
+# GitHub-hosted runners docker-publish.yml builds on — the Turbopack peak for
+# this module graph OOMs the BuildKit build ("cannot allocate memory" on both
+# linux/amd64 and linux/arm64, v3.8.51, 2026-08-28). Webpack's production pass
+# peaks ~3.9 GB (bounded by the heap below, #4076/#10060) and is the documented
+# fallback for memory-constrained builds (docs/reference/ENVIRONMENT.md).
+# Re-enable Turbopack on hosts with RAM to spare:
+# `--build-arg OMNIROUTE_USE_TURBOPACK=1`.
 #
 # Declared as ARG+ENV, not a bare ENV: a bare ENV shadows any same-named ARG for
-# the rest of the stage, so `--build-arg OMNIROUTE_USE_TURBOPACK=0` was silently
-# ignored and the escape hatch above only ever worked via `-e` at runtime, never
-# at build time. Turbopack compiles in native Rust memory that lives outside the
-# V8 heap, so OMNIROUTE_BUILD_MEMORY_MB cannot bound it and a memory-constrained
-# build host gets SIGKILLed by the cgroup OOM killer with no error message.
-ARG OMNIROUTE_USE_TURBOPACK=1
+# the rest of the stage, so the `--build-arg` escape hatch would be silently
+# ignored (historically it only ever worked via `-e` at runtime, never at build
+# time — #9695).
+ARG OMNIROUTE_USE_TURBOPACK=0
 ENV OMNIROUTE_USE_TURBOPACK="${OMNIROUTE_USE_TURBOPACK}"
 
 # Next.js basePath is fixed at build time; pass OMNIROUTE_BASE_PATH here when the

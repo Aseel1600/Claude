@@ -41,8 +41,15 @@ jobs:
         run: |
           npm run build:release
         env:
-          NODE_OPTIONS: "--max-old-space-size=12288"
-          OMNIROUTE_BUILD_MEMORY_MB: "12288"
+          # Heap lowered 12288 -> 8192 (v3.8.51, 2026-08-28): --max-old-space-size only
+          # bounds V8's JS heap, never Turbopack's native (Rust) allocation (#6409). A
+          # 12 GB V8 request plus Turbopack's native peak overcommitted the 16 GB
+          # ubuntu-latest runner and the build was canceled mid-step ("The operation was
+          # canceled."). 8192 is the heap the ci.yml build job runs with (the
+          # build-next-isolated.mjs default) and passes consistently; the 10 GB swap
+          # above stays as the safety net for Turbopack's native peak.
+          NODE_OPTIONS: "--max-old-space-size=8192"
+          OMNIROUTE_BUILD_MEMORY_MB: "8192"
           OMNIROUTE_USE_TURBOPACK: "1"
 
       - name: Archive build outputs

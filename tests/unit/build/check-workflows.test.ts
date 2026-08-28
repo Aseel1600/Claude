@@ -356,8 +356,8 @@ test("#7307 quality.yml adds an advisory production build for release PR code ch
   // half. Dropping either one puts the hosted build back at risk of an OOM.
   assert.match(buildJob[0], /fallocate -l 10G \/mnt\/swapfile/);
   assert.match(buildJob[0], /swapon \/mnt\/swapfile/);
-  assert.match(buildJob[0], /NODE_OPTIONS: "--max-old-space-size=12288"/);
-  assert.match(buildJob[0], /OMNIROUTE_BUILD_MEMORY_MB: "12288"/);
+  assert.match(buildJob[0], /NODE_OPTIONS: "--max-old-space-size=8192"/);
+  assert.match(buildJob[0], /OMNIROUTE_BUILD_MEMORY_MB: "8192"/);
   assert.match(buildJob[0], /continue-on-error: true/);
   assert.match(buildJob[0], /uses: actions\/checkout@[0-9a-f]{40} # v7/);
   assert.match(buildJob[0], /uses: actions\/setup-node@[0-9a-f]{40} # v7/);
