@@ -226,6 +226,14 @@ jobs:
           JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
         run: npm run build:cli
 
+      # `build:cli` alone never stamps dist/BUILD_SHA (only `build:release` does, via
+      # write-build-sha.mjs) — without this step the provenance gate in
+      # check:pack-artifact (#10427) fails every release-triggered publish, whether the
+      # standalone tree came from a fresh `next build` or the restored CI artifact above.
+      - name: Stamp build provenance (dist/BUILD_SHA)
+        if: steps.resolve.outputs.skip != 'true'
+        run: OMNIROUTE_BUILD_SHA=$(git rev-parse --short HEAD) node scripts/build/write-build-sha.mjs
+
       - name: Validate npm package artifact
         if: steps.resolve.outputs.skip != 'true'
         run: npm run check:pack-artifact
