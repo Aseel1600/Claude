@@ -155,5 +155,5 @@ test("retired Felo ids cannot bypass the tombstone through a connection proxy", 
   const openAi = await resolveExecutorWithProxy("openai", undefined, {
     cliproxyapiMode: "claude-native",
   });
-  assert.equal(openAi, getExecutor("cliproxyapi"));
+  assert.equal(openAi, await getExecutor("cliproxyapi"));
 });

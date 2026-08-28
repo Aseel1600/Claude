@@ -38,16 +38,16 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("migration 163 retires every Felo id fail-closed and preserves audit history", async () => {
+test("migration 165 retires every Felo id fail-closed and preserves audit history", async () => {
   const db = core.getDbInstance();
 
   const applied = db
-    .prepare("SELECT version FROM _omniroute_migrations WHERE version = 163")
+    .prepare("SELECT version FROM _omniroute_migrations WHERE version = 165")
     .get() as { version: number } | undefined;
-  assert.ok(applied, "migration 163 must be recorded as applied");
+  assert.ok(applied, "migration 165 must be recorded as applied");
 
   // Recreate a pre-migration fixture even though a fresh test database already
-  // applied migration 163 during startup.
+  // applied migration 165 during startup.
   db.exec(`
     DROP TRIGGER IF EXISTS provider_connections_retire_felo_web_insert;
     DROP TRIGGER IF EXISTS provider_connections_retire_felo_web_update;
@@ -189,7 +189,7 @@ test("migration 163 retires every Felo id fail-closed and preserves audit histor
     (db.prepare("SELECT total_changes() AS changes").get() as { changes: number }).changes;
 
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "src/lib/db/migrations/163_retire_felo_web.sql"),
+    path.join(process.cwd(), "src/lib/db/migrations/165_retire_felo_web.sql"),
     "utf8"
   );
   db.exec(sql);

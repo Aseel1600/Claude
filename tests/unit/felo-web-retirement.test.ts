@@ -17,9 +17,9 @@ test("Felo Web provenance-hold integration is absent from runtime dispatch", () 
   assert.equal(hasSpecializedExecutor("felo"), false);
 });
 
-test("retired Felo ids fail closed instead of falling through to OpenAI", () => {
+test("retired Felo ids fail closed instead of falling through to OpenAI", async () => {
   for (const providerId of ["felo-web", "felo", " FeLo-Web ", "\tFELO\n"]) {
-    assert.throws(
+    await assert.rejects(
       () => getExecutor(providerId),
       (error: unknown) => {
         const typed = error as Error & { status?: number };
