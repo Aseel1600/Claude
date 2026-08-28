@@ -47,7 +47,7 @@ test("zai provider hardcodes GLM-5.3-family models onto the OpenAI Coding Plan e
   assert.equal(getModelTargetFormat("zai", "glm-5.3-flash"), "openai");
 });
 
-test("zai GLM-5.3-Flash OpenAI path defaults thinking, max effort, and tool_stream", () => {
+test("zai GLM-5.3-Flash OpenAI path defaults thinking, floors missing effort to low, and sets tool_stream", () => {
   const executor = new DefaultExecutor("zai");
   const out = executor.transformRequest(
     "glm-5.3-flash",
@@ -60,9 +60,23 @@ test("zai GLM-5.3-Flash OpenAI path defaults thinking, max effort, and tool_stre
   ) as Record<string, unknown>;
 
   assert.equal(out.model, "glm-5.3-flash");
-  assert.equal(out.reasoning_effort, "max");
+  assert.equal(out.reasoning_effort, "low");
   assert.deepEqual(out.thinking, { type: "enabled", clear_thinking: false });
   assert.equal(out.tool_stream, true);
+});
+
+test("zai GLM-5.3-Flash -max alias forces max when the client sends no effort", () => {
+  const executor = new DefaultExecutor("zai");
+  const out = executor.transformRequest(
+    "glm-5.3-flash-max",
+    chatBody({ model: "glm-5.3-flash-max" }),
+    false,
+    CREDENTIALS
+  ) as Record<string, unknown>;
+
+  assert.equal(out.model, "glm-5.3-flash");
+  assert.equal(out.reasoning_effort, "max");
+  assert.deepEqual(out.thinking, { type: "enabled", clear_thinking: false });
 });
 
 test("zai GLM-5.3 OpenAI defaults preserve explicit reasoning_effort", () => {

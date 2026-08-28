@@ -97,7 +97,13 @@ function applyZaiGlm53OpenAIDefaults<T>(
   const editableForEffort = mutate();
   if (effortMatch) editableForEffort.model = baseModel;
   if (record.reasoning_effort === undefined && record.reasoning === undefined) {
-    editableForEffort.reasoning_effort = (effortMatch?.[2] ?? "max").toLowerCase();
+    // GLM-5.3 always reasons (thinking cannot be disabled upstream), so a
+    // request with no effort — Pi "off", plain API calls — maps to the floor
+    // tier "low" per the declared-tier clamp convention (none/minimal → low),
+    // not the vendor default "max". Explicit max stays opt-in via
+    // reasoning_effort or the -max model aliases; xhigh normalizes to max in
+    // the shared sanitizer via the declared tiers.
+    editableForEffort.reasoning_effort = (effortMatch?.[2] ?? "low").toLowerCase();
   }
 
   const existingThinking =
