@@ -1,12 +1,12 @@
 ---
 title: "Release Checklist"
-version: 3.8.40
-lastUpdated: 2026-06-28
+version: 3.8.51
+lastUpdated: 2026-08-28
 ---
 
 # Release Checklist
 
-> **Last updated:** 2026-06-28 — v3.8.40
+> **Last updated:** 2026-08-28 — v3.8.51
 > Streamlined release flow that leverages Claude Code skills for automation.
 >
 > **Keep the queue/branch green between releases:** see [RELEASE_GREEN.md](./RELEASE_GREEN.md)
@@ -41,7 +41,7 @@ npm run test:e2e           # optional but recommended
 
 `npm-publish.yml` publishes through **npm Trusted Publishing (OIDC)** by default: the
 `stage-npm` job (github-hosted) exchanges GitHub's id-token for a short-lived npm
-credential for that run — no `NPM_TOKEN` secret, no 2FA prompt, provenance attached.
+credential for that run — no long-lived npm token in the repository secrets, no 2FA prompt, provenance attached.
 That is the bypass npm sanctions now that tokens which skip 2FA are being retired;
 it restores the fully automatic flow the project had up to v3.8.48 while keeping the
 WS1.3 guarantee (a leaked token cannot publish alone — there is no token).
