@@ -9,7 +9,7 @@ import Database from "better-sqlite3";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationPath = path.join(
   repoRoot,
-  "src/lib/db/migrations/163_retire_microsoft_designer_web.sql"
+  "src/lib/db/migrations/164_retire_microsoft_designer_web.sql"
 );
 
 type ProviderRow = {
@@ -25,7 +25,7 @@ type ProviderRow = {
 
 type LeaseRow = { state: string; end_reason: string | null };
 
-test("migration 163 permanently tombstones only Microsoft Designer Web runtime IDs", () => {
+test("migration 164 permanently tombstones only Microsoft Designer Web runtime IDs", () => {
   const db = new Database(":memory:");
   test.after(() => db.close());
 

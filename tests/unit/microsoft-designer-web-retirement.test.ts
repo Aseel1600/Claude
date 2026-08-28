@@ -18,9 +18,9 @@ const RETIRED_IDS = [
   "\nMsDesigner  ",
 ] as const;
 
-test("Microsoft Designer Web runtime IDs fail closed at the executor seam", () => {
+test("Microsoft Designer Web runtime IDs fail closed at the executor seam", async () => {
   for (const providerId of RETIRED_IDS) {
-    assert.throws(
+    await assert.rejects(
       () => getExecutor(providerId),
       (error: unknown) => {
         assert.ok(error instanceof Error);
@@ -33,7 +33,7 @@ test("Microsoft Designer Web runtime IDs fail closed at the executor seam", () =
   }
 });
 
-test("Microsoft Designer retirement is exact and preserves supported providers", () => {
+test("Microsoft Designer retirement is exact and preserves supported providers", async () => {
   for (const providerId of [
     "microsoft-designer-web-preview",
     "openai",
@@ -42,7 +42,7 @@ test("Microsoft Designer retirement is exact and preserves supported providers",
     "musespark-web",
     "modelscope",
   ]) {
-    assert.doesNotThrow(() => getExecutor(providerId));
+    await assert.doesNotReject(() => getExecutor(providerId));
   }
 });
 
