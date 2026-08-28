@@ -752,7 +752,8 @@ test("handleImageGeneration sends Antigravity image requests with native image_g
         model: "antigravity/gemini-3.1-flash-image-preview",
         prompt: "painted beach",
         size: "1024x1024",
-        aspect_ratio: "not-a-ratio",
+        aspect_ratio: "3:4",
+        image_size: "2K",
       },
       credentials: { accessToken: "ag-token", projectId: "project-123" },
       log: null,
@@ -777,7 +778,7 @@ test("handleImageGeneration sends Antigravity image requests with native image_g
       contents: [{ role: "user", parts: [{ text: "painted beach" }] }],
       generationConfig: {
         candidateCount: 1,
-        imageConfig: { aspectRatio: "1:1" },
+        imageConfig: { aspectRatio: "3:4", imageSize: "2K" },
       },
     });
     assert.deepEqual(result.data.data, [
