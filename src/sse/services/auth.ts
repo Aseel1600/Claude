@@ -31,6 +31,7 @@ import {
 } from "@/lib/providers/peakHourProtection";
 import { buildJinaEnvCredentials } from "@/lib/providers/jina";
 import { buildGeminiEnvCredentials } from "@/lib/providers/gemini";
+import { isCommonChatGptWebRetiredProviderId } from "@/shared/constants/chatgptWebRetirement";
 import { toNumber } from "@/shared/utils/numeric";
 import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
 import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
@@ -1037,13 +1038,11 @@ const PROVIDER_SEARCH_PAIRS: string[][] = [
   // before falling through to JINA_AI_API_KEY.
   ["jina-ai", "jina-reader", "jina-search"],
 ];
-/**
- * Resolve provider aliases (e.g., nvidia -> nvidia_nim) for DB lookup
- */
+/** Resolve provider aliases (e.g., nvidia -> nvidia_nim) for DB lookup. */
 async function getProviderSearchPool(provider: string): Promise<string[]> {
   const canonicalProvider = resolveProviderId(provider);
   const canonicalAlias = getProviderAlias(canonicalProvider);
-
+  if (isCommonChatGptWebRetiredProviderId(provider)) return [];
   const group = PROVIDER_SEARCH_PAIRS.find((aliases) => aliases.includes(provider));
   if (group) return [provider, ...group.filter((id) => id !== provider)];
 

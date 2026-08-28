@@ -198,3 +198,20 @@ test("retired Qwen Web ids cannot bypass the tombstone through a connection prox
   });
   assert.equal(qwenCloud, await getExecutor("cliproxyapi"));
 });
+
+test("retired common ChatGPT Web cannot bypass retirement through proxy overrides", async () => {
+  for (const providerId of ["chatgpt-web", "cgpt-web"]) {
+    await assert.rejects(
+      () =>
+        resolveExecutorWithProxy(providerId, undefined, {
+          cliproxyapiMode: "claude-native",
+        }),
+      (error: unknown) => {
+        const typed = error as Error & { code?: string; status?: number };
+        assert.equal(typed.code, "PROVIDER_RETIRED");
+        assert.equal(typed.status, 410);
+        return true;
+      }
+    );
+  }
+});

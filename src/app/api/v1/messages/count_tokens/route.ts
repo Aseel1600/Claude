@@ -6,6 +6,7 @@ import { isRuntimeProviderRetirementError } from "@/shared/constants/providerRet
 import { getExecutor } from "@omniroute/open-sse/executors/index.ts";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error.ts";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
+import { isCommonChatGptWebRetirementError } from "@/shared/constants/chatgptWebRetirement";
 import { getModelInfo } from "@/sse/services/model";
 import { extractApiKey, getProviderCredentials, isValidApiKey } from "@/sse/services/auth";
 import { safeResolveProxy } from "@/sse/handlers/chatHelpers";
@@ -105,7 +106,7 @@ export async function POST(request) {
       }
     );
   } catch (error) {
-    if (isRuntimeProviderRetirementError(error)) {
+    if (isRuntimeProviderRetirementError(error) || isCommonChatGptWebRetirementError(error)) {
       return new Response(
         JSON.stringify(
           buildErrorBody(error.status, error.message, null, {

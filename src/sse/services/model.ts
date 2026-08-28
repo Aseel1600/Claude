@@ -21,8 +21,22 @@ import { getLearnedReasoningEffortForModel } from "@omniroute/open-sse/services/
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { getRegisteredProviderEffortBaseModelId } from "@omniroute/open-sse/utils/registeredEffortVariants.ts";
 import { getReservedProviderPrefixes } from "@/shared/constants/reservedProviderPrefixes";
-import { assertMicrosoftDesignerWebProviderAvailable } from "@/shared/constants/designerWebRetirement";
-import { assertRuntimeProviderAvailable } from "@/shared/constants/providerRetirement";
+import {
+  assertMicrosoftDesignerWebProviderAvailable,
+  isMicrosoftDesignerWebProviderRetiredError,
+} from "@/shared/constants/designerWebRetirement";
+import {
+  assertRuntimeProviderAvailable,
+  isRuntimeProviderRetirementError,
+} from "@/shared/constants/providerRetirement";
+import {
+  assertCommonChatGptWebModelAvailable,
+  assertCommonChatGptWebProviderAvailable,
+  isCommonChatGptWebRetirementError,
+} from "@/shared/constants/chatgptWebRetirement";
+import { commonChatGptWebRetirementResponse } from "@/lib/providers/chatgptWebRetirementResponse";
+import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
+import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 
 export { parseModel, stripContextWindowSuffix };
 
@@ -424,6 +438,10 @@ function stripRedundantNodeRoutingSegments(model: string, routingIds: unknown[])
  * Get full model info (parse or resolve)
  */
 export async function getModelInfo(modelStr) {
+  // Reject the raw common-provider identity before compatible-node lookup or
+  // stripModelPrefix can erase/remap it. Ordinary bare model aliases remain
+  // operator-owned; the two retired bare ids are intentionally blocked.
+  assertCommonChatGptWebModelAvailable(modelStr);
   const parsed = parseModel(modelStr);
   // Fail before compatible-node lookup and stripModelPrefix can erase or remap
   // a retired provider identity. Executor/auth tombstones are later defenses;
@@ -436,7 +454,13 @@ export async function getModelInfo(modelStr) {
   // an exact retired provider id/alias as an unrelated live provider.
   assertMicrosoftDesignerWebProviderAvailable(parsed.providerAlias || parsed.provider);
 
+  const assertResolvedModelAvailable = (info: any) => {
+    assertCommonChatGptWebProviderAvailable(info?.provider);
+    return info;
+  };
+
   const attachRuntimeModelMeta = async (info: any) => {
+    assertResolvedModelAvailable(info);
     if (!info?.provider || !info?.model) return info;
 
     const providerId = String(info.provider);
@@ -493,12 +517,12 @@ export async function getModelInfo(modelStr) {
           matchedOpenAI.id as string,
           normalizedModel
         );
-        return {
+        return assertResolvedModelAvailable({
           provider: matchedOpenAI.id,
           model: modelId,
           extendedContext,
           ...metadata,
-        };
+        });
       }
 
       // Check Anthropic Compatible nodes
@@ -515,12 +539,12 @@ export async function getModelInfo(modelStr) {
           matchedAnthropic.id as string,
           normalizedModel
         );
-        return {
+        return assertResolvedModelAvailable({
           provider: matchedAnthropic.id,
           model: modelId,
           extendedContext,
           ...metadata,
-        };
+        });
       }
     }
 
@@ -530,7 +554,7 @@ export async function getModelInfo(modelStr) {
       const settings = await getCachedSettings();
       if (settings.stripModelPrefix === true) {
         const strippedResult = await getModelInfoCore(parsed.model, getCombinedModelAliases);
-        return { ...strippedResult, extendedContext };
+        return assertResolvedModelAvailable({ ...strippedResult, extendedContext });
       }
     } catch {
       // If settings read fails, fall through to normal resolution
@@ -542,6 +566,28 @@ export async function getModelInfo(modelStr) {
   }
 
   return await attachRuntimeModelMeta(await getModelInfoCore(modelStr, getCombinedModelAliases));
+}
+
+export async function getModelInfoOrRetirementResponse(modelId: string) {
+  try {
+    return await getModelInfo(modelId);
+  } catch (error) {
+    if (isMicrosoftDesignerWebProviderRetiredError(error)) {
+      return { error: errorResponse(HTTP_STATUS.GONE, error.message) };
+    }
+    if (isRuntimeProviderRetirementError(error)) {
+      return {
+        error: errorResponse(error.status, error.message, {
+          type: "provider_error",
+          code: error.code,
+        }),
+      };
+    }
+    if (isCommonChatGptWebRetirementError(error)) {
+      return { error: commonChatGptWebRetirementResponse() };
+    }
+    throw error;
+  }
 }
 
 /**

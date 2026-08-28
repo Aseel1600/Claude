@@ -125,7 +125,8 @@ export async function getProviderPrefixIndex(): Promise<ProviderPrefixIndex> {
 
   for (const [prefix, prefixNodes] of byPrefix) {
     if (isProviderNodePrefixReserved(prefix)) {
-      // Built-in registry id/alias — never a compatible public target.
+      // Built-in registry id/alias or case-insensitive retired id — never a
+      // compatible public target.
       entries.set(prefix, { prefix, status: "reserved" });
       continue;
     }

@@ -33,6 +33,11 @@ const { createProviderNodeSchema, updateProviderNodeSchema } =
   await import("../../src/shared/validation/schemas.ts");
 const { RESERVED_PROVIDER_PREFIXES, isReservedProviderPrefix, RESERVED_PREFIX_COUNT } =
   await import("../../src/shared/constants/reservedProviderPrefixes.ts");
+const { buildReservedPrefixes, getProviderPrefixIndex } =
+  await import("../../src/lib/providerNodePrefixes.ts");
+const providerNodesDb = await import("../../src/lib/db/providers/nodes.ts");
+const { isCommonChatGptWebRetiredProviderId } =
+  await import("../../src/shared/constants/chatgptWebRetirement.ts");
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -103,6 +108,41 @@ test("shared guard keeps retired Qwen Web ids reserved after registry removal", 
   assert.equal(RESERVED_PROVIDER_PREFIXES.has("qw"), true);
   assert.equal(isReservedProviderPrefix(" QwEn-WeB "), true);
   assert.equal(isReservedProviderPrefix("\u00a0QW\uFEFF"), true);
+});
+
+test("retired ChatGPT Web ids remain permanently reserved without capturing Codex variants", () => {
+  for (const prefix of ["chatgpt-web", "cgpt-web", " ChatGPT-Web ", "CGPT-WEB"]) {
+    assert.equal(isReservedProviderPrefix(prefix), true, `${prefix} must stay reserved`);
+  }
+  assert.equal(buildReservedPrefixes().has("chatgpt-web"), true);
+  assert.equal(buildReservedPrefixes().has("cgpt-web"), true);
+
+  for (const prefix of ["chatgpt-web-codex", "cgpt-codex"]) {
+    assert.equal(isReservedProviderPrefix(prefix), true, `${prefix} remains a live built-in`);
+    assert.equal(isCommonChatGptWebRetiredProviderId(prefix), false);
+  }
+  assert.equal(isReservedProviderPrefix("chatgpt-web-preview"), false);
+  assert.equal(isCommonChatGptWebRetiredProviderId("chatgpt-web-preview"), false);
+});
+
+test("mixed-case retired ChatGPT Web prefixes are never advertised as compatible nodes", async () => {
+  for (const [index, prefix] of ["ChatGPT-Web", "CGPT-WEB"].entries()) {
+    const id = `openai-compatible-retired-prefix-${index}`;
+    await providerNodesDb.createProviderNode({
+      id,
+      type: "openai-compatible",
+      name: `Retired mixed-case prefix ${index}`,
+      prefix,
+      apiType: "chat",
+      baseUrl: "https://retired.example.invalid/v1",
+    });
+  }
+
+  const index = await getProviderPrefixIndex();
+  for (const prefix of ["ChatGPT-Web", "CGPT-WEB"]) {
+    assert.equal(index.entries.get(prefix)?.status, "reserved");
+    assert.equal(index.prefixToNode.has(prefix), false);
+  }
 });
 
 test("shared set is case-sensitive like the runtime guard", () => {
@@ -212,6 +252,24 @@ test("provider node schemas reject retired Qwen Web prefixes and normalized vari
       baseUrl: "http://localhost:8317",
     });
     assert.equal(preset.success, false, `preset create must reject ${JSON.stringify(prefix)}`);
+  }
+});
+
+test("provider-node schemas reject both retired common ChatGPT Web prefixes", () => {
+  for (const prefix of ["chatgpt-web", "cgpt-web", "CHATGPT-WEB"]) {
+    const createResult = createProviderNodeSchema.safeParse({
+      name: "Retired provider shadow",
+      prefix,
+      apiType: "chat",
+      baseUrl: "https://example.invalid/v1",
+    });
+    assert.equal(createResult.success, false, `create accepted ${prefix}`);
+
+    const updateResult = updateProviderNodeSchema.safeParse({
+      name: "Retired provider shadow",
+      prefix,
+    });
+    assert.equal(updateResult.success, false, `update accepted ${prefix}`);
   }
 });
 

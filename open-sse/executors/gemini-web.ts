@@ -378,7 +378,7 @@ export class GeminiWebExecutor extends BaseExecutor {
    * Google rotated any of the __Secure-1PSID* cookies, forward the merged
    * cookie string through onCredentialsRefreshed so it gets persisted to the
    * encrypted provider_connections.api_key field. Mirrors the rotate-and-
-   * persist pattern already shipped in chatgpt-web.ts. A persistence failure
+   * persist pattern used by other rotating-session executors. A persistence failure
    * must never fail the user-facing response (#7676).
    */
   private async persistRotatedCookies(

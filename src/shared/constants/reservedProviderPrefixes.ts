@@ -26,6 +26,10 @@ import {
   RETIRED_MICROSOFT_DESIGNER_WEB_PROVIDER_IDS,
 } from "@/shared/constants/designerWebRetirement";
 import { isRuntimeRetiredProviderId, RUNTIME_RETIRED_PROVIDER_IDS } from "./providerRetirement";
+import {
+  isCommonChatGptWebRetiredProviderId,
+  RETIRED_COMMON_CHATGPT_WEB_PROVIDER_IDS,
+} from "@/shared/constants/chatgptWebRetirement";
 
 let _reserved: Set<string> | null = null;
 
@@ -40,6 +44,7 @@ function buildReservedProviderPrefixes(): Set<string> {
     reserved.add(providerId);
   }
   for (const providerId of RUNTIME_RETIRED_PROVIDER_IDS) reserved.add(providerId);
+  for (const retiredId of RETIRED_COMMON_CHATGPT_WEB_PROVIDER_IDS) reserved.add(retiredId);
   _reserved = reserved;
   return reserved;
 }
@@ -73,7 +78,8 @@ export function isReservedProviderPrefix(value: unknown): boolean {
   return (
     (typeof value === "string" && buildReservedProviderPrefixes().has(value)) ||
     isMicrosoftDesignerWebRetiredProviderId(value) ||
-    isRuntimeRetiredProviderId(value)
+    isRuntimeRetiredProviderId(value) ||
+    isCommonChatGptWebRetiredProviderId(value)
   );
 }
 

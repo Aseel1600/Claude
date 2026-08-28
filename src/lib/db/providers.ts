@@ -3,6 +3,8 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
+
+import { isCommonChatGptWebRetiredProviderId } from "@/shared/constants/chatgptWebRetirement";
 import { getDbInstance, rowToCamel, cleanNulls } from "./core";
 import { backupDbFile } from "./backup";
 import {
@@ -607,7 +609,8 @@ export async function createProviderConnection(data: JsonRecord) {
 
     if (
       isMicrosoftDesignerWebRetiredProviderId(merged.provider) ||
-      isRuntimeRetiredProviderId(merged.provider)
+      isRuntimeRetiredProviderId(merged.provider) ||
+      isCommonChatGptWebRetiredProviderId(merged.provider)
     ) {
       invalidateDbCache("connections");
       return (await getProviderConnectionById(existingId)) ?? returnedConnection;
@@ -744,7 +747,8 @@ export async function createProviderConnection(data: JsonRecord) {
 
   if (
     isMicrosoftDesignerWebRetiredProviderId(data.provider) ||
-    isRuntimeRetiredProviderId(providerId)
+    isRuntimeRetiredProviderId(providerId) ||
+    isCommonChatGptWebRetiredProviderId(providerId)
   ) {
     return (await getProviderConnectionById(String(connection.id))) ?? returnedConnection;
   }
@@ -998,7 +1002,8 @@ export async function updateProviderConnection(id: string, data: JsonRecord) {
 
   if (
     isMicrosoftDesignerWebRetiredProviderId(merged.provider) ||
-    isRuntimeRetiredProviderId(merged.provider)
+    isRuntimeRetiredProviderId(merged.provider) ||
+    isCommonChatGptWebRetiredProviderId(merged.provider)
   ) {
     return (await getProviderConnectionById(id)) ?? returnedConnection;
   }

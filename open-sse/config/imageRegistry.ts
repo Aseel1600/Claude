@@ -237,17 +237,6 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     supportedSizes: ["1024x1024", "1024x1536", "1536x1024"],
   },
 
-  "chatgpt-web": {
-    id: "chatgpt-web",
-    alias: "cgpt-web",
-    baseUrl: "https://chatgpt.com/backend-api/f/conversation",
-    authType: "apikey",
-    authHeader: "cookie",
-    format: "chatgpt-web",
-    models: [{ id: "gpt-5.5", name: "GPT-5.5 Instant (ChatGPT Web Image)" }],
-    supportedSizes: ["1024x1024", "1024x1536", "1536x1024"],
-  },
-
   // Cursor plan image generation via the Agent CLI native `generateImage` tool.
   // Reuses the same OAuth/API-key connection as chat (`provider: "cursor"`).
   // Requires the `agent` binary (CURSOR_AGENT_BIN) — see cursorAgentImage handler.

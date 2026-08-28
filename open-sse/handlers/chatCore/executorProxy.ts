@@ -23,6 +23,7 @@ import { isCliproxyapiDeepModeEnabled } from "../../executors/cliproxyapi.ts";
 import { isDarioDeepModeEnabled } from "../../executors/dario.ts";
 import { getCachedSettings } from "@/lib/db/readCache";
 import { assertMicrosoftDesignerWebProviderAvailable } from "@/shared/constants/designerWebRetirement";
+import { assertCommonChatGptWebProviderAvailable } from "@/shared/constants/chatgptWebRetirement";
 import { getUpstreamProxyConfigCached } from "./comboContextCache.ts";
 import type { FallbackBackend } from "@/lib/db/upstreamProxy";
 import { wrapExecutorWithCliproxyapiModelMapping } from "./cliproxyModelMapping.ts";
@@ -99,6 +100,7 @@ export async function resolveExecutorWithProxy(
 ) {
   assertMicrosoftDesignerWebProviderAvailable(prov);
   assertRuntimeProviderAvailable(prov);
+  assertCommonChatGptWebProviderAvailable(prov);
 
   // Per-connection routing override (#6339): the resolved connection can opt itself
   // into the CLIProxyAPI passthrough executor via providerSpecificData.cliproxyapiMode

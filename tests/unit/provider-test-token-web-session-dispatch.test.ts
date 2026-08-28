@@ -15,7 +15,7 @@ test("token-kind cookie-auth web sessions use the API-key test path", () => {
 });
 
 test("cookie-kind web sessions do not use the API-key test path", () => {
-  assert.equal(shouldUseApiKeyConnectionTest("cookie", "chatgpt-web"), false);
+  assert.equal(shouldUseApiKeyConnectionTest("cookie", "perplexity-web"), false);
 
   assert.equal(shouldUseApiKeyConnectionTest("cookie", "claude-web"), false);
 });

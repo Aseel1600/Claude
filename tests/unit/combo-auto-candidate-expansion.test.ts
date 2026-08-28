@@ -113,6 +113,33 @@ test("expandAutoComboCandidatePool excludes retired Qwen rows with synced models
   assert.ok(expanded.some((target) => target.modelStr === "qwen-cloud/qwen3.8-max"));
 });
 
+test("expandAutoComboCandidatePool excludes restored retired ChatGPT Web connections", async () => {
+  const db = core.getDbInstance();
+  db.exec(`
+    DROP TRIGGER IF EXISTS provider_connections_retire_chatgpt_web_insert;
+    DROP TRIGGER IF EXISTS provider_connections_retire_chatgpt_web_update;
+  `);
+  for (const provider of ["chatgpt-web", "cgpt-web"]) {
+    db.prepare(
+      "INSERT INTO provider_connections " +
+        "(id, provider, auth_type, name, api_key, is_active, test_status, created_at, updated_at) " +
+        "VALUES (?, ?, 'apikey', ?, ?, 1, 'active', datetime('now'), datetime('now'))"
+    ).run(
+      `${provider}-restored-expansion`,
+      provider,
+      `${provider} restored expansion`,
+      `sk-${provider}-restored-expansion`
+    );
+    await modelsDb.addCustomModel(provider, "gpt-5.5", "Retired model fixture");
+  }
+
+  const expanded = await combo.expandAutoComboCandidatePool([], { config: {} });
+  assert.equal(
+    expanded.some((target) => ["chatgpt-web", "cgpt-web"].includes(target.provider)),
+    false
+  );
+});
+
 test("expandAutoComboCandidatePool is a no-op when an explicit candidatePool exists", async () => {
   await providersDb.createProviderConnection({
     provider: "openai",

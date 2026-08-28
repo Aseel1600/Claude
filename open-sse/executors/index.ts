@@ -1,6 +1,7 @@
 import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
 import { assertMicrosoftDesignerWebProviderAvailable } from "@/shared/constants/designerWebRetirement";
 import { assertRuntimeProviderAvailable } from "@/shared/constants/providerRetirement";
+import { assertCommonChatGptWebProviderAvailable } from "@/shared/constants/chatgptWebRetirement";
 import {
   registerLazyExecutor,
   loadRegisteredExecutor,
@@ -97,8 +98,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
     import("./gemini-business.ts").then((m) => new m.GeminiBusinessExecutor()),
   gembiz: () =>
     import("./gemini-business.ts").then((m) => new m.GeminiBusinessExecutor()), // Alias
-  "chatgpt-web": () => import("./chatgpt-web.ts").then((m) => new m.ChatGptWebExecutor()),
-  "cgpt-web": () => import("./chatgpt-web.ts").then((m) => new m.ChatGptWebExecutor()), // Alias
   "blackbox-web": () => import("./blackbox-web.ts").then((m) => new m.BlackboxWebExecutor()),
   "bb-web": () => import("./blackbox-web.ts").then((m) => new m.BlackboxWebExecutor()), // Alias
   "muse-spark-web": () =>
@@ -235,6 +234,7 @@ const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS))
 export async function getExecutor(provider: string): Promise<BaseExecutor> {
   assertMicrosoftDesignerWebProviderAvailable(provider);
   assertRuntimeProviderAvailable(provider);
+  assertCommonChatGptWebProviderAvailable(provider);
   const loaded = await loadRegisteredExecutor(provider);
   if (loaded) return loaded;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {

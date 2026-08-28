@@ -1,4 +1,4 @@
-import { getModelInfo, getComboForModel } from "../services/model";
+import { getModelInfo, getComboForModel, getModelInfoOrRetirementResponse } from "../services/model";
 import { clearAccountError, markAccountUnavailable } from "../services/auth";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import { createBuiltinAutoCombo } from "@omniroute/open-sse/services/autoCombo/builtinCatalog.ts";
@@ -28,7 +28,6 @@ import {
 } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { resolveProxyForConnection } from "@/lib/localDb";
 import { hasBlockingProxyAssignment } from "@/lib/db/proxies";
-import { isRuntimeProviderRetirementError } from "@/shared/constants/providerRetirement";
 import {
   CircuitBreakerOpenError,
   getCircuitBreaker,
@@ -36,7 +35,6 @@ import {
 } from "../../shared/utils/circuitBreaker";
 import { classify429FromError, type FailureKind } from "../../shared/utils/classify429";
 import { resolveUseUpstream429BreakerHints } from "../../shared/utils/providerHints";
-import { isMicrosoftDesignerWebProviderRetiredError } from "../../shared/constants/designerWebRetirement";
 
 import { logProxyEvent } from "../../lib/proxyLogger";
 import { logTranslationEvent } from "../../lib/translatorEvents";
@@ -122,23 +120,8 @@ export async function resolveModelOrError(
   endpointPath: string = "",
   requestHeaders: Record<string, unknown> | null | undefined = null
 ) {
-  let modelInfo;
-  try {
-    modelInfo = await getModelInfo(modelStr);
-  } catch (error) {
-    if (isMicrosoftDesignerWebProviderRetiredError(error)) {
-      return { error: errorResponse(HTTP_STATUS.GONE, error.message) };
-    }
-    if (isRuntimeProviderRetirementError(error)) {
-      return {
-        error: errorResponse(error.status, error.message, {
-          type: "provider_error",
-          code: error.code,
-        }),
-      };
-    }
-    throw error;
-  }
+  const modelInfo = await getModelInfoOrRetirementResponse(modelStr);
+  if ("error" in modelInfo) return modelInfo;
   const sourceFormat = detectFormatFromEndpoint(body, endpointPath);
 
   if (
@@ -510,9 +493,8 @@ export async function executeChatWithBreaker({
                 expiresIn: newCreds.expiresIn,
                 expiresAt: newCreds.expiresAt,
                 providerSpecificData: newCreds.providerSpecificData,
-                // Cookie/session providers (chatgpt-web) rotate the stored
-                // apiKey blob mid-request — forward it so the DB credential
-                // doesn't go stale after Set-Cookie rotation.
+                // Cookie/session providers may rotate apiKey mid-request; forward it so the DB
+                // credential doesn't go stale after Set-Cookie rotation.
                 apiKey: newCreds.apiKey,
                 testStatus: newCreds.testStatus ?? "active",
                 isActive: newCreds.isActive,

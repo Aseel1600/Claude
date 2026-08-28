@@ -8,6 +8,7 @@ import type { ConnectionFields } from "@/lib/db/encryption";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
 import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
 import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
+import { isCommonChatGptWebRetiredProviderId } from "@/shared/constants/chatgptWebRetirement";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
 import { toNumber } from "@/shared/utils/numeric";
 import { isCompatibleProviderConnectionId } from "@/shared/utils/compatibleProviderId";
@@ -585,15 +586,17 @@ export async function prepareVirtualAutoComboInputs(
     resolutionSnapshot?: ModelCapabilityResolutionSnapshot;
   } = {}
 ): Promise<PreparedVirtualAutoComboInputs> {
-  const [connections, disabledNoAuthConnections, settings] = await Promise.all([
+  const [rawConnections, rawDisabledNoAuthConnections, settings] = await Promise.all([
     getCachedProviderConnections({ isActive: true }) as Promise<VirtualFactoryConn[]>,
-    // #6557: no-auth providers (opencode/mimocode/etc.) don't get an isActive
-    // filter applied above since their credential is synthetic, but a real
-    // provider_connections row CAN exist for them (created via "Add Account")
-    // and its own isActive=false must gate the auto-combo pool too — not just
+    // #6557: synthetic no-auth credentials bypass active filtering, but a real Add Account
+    // row may exist; its isActive=false must also gate auto-combo.
     getCachedProviderConnections({ isActive: false }) as Promise<VirtualFactoryConn[]>,
     getSettings().catch(() => ({}) as Record<string, unknown>),
   ]);
+  const available = (conn: VirtualFactoryConn) =>
+    !isCommonChatGptWebRetiredProviderId(conn.provider);
+  const connections = rawConnections.filter(available);
+  const disabledNoAuthConnections = rawDisabledNoAuthConnections.filter(available);
   const blockedProviders = new Set(
     Array.isArray(settings.blockedProviders) ? (settings.blockedProviders as string[]) : []
   );
