@@ -3,7 +3,6 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
 import { getDbInstance, rowToCamel, cleanNulls } from "./core";
 import { backupDbFile } from "./backup";
 import {
