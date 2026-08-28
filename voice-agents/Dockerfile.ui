@@ -1,0 +1,42 @@
+# ── Stage 1: Dependency-Wheels (build-only) ─────────────────────────
+FROM python:3.13-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+COPY requirements-ui.txt ./
+RUN pip wheel --wheel-dir=/wheels -r requirements-ui.txt
+
+# ── Stage 2: Runtime (minimal, non-root) ────────────────────────────
+FROM python:3.13-slim AS runtime
+
+# ffmpeg für Media-Handling im Agent-Ökosystem (ein Layer, cache-clean)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd -r omniroute \
+ && useradd -r -g omniroute -d /app -s /usr/sbin/nologin omniroute \
+ && mkdir -p /app/data \
+ && chown -R omniroute:omniroute /app
+
+WORKDIR /app
+COPY --from=builder /wheels /tmp/wheels
+RUN pip install --no-cache-dir /tmp/wheels/* \
+ && rm -rf /tmp/wheels
+
+COPY --chown=omniroute:omniroute ui/ ./ui/
+COPY --chown=omniroute:omniroute orca/ ./orca/
+
+USER omniroute
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1
+
+EXPOSE 20129
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:20129/health')" || exit 1
+
+CMD ["python", "-m", "uvicorn", "ui.main:app", "--host", "0.0.0.0", "--port", "20129"]

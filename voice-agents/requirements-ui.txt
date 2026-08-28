@@ -1,0 +1,8 @@
+# ── Runtime deps (exakte Versionen = produktives venv) ──────────────
+fastapi==0.141.1
+uvicorn==0.52.1
+httpx==0.28.1
+python-dotenv==1.2.2
+python-multipart==0.0.32
+python-jose[cryptography]==3.5.0
+PyYAML==6.0.3
