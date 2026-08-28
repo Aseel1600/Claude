@@ -193,7 +193,7 @@ test("provider bundle retires exactly the 79 unresolved assets and keeps the gen
   const distributedAssets = readdirSync(providerAssetsDir).filter((name) =>
     [".jpg", ".png", ".svg"].includes(extname(name))
   );
-  assert.equal(distributedAssets.length, 146, "all 146 non-target assets must remain");
+  assert.equal(distributedAssets.length, 148, "all 148 non-target assets must remain");
   assert.ok(distributedAssets.includes("cli-generic.svg"));
 });
 
