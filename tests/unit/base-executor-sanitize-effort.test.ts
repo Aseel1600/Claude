@@ -932,3 +932,90 @@ test("sanitizeReasoningEffortForProvider: #7044 output_config.effort high passes
   assert.equal(result, body, "high is supported — body returned unchanged");
   assert.equal((result as Record<string, unknown>).output_config.effort, "high");
 });
+
+// ── User reported cases & future-proof model matching ──────────────────────
+
+test("sanitizeReasoningEffortForProvider: cmd / z-ai/glm-5.3-flash maps xhigh → max and preserves max", () => {
+  const log = makeLog();
+  const bodyXHigh = { model: "z-ai/glm-5.3-flash", reasoning_effort: "xhigh", messages: [] };
+  const resXHigh = sanitizeReasoningEffortForProvider(bodyXHigh, "cmd", "z-ai/glm-5.3-flash", log) as Record<string, unknown>;
+  assert.equal(resXHigh.reasoning_effort, "max");
+
+  const bodyMax = { model: "z-ai/glm-5.3-flash", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "cmd", "z-ai/glm-5.3-flash", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: cmd / deepseek/deepseek-v4-flash-vision-exp maps xhigh → max and preserves max", () => {
+  const log = makeLog();
+  const bodyXHigh = { model: "deepseek/deepseek-v4-flash-vision-exp", reasoning_effort: "xhigh", messages: [] };
+  const resXHigh = sanitizeReasoningEffortForProvider(bodyXHigh, "cmd", "deepseek/deepseek-v4-flash-vision-exp", log) as Record<string, unknown>;
+  assert.equal(resXHigh.reasoning_effort, "max");
+
+  const bodyMax = { model: "deepseek/deepseek-v4-flash-vision-exp", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "cmd", "deepseek/deepseek-v4-flash-vision-exp", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: opencode-go / glm-5.3-flash maps xhigh → max and preserves max", () => {
+  const log = makeLog();
+  const bodyXHigh = { model: "glm-5.3-flash", reasoning_effort: "xhigh", messages: [] };
+  const resXHigh = sanitizeReasoningEffortForProvider(bodyXHigh, "opencode-go", "glm-5.3-flash", log) as Record<string, unknown>;
+  assert.equal(resXHigh.reasoning_effort, "max");
+
+  const bodyMax = { model: "glm-5.3-flash", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "opencode-go", "glm-5.3-flash", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: opencode-go / deepseek-v4-flash-vision-exp maps xhigh → max and preserves max", () => {
+  const log = makeLog();
+  const bodyXHigh = { model: "deepseek-v4-flash-vision-exp", reasoning_effort: "xhigh", messages: [] };
+  const resXHigh = sanitizeReasoningEffortForProvider(bodyXHigh, "opencode-go", "deepseek-v4-flash-vision-exp", log) as Record<string, unknown>;
+  assert.equal(resXHigh.reasoning_effort, "max");
+
+  const bodyMax = { model: "deepseek-v4-flash-vision-exp", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "opencode-go", "deepseek-v4-flash-vision-exp", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: ollamacloud / glm-5.3-flash:cloud maps xhigh → max and preserves max", () => {
+  const log = makeLog();
+  const bodyXHigh = { model: "glm-5.3-flash:cloud", reasoning_effort: "xhigh", messages: [] };
+  const resXHigh = sanitizeReasoningEffortForProvider(bodyXHigh, "ollamacloud", "glm-5.3-flash:cloud", log) as Record<string, unknown>;
+  assert.equal(resXHigh.reasoning_effort, "max");
+
+  const bodyMax = { model: "glm-5.3-flash:cloud", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "ollamacloud", "glm-5.3-flash:cloud", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: ollamacloud / deepseek-v4-pro:cloud maps xhigh → max and preserves max", () => {
+  const log = makeLog();
+  const bodyXHigh = { model: "deepseek-v4-pro:cloud", reasoning_effort: "xhigh", messages: [] };
+  const resXHigh = sanitizeReasoningEffortForProvider(bodyXHigh, "ollamacloud", "deepseek-v4-pro:cloud", log) as Record<string, unknown>;
+  assert.equal(resXHigh.reasoning_effort, "max");
+
+  const bodyMax = { model: "deepseek-v4-pro:cloud", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "ollamacloud", "deepseek-v4-pro:cloud", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: future models (glm-5.4, deepseek-v5, kimi-k4) on arbitrary providers map xhigh → max and preserve max", () => {
+  const log = makeLog();
+  for (const m of ["glm-5.4", "glm-5.4-flash", "glm-6.0", "deepseek-v5", "deepseek-v5-pro", "kimi-k4", "moonshotai/Kimi-K4"]) {
+    const bXHigh = { model: m, reasoning_effort: "xhigh", messages: [] };
+    const rXHigh = sanitizeReasoningEffortForProvider(bXHigh, "some-proxy", m, log) as Record<string, unknown>;
+    assert.equal(rXHigh.reasoning_effort, "max", `model ${m} should map xhigh → max`);
+
+    const bMax = { model: m, reasoning_effort: "max", messages: [] };
+    const rMax = sanitizeReasoningEffortForProvider(bMax, "some-proxy", m, log) as Record<string, unknown>;
+    assert.equal(rMax.reasoning_effort, "max", `model ${m} should preserve max`);
+  }
+});
+
+test("sanitizeReasoningEffortForProvider: muse-spark-1.2 preserves xhigh on providers that accept xhigh", () => {
+  const body = { model: "muse-spark-1.2", reasoning_effort: "xhigh", messages: [] };
+  const res = sanitizeReasoningEffortForProvider(body, "codex", "muse-spark-1.2", null) as Record<string, unknown>;
+  assert.equal(res.reasoning_effort, "xhigh", "muse-spark-1.2 preserves xhigh natively");
+});
