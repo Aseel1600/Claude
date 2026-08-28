@@ -24,6 +24,7 @@ const {
   clearSelectionCache,
   getLatencyStats,
 } = await import("../../../src/lib/guardrails/visionBridgeRouter.ts");
+const { PROVIDER_MODELS } = await import("../../../open-sse/config/providerModels.ts");
 type VisionBridgeRouterDepsT =
   import("../../../src/lib/guardrails/visionBridgeRouter.ts").VisionBridgeRouterDeps;
 
@@ -139,12 +140,34 @@ test("getBestVisionModel — revalidates a cached model against the current live
 });
 
 test("getBestVisionModel — accepts a registry model whose liveCatalogIds match upstream", async () => {
-  const model = await getBestVisionModel(
-    {},
-    authoritativeCatalogDeps("cgpt-web", () => ["gpt-5-6-thinking"])
-  );
+  // #11754 retired ChatGPT Web (cgpt-web) after this test was authored — it was the
+  // only registry provider populating `liveCatalogIds` (curated ids whose public name
+  // differs from the id sent upstream). No live provider currently uses that field, so
+  // this exercises the same production predicate (createCatalogModelPredicate's
+  // `model.liveCatalogIds?.some(...)` branch in visionBridgeRouter.ts) against a
+  // synthetic registry entry instead of trusting stale fixture data. PROVIDER_MODELS is
+  // a mutable Proxy over a lazily-generated object (open-sse/config/providerModels.ts),
+  // so direct assignment is safe and reverted in `finally`.
+  const testProvider = "__vision-bridge-live-catalog-test__";
+  PROVIDER_MODELS[testProvider] = [
+    {
+      id: "synthetic-vision-model-xhigh",
+      name: "Synthetic Vision Model (XHigh)",
+      liveCatalogIds: ["synthetic-live-id"],
+      supportsVision: true,
+    },
+  ];
 
-  assert.equal(model, "cgpt-web/gpt-5.6-sol-xhigh");
+  try {
+    const model = await getBestVisionModel(
+      {},
+      authoritativeCatalogDeps(testProvider, () => ["synthetic-live-id"])
+    );
+
+    assert.equal(model, `${testProvider}/synthetic-vision-model-xhigh`);
+  } finally {
+    delete PROVIDER_MODELS[testProvider];
+  }
 });
 
 // ── getFallbackModels ───────────────────────────────────────────────────────
