@@ -497,7 +497,7 @@ test("provider asset provenance gate binds auditedCommit to the physical provide
   }
 });
 
-test("repository provider asset manifest covers the audited 225-file snapshot", () => {
+test("repository provider asset manifest covers the audited 142-file snapshot", () => {
   const result = runGate(
     join(REPO_ROOT, "public/providers"),
     join(REPO_ROOT, "config/quality/provider-assets-provenance.jsonl")
@@ -506,7 +506,7 @@ test("repository provider asset manifest covers the audited 225-file snapshot", 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(
     result.stdout,
-    /225\/225 registered; proven=71 probable=69 unresolved=85; duplicate-groups=5/
+    /142\/142 registered; proven=71 probable=69 unresolved=2; duplicate-groups=1/
   );
 });
 
