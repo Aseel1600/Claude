@@ -1,0 +1,1 @@
+- **fix(api):** `POST /api/playground/simulate-route` maps persisted schema-v2 combo steps instead of reading a `targets` field that no longer exists, fixing the HTTP 500 on every combo in the Combo Playground ([#11882](https://github.com/diegosouzapw/OmniRoute/pull/11882)) — thanks @NoxzRCW
