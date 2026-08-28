@@ -152,7 +152,27 @@ export async function POST(request: Request) {
         errors.push(`Combo "${body.comboId}" not found.`);
         return NextResponse.json({ error: "Combo not found" }, { status: 404 });
       }
-      const targets = typeof combo.targets === "string" ? JSON.parse(combo.targets) : combo.targets;
+      const targets = (Array.isArray(combo.models) ? combo.models : [])
+        .filter(
+          (step: any) =>
+            typeof step === "string" ||
+            ((step.kind === undefined || step.kind === "model") && typeof step.model === "string")
+        )
+        .map((step: any) => {
+          const value = typeof step === "string" ? step : step.model;
+          const separator = value.indexOf("/");
+          const parsedProvider = separator === -1 ? undefined : value.slice(0, separator);
+          const parsedModel = separator === -1 ? value : value.slice(separator + 1);
+
+          return {
+            provider:
+              typeof step === "string"
+                ? parsedProvider || "unknown"
+                : step.providerId || step.provider || parsedProvider || "unknown",
+            model: parsedModel,
+            weight: typeof step === "string" ? undefined : step.weight,
+          };
+        });
       comboInfo = { name: combo.name, strategy: combo.strategy, targets };
     } else if (body.combo) {
       comboInfo = body.combo;

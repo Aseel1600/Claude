@@ -1,0 +1,1 @@
+- Fix persisted combos returning an error in the playground route simulator by mapping their ordered model steps to simulation targets.
