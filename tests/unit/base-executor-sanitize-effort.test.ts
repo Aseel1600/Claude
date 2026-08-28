@@ -1122,20 +1122,39 @@ test("sanitizeReasoningEffortForProvider: o1, o1-mini, o3-mini clamp xhigh/max/u
   }
 });
 
-test("sanitizeReasoningEffortForProvider: MiniMax, Grok clamping rules", () => {
+test("sanitizeReasoningEffortForProvider: Qwen 3.8 family (qwen3.8-max, qwen3.8-flash, qwen3.8-coder) reasoning effort handling", () => {
   const log = makeLog();
-  // MiniMax
-  const bMiniMax = { model: "minimax-m3", reasoning_effort: "max", messages: [] };
-  const rMiniMax = sanitizeReasoningEffortForProvider(bMiniMax, "minimax", "minimax-m3", log) as Record<string, unknown>;
-  assert.equal(rMiniMax.reasoning_effort, "high");
+  // qwen3.8-max on DashScope / qwen-cloud accepts low, medium, xhigh (and passes through max)
+  const bQwenMax = { model: "qwen3.8-max", reasoning_effort: "xhigh", messages: [] };
+  const rQwenMax = sanitizeReasoningEffortForProvider(bQwenMax, "qwen-cloud", "qwen3.8-max", log) as Record<string, unknown>;
+  assert.equal(rQwenMax.reasoning_effort, "xhigh", "qwen3.8-max preserves xhigh natively");
 
-  // Grok 4.5 clamps to high
-  const bGrok45 = { model: "grok-4.5", reasoning_effort: "max", messages: [] };
-  const rGrok45 = sanitizeReasoningEffortForProvider(bGrok45, "xai", "grok-4.5", log) as Record<string, unknown>;
-  assert.equal(rGrok45.reasoning_effort, "high");
+  const bQwenMaxLiteral = { model: "qwen3.8-max", reasoning_effort: "max", messages: [] };
+  const rQwenMaxLiteral = sanitizeReasoningEffortForProvider(bQwenMaxLiteral, "qwen-cloud", "qwen3.8-max", log) as Record<string, unknown>;
+  assert.equal(rQwenMaxLiteral.reasoning_effort, "max", "qwen3.8-max passes max through");
 
-  // Grok 4.6 clamps to xhigh
-  const bGrok46 = { model: "grok-4.6", reasoning_effort: "max", messages: [] };
-  const rGrok46 = sanitizeReasoningEffortForProvider(bGrok46, "xai", "grok-4.6", log) as Record<string, unknown>;
-  assert.equal(rGrok46.reasoning_effort, "xhigh");
+  // qwen-3.8 on opencode-go / command-code gateways maps xhigh → max
+  const bQwenCmd = { model: "qwen-3.8", reasoning_effort: "xhigh", messages: [] };
+  const rQwenCmd = sanitizeReasoningEffortForProvider(bQwenCmd, "cmd", "qwen-3.8", log) as Record<string, unknown>;
+  assert.equal(rQwenCmd.reasoning_effort, "max", "qwen-3.8 on command-code maps xhigh → max");
+});
+
+test("sanitizeReasoningEffortForProvider: 2026 comprehensive models (Claude 4.7+, GPT-5.6, Kimi K4, DeepSeek V4) pass-through & normalization", () => {
+  const log = makeLog();
+
+  // Claude 4.7 / 5.0 allows all tiers
+  for (const m of ["claude-opus-4-7", "claude-opus-4-8", "claude-5-sonnet", "claude-5-opus"]) {
+    for (const effort of ["low", "medium", "high", "xhigh", "max"]) {
+      const b = { model: m, output_config: { effort }, messages: [] };
+      const r = sanitizeReasoningEffortForProvider(b, "claude", m, log) as Record<string, unknown>;
+      assert.equal((r.output_config as Record<string, unknown>).effort, effort, `${m} should support ${effort}`);
+    }
+  }
+
+  // GPT-5.6 Sol/Terra allow ultra/max/xhigh
+  for (const effort of ["low", "medium", "high", "xhigh", "max", "ultra"]) {
+    const b = { model: "gpt-5.6-sol", reasoning: { effort }, messages: [] };
+    const r = sanitizeReasoningEffortForProvider(b, "codex", "gpt-5.6-sol", log) as Record<string, unknown>;
+    assert.equal((r.reasoning as Record<string, unknown>).effort, effort, `gpt-5.6-sol should preserve ${effort}`);
+  }
 });
