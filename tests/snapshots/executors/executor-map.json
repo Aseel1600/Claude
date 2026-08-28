@@ -530,16 +530,6 @@
       "configSource": "qoder",
       "provider": "qoder"
     },
-    "qw": {
-      "className": "QwenWebExecutor",
-      "configSource": "<custom-config>",
-      "provider": "qwen-web"
-    },
-    "qwen-web": {
-      "className": "QwenWebExecutor",
-      "configSource": "<custom-config>",
-      "provider": "qwen-web"
-    },
     "t3-web": {
       "className": "T3ChatWebExecutor",
       "configSource": "<custom-config>",
@@ -686,6 +676,6 @@
       "provider": "zai-web"
     }
   },
-  "keyCount": 137,
+  "keyCount": 135,
   "sharedInstances": []
 }

@@ -65,7 +65,7 @@ A 50-agent web-research pass (official docs + last-7-days news, adversarially ve
 
 > A quick read on each provider's terms for a self-hosted, single-user personal proxy. `caution` = a personal-use or proxy clause worth checking; `ambiguous` = unclear; `ok` = explicitly permitted. Informational, not legal advice — you decide.
 
-### ⚠️ Caution — personal-use / proxy clauses worth checking (19)
+### ⚠️ Caution — personal-use / proxy clauses worth checking (16)
 
 > Their free access is real and OmniRoute can route to them; the clauses below are just worth knowing. The OAuth/keyless ones aren't token-quantifiable, so they're not in the headline number (not because they're unusable).
 
@@ -86,7 +86,6 @@ A 50-agent web-research pass (official docs + last-7-days news, adversarially ve
 | `muse-spark-web` | Meta ToS explicitly prohibits automated access without prior permission, reverse engineering without written permission, and circumventing technologi… |
 | `nlpcloud`       | ToS explicitly prohibits "setting up a proxy or other device that allows others to access the Service through it" and grants only a non-transferable,… |
 | `opencode`       | ToS (Anomaly Innovations, Inc.) explicitly restricts use to "your own internal use, and not on behalf of or for the benefit of any third party" — ope… |
-| `qwen-web`       | No ToS permits a self-hosted proxy using session tokens against chat.qwen.ai; automated/programmatic access remains high-risk.                         |
 | `t3-web`         | ToS explicitly restricts accounts to personal use only, prohibits credential sharing with third parties, and bans automated/bot/scraping access — a s… |
 
 ### ✅ Generally permissive — caution / ambiguous / ok (the rest)
@@ -232,7 +231,6 @@ A 50-agent web-research pass (official docs + last-7-days news, adversarially ve
 | `opencode`       | keyless       | —                | —                  | avoid     | 7      |
 | `pollinations`   | keyless       | —                | —                  | caution   | 31     |
 | `publicai`       | keyless       | —                | —                  | caution   | 3      |
-| `qwen-web`       | keyless       | —                | —                  | avoid     | 3      |
 | `reka`           | keyless       | —                | —                  | caution   | 2      |
 | `sensenova`      | keyless       | —                | —                  | caution   | 1      |
 | `sparkdesk`      | keyless       | —                | —                  | caution   | 1      |
@@ -303,7 +301,6 @@ A 50-agent web-research pass (official docs + last-7-days news, adversarially ve
 - **`publicai`** — The shipped freeNote ("Free community inference tier") is broadly accurate but understates the specificity: the 20 RPM rate limit is now documented. No major tightening found; the service remains fre…
 - **`puter`** — **Fully removed** from the catalog (registry, executor, free-model catalog and API-key entry) at the request of Puter's owner (Nariman Jelveh) — see the dead-service-removal precedent above (`phind`).
 - **`qoder`** — Our catalog ships freeNote "(none)", but Qoder does have a free tier: a Community Edition with unlimited basic-model completions (daily-capped, unspecified limit) plus a one-time 14-day/300-credit Pr…
-- **`qwen-web`** — Session-token access against chat.qwen.ai is not a dependable free-provider path and may be rejected upstream.
 - **`sambanova`** — Our shipped note only described the one-time $5 credit (30-day validity). The current reality includes a permanent recurring free tier with documented rate limits (20 RPM, 20 RPD, 200k TPD) that pers…
 - **`sensenova`** — Our shipped freeNote says "Free SenseTime models" which is vague but directionally correct — free access does exist. However, reality is more nuanced: free access is a time-limited public beta (Token…
 - **`serper-search`** — The shipped freeNote says "(none)" which is partially accurate — there is no recurring free plan — but Serper does offer 2,500 one-time trial credits on signup. The catalog note could be more precise…

@@ -239,14 +239,6 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "sessionid", "ttwid", "s_v_web_id", "fp"],
   },
-  "qwen-web": {
-    kind: "cookie",
-    credentialName: "full Cookie header (must include cna, ssxmod_itna, token)",
-    placeholder:
-      "cna=...; token=...; ssxmod_itna=...; ssxmod_itna2=... (full Cookie header from chat.qwen.ai)",
-    acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "token", "ssxmod_itna", "ssxmod_itna2", "cna", "tongyi_sso_ticket"],
-  },
   "duckduckgo-web": {
     kind: "cookie",
     credentialName: "duckai",

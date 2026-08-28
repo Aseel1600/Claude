@@ -37,6 +37,7 @@ import {
 import { pickCodexConnectionForUser } from "@/lib/oauth/utils/codexConnectionSelection";
 import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
 import { reconcileCodexUsageHistory } from "./providers/usageIdentityReconciliation";
+import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
 
 /**
  * normalizeProviderSpecificData + the Codex fingerprint-seed invariant: Codex

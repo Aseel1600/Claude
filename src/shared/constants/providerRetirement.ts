@@ -3,7 +3,12 @@
  * after migrations have already run. Keep canonical ids and legacy aliases
  * together so neither executor dispatch nor credential selection can fall back.
  */
-export const RUNTIME_RETIRED_PROVIDER_IDS: ReadonlySet<string> = new Set(["felo-web", "felo"]);
+export const RUNTIME_RETIRED_PROVIDER_IDS: ReadonlySet<string> = new Set([
+  "felo-web",
+  "felo",
+  "qwen-web",
+  "qw",
+]);
 export const RUNTIME_PROVIDER_RETIRED_ERROR_CODE = "PROVIDER_RETIRED";
 export const RUNTIME_PROVIDER_RETIRED_MESSAGE = "Provider is retired and unavailable.";
 

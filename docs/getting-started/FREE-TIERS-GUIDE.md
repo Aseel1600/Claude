@@ -1,6 +1,6 @@
 # Free Tiers Guide: Understand and Combine Free AI Access
 
-> **TL;DR**: OmniRoute registers 351 provider IDs, with **153 provider-catalog entries marked `hasFree`**. The stricter audited free-model catalog covers **39 recurring pool keys / 451 entries** (444 active + 7 discontinued). Connect several suitable providers for broader fallback capacity; every quota, approval rule, privacy policy, and paid-overage condition still applies.
+> **TL;DR**: OmniRoute registers 351 provider IDs, with **153 provider-catalog entries marked `hasFree`**. The stricter audited free-model catalog covers **39 recurring pool keys / 447 entries** (440 active + 7 discontinued). Connect several suitable providers for broader fallback capacity; every quota, approval rule, privacy policy, and paid-overage condition still applies.
 
 ---
 

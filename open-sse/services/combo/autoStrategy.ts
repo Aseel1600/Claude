@@ -29,6 +29,7 @@ import type {
 } from "./types.ts";
 import { extractSessionAffinityKey } from "@/sse/services/auth";
 import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
+import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
 import { filterChatSelectableModels } from "../modelEndpointPolicy.ts";
 import { DEFAULT_INTENT_CONFIG, type IntentClassifierConfig } from "../intentClassifier.ts";
 import { getTaskFitness } from "../autoCombo/taskFitness.ts";
@@ -460,7 +461,10 @@ export async function expandAutoComboCandidatePool(
           .map((c) => c.provider)
           .filter(
             (p): p is string =>
-              typeof p === "string" && p.length > 0 && !isMicrosoftDesignerWebRetiredProviderId(p)
+              typeof p === "string" &&
+              p.length > 0 &&
+              !isMicrosoftDesignerWebRetiredProviderId(p) &&
+              !isRuntimeRetiredProviderId(p)
           )
       ),
     ];

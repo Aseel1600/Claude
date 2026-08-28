@@ -98,6 +98,13 @@ test("shared guard keeps retired Felo ids reserved after registry removal", () =
   assert.equal(isReservedProviderPrefix("\u00a0FELO\uFEFF"), true);
 });
 
+test("shared guard keeps retired Qwen Web ids reserved after registry removal", () => {
+  assert.equal(RESERVED_PROVIDER_PREFIXES.has("qwen-web"), true);
+  assert.equal(RESERVED_PROVIDER_PREFIXES.has("qw"), true);
+  assert.equal(isReservedProviderPrefix(" QwEn-WeB "), true);
+  assert.equal(isReservedProviderPrefix("\u00a0QW\uFEFF"), true);
+});
+
 test("shared set is case-sensitive like the runtime guard", () => {
   assert.equal(isReservedProviderPrefix("TokenRouter"), false);
   assert.equal(isReservedProviderPrefix("TOKENROUTER"), false);
@@ -114,12 +121,15 @@ test("shared set excludes manual aliases that never intercept nodes at runtime",
   assert.equal(RESERVED_PROVIDER_PREFIXES.has("aq"), false);
 });
 
-test("shared set size includes live REGISTRY and retired Designer + Felo prefixes", () => {
+test("shared set size includes live REGISTRY and retired Designer + Felo + Qwen Web prefixes", () => {
   // Computed (not hand-derived) after combining Designer's 2 retired
-  // ids/aliases with Felo's 2 retired ids/aliases on top of the live
-  // REGISTRY walk, minus the 3 GPL-derived Raycast/Hailuo Web ids/aliases
-  // removed from REGISTRY by #11691's migration 166.
-  assert.equal(RESERVED_PREFIX_COUNT, 397);
+  // ids/aliases with Felo's 2 retired ids/aliases and Qwen Web's 2 retired
+  // ids/aliases (qwen-web's REGISTRY id/alias were identical strings, so its
+  // live-REGISTRY contribution was 1 unique member; retiring it removes that
+  // 1 and adds 2 distinct tombstones "qwen-web"/"qw", a net +1) on top of the
+  // live REGISTRY walk, minus the 3 GPL-derived Raycast/Hailuo Web
+  // ids/aliases removed from REGISTRY by #11691's migration 166.
+  assert.equal(RESERVED_PREFIX_COUNT, 398);
 });
 
 test("isReservedProviderPrefix rejects non-string input", () => {
@@ -157,6 +167,31 @@ test("createProviderNodeSchema rejects reserved alias 'trk'", () => {
 
 test("provider node schemas reject retired Felo prefixes and normalized variants", () => {
   for (const prefix of ["felo-web", "felo", " FeLo-Web ", "\u00a0FELO\uFEFF"]) {
+    const created = createProviderNodeSchema.safeParse({
+      name: "Retired prefix",
+      prefix,
+      apiType: "chat",
+    });
+    assert.equal(created.success, false, `create must reject ${JSON.stringify(prefix)}`);
+
+    const updated = updateProviderNodeSchema.safeParse({
+      name: "Retired prefix",
+      prefix,
+      baseUrl: "https://retired.example.invalid/v1",
+    });
+    assert.equal(updated.success, false, `update must reject ${JSON.stringify(prefix)}`);
+
+    const preset = createProviderNodeSchema.safeParse({
+      preset: "vibeproxy-openai",
+      prefix,
+      baseUrl: "http://localhost:8317",
+    });
+    assert.equal(preset.success, false, `preset create must reject ${JSON.stringify(prefix)}`);
+  }
+});
+
+test("provider node schemas reject retired Qwen Web prefixes and normalized variants", () => {
+  for (const prefix of ["qwen-web", "qw", " QwEn-WeB ", "\u00a0QW\uFEFF"]) {
     const created = createProviderNodeSchema.safeParse({
       name: "Retired prefix",
       prefix,

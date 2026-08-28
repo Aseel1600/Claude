@@ -176,3 +176,25 @@ test("retired Felo ids cannot bypass the tombstone through a connection proxy", 
   });
   assert.equal(openAi, await getExecutor("cliproxyapi"));
 });
+
+test("retired Qwen Web ids cannot bypass the tombstone through a connection proxy", async () => {
+  for (const providerId of ["qwen-web", "qw", " QwEn-WeB ", "\tQW\n"]) {
+    await assert.rejects(
+      resolveExecutorWithProxy(providerId, undefined, {
+        cliproxyapiMode: "claude-native",
+      }),
+      (error: unknown) => {
+        const typed = error as Error & { code?: string; status?: number };
+        assert.equal(typed.code, "PROVIDER_RETIRED");
+        assert.equal(typed.status, 410);
+        assert.match(typed.message, /retired/i);
+        return true;
+      }
+    );
+  }
+
+  const qwenCloud = await resolveExecutorWithProxy("qwen-cloud", undefined, {
+    cliproxyapiMode: "claude-native",
+  });
+  assert.equal(qwenCloud, await getExecutor("cliproxyapi"));
+});

@@ -7,6 +7,7 @@ import { getProviderRegistry } from "./providerRegistryAccessor";
 import type { ConnectionFields } from "@/lib/db/encryption";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
 import { isMicrosoftDesignerWebRetiredProviderId } from "@/shared/constants/designerWebRetirement";
+import { isRuntimeRetiredProviderId } from "@/shared/constants/providerRetirement";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
 import { toNumber } from "@/shared/utils/numeric";
 import { isCompatibleProviderConnectionId } from "@/shared/utils/compatibleProviderId";
@@ -602,7 +603,9 @@ export async function prepareVirtualAutoComboInputs(
       .map((conn) => conn.provider)
   );
   const runtimeConnections = connections.filter(
-    (connection) => !isMicrosoftDesignerWebRetiredProviderId(connection.provider)
+    (connection) =>
+      !isMicrosoftDesignerWebRetiredProviderId(connection.provider) &&
+      !isRuntimeRetiredProviderId(connection.provider)
   );
   const hiddenModelsMap = getHiddenModelsByProvider();
   // #7622: a no-auth provider's own provider_connections row (#6557) can carry

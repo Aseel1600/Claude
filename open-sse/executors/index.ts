@@ -171,7 +171,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
     ), // Alias
   "doubao-web": () => import("./doubao-web.ts").then((m) => new m.DoubaoWebExecutor()),
   db: () => import("./doubao-web.ts").then((m) => new m.DoubaoWebExecutor()), // Alias
-  "qwen-web": () => import("./qwen-web.ts").then((m) => new m.QwenWebExecutor()),
   "zai-web": () => import("./zai-web.ts").then((m) => new m.ZaiWebExecutor()),
   zw: () => import("./zai-web.ts").then((m) => new m.ZaiWebExecutor()), // Alias
   theoldllm: () => import("./theoldllm.ts").then((m) => new m.TheOldLlmExecutor()),
@@ -198,7 +197,6 @@ const lazyExecutors: Record<string, () => Promise<BaseExecutor>> = {
   xai: () => import("./xai.ts").then((m) => new m.XaiExecutor()),
   "xai-oauth": () => import("./xai.ts").then((m) => new m.XaiExecutor("xai-oauth")),
   xao: () => import("./xai.ts").then((m) => new m.XaiExecutor("xai-oauth")),
-  qw: () => import("./qwen-web.ts").then((m) => new m.QwenWebExecutor()), // Alias
   "conol-web": () => import("./conol-web.ts").then((m) => new m.ConolWebExecutor()),
   cnl: () => import("./conol-web.ts").then((m) => new m.ConolWebExecutor()), // Alias
 };
