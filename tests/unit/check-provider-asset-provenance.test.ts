@@ -40,7 +40,10 @@ function writeManifest(
     recordType: "manifest",
     schemaVersion: 1,
     expectedAssetCount: records.filter((record) => record.recordType === "asset").length,
-    auditedCommit: "091589089cd134a94df9f6cdab9ba562b2cefd18",
+    // HEAD instead of a pinned SHA: the fast-unit shards run on a shallow checkout,
+    // where a historical commit object does not exist and the gate would reject
+    // the fixture before exercising what the test is about.
+    auditedCommit: gitObjectId("HEAD"),
     auditedAt: "2026-08-26",
     legalScope:
       "Provenance records source matching only; it does not establish copyright or trademark clearance.",
@@ -98,12 +101,53 @@ function gitObjectId(revision: string) {
   return result.stdout.trim();
 }
 
-function gitRootCommit() {
-  const result = spawnSync("git", ["-C", REPO_ROOT, "rev-list", "--max-parents=0", "HEAD"], {
+function gitHasCommit(objectId: string) {
+  return (
+    spawnSync("git", ["-C", REPO_ROOT, "cat-file", "-e", `${objectId}^{commit}`], {
+      encoding: "utf8",
+    }).status === 0
+  );
+}
+
+function isShallowRepository() {
+  const result = spawnSync("git", ["-C", REPO_ROOT, "rev-parse", "--is-shallow-repository"], {
     encoding: "utf8",
   });
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout.trim().split(/\r?\n/)[0];
+  return result.status === 0 && result.stdout.trim() === "true";
+}
+
+/**
+ * A commit whose tree is empty, so every physical provider file is "missing"
+ * from its snapshot. Built as a dangling object (no ref is written) so it also
+ * works on the shallow checkouts the unit shards use, where the root commit is
+ * the grafted HEAD itself and would match the physical snapshot exactly.
+ */
+function emptyTreeCommit() {
+  const tree = spawnSync("git", ["-C", REPO_ROOT, "hash-object", "-w", "-t", "tree", "--stdin"], {
+    input: "",
+    encoding: "utf8",
+  });
+  assert.equal(tree.status, 0, tree.stderr);
+  const identity = {
+    GIT_AUTHOR_NAME: "provenance-fixture",
+    GIT_AUTHOR_EMAIL: "provenance-fixture@example.invalid",
+    GIT_COMMITTER_NAME: "provenance-fixture",
+    GIT_COMMITTER_EMAIL: "provenance-fixture@example.invalid",
+  };
+  const commit = spawnSync(
+    "git",
+    [
+      "-C",
+      REPO_ROOT,
+      "commit-tree",
+      tree.stdout.trim(),
+      "-m",
+      "provenance fixture: empty snapshot",
+    ],
+    { encoding: "utf8", env: { ...process.env, ...identity } }
+  );
+  assert.equal(commit.status, 0, commit.stderr);
+  return commit.stdout.trim();
 }
 
 function workflowJob(source: string, name: string) {
@@ -479,7 +523,7 @@ test("provider asset provenance gate binds auditedCommit to the physical provide
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
-    records[0] = { ...records[0], auditedCommit: gitRootCommit() };
+    records[0] = { ...records[0], auditedCommit: emptyTreeCommit() };
     writeFileSync(
       fixture.manifestPath,
       `${records.map((record) => JSON.stringify(record)).join("\n")}\n`
@@ -497,11 +541,17 @@ test("provider asset provenance gate binds auditedCommit to the physical provide
   }
 });
 
-test("repository provider asset manifest covers the audited 142-file snapshot", () => {
-  const result = runGate(
-    join(REPO_ROOT, "public/providers"),
-    join(REPO_ROOT, "config/quality/provider-assets-provenance.jsonl")
-  );
+test("repository provider asset manifest covers the audited 142-file snapshot", (t) => {
+  const manifestPath = join(REPO_ROOT, "config/quality/provider-assets-provenance.jsonl");
+  const { auditedCommit } = JSON.parse(readFileSync(manifestPath, "utf8").split("\n")[0]);
+  if (!gitHasCommit(auditedCommit) && isShallowRepository()) {
+    // The real manifest pins a historical commit. The unit shards check out with
+    // depth 1, so it is not fetched there; the gate itself still runs on both
+    // blocking rails with fetch-depth 0 (asserted by the test right below).
+    t.skip(`shallow checkout without auditedCommit ${auditedCommit}`);
+    return;
+  }
+  const result = runGate(join(REPO_ROOT, "public/providers"), manifestPath);
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(
