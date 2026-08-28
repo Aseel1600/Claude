@@ -1,3 +1,7 @@
+---
+title: Self-Hosted Runner Box Operations
+---
+
 # Self-Hosted Runner Box Operations (.113 pool)
 
 The self-hosted pool (`self-hosted, omni-release` labels) runs on the **.113** box.
