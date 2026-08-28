@@ -162,49 +162,61 @@ function stopTextBlock(state, results) {
   state.textBlockStarted = false;
 }
 
+// Harvest the upstream usage block from any chunk, including trailing
+// usage-only chunks that carry `choices: []` (#11817).
+function trackUsageFromChunk(chunk, state) {
+  if (!chunk.usage || typeof chunk.usage !== "object") return;
+  const promptTokens =
+    typeof chunk.usage.prompt_tokens === "number" ? chunk.usage.prompt_tokens : 0;
+  const outputTokens =
+    typeof chunk.usage.completion_tokens === "number" ? chunk.usage.completion_tokens : 0;
+
+  // Extract cache tokens from prompt_tokens_details
+  const cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens;
+  const cacheCreationTokens = chunk.usage.prompt_tokens_details?.cache_creation_tokens;
+  const cacheReadTokens = typeof cachedTokens === "number" ? cachedTokens : 0;
+  const cacheCreateTokens = typeof cacheCreationTokens === "number" ? cacheCreationTokens : 0;
+
+  // input_tokens = prompt_tokens - cached_tokens - cache_creation_tokens
+  // Because OpenAI's prompt_tokens includes all prompt-side tokens
+  const inputTokens = promptTokens - cacheReadTokens - cacheCreateTokens;
+
+  state.usage = {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+  };
+
+  // Add cache_read_input_tokens if present
+  if (cacheReadTokens > 0) {
+    state.usage.cache_read_input_tokens = cacheReadTokens;
+  }
+
+  // Add cache_creation_input_tokens if present
+  if (cacheCreateTokens > 0) {
+    state.usage.cache_creation_input_tokens = cacheCreateTokens;
+  }
+
+  // Note: completion_tokens_details.reasoning_tokens is already included in output_tokens
+  // No need to add separately as Claude expects total output_tokens
+}
+
 // Convert OpenAI stream chunk to Claude format
 export function openaiToClaudeResponse(chunk, state) {
-  if (!chunk || !chunk.choices?.[0]) return null;
+  if (!chunk) return null;
+
+  // Usage must be harvested BEFORE the choices guard: many OpenAI-compatible
+  // upstreams (Fireworks, vLLM, Together, …) deliver the authoritative usage
+  // block — including prompt_tokens_details.cached_tokens — on a trailing
+  // usage-only chunk shaped `{"choices":[],"usage":{...}}`. Returning early on
+  // that chunk discarded the real numbers and left downstream accounting on
+  // OmniRoute's own tokenizer estimate (#11817).
+  trackUsageFromChunk(chunk, state);
+
+  if (!chunk.choices?.[0]) return null;
 
   const results = [];
   const choice = chunk.choices[0];
   const delta = choice.delta;
-
-  // Track usage from OpenAI chunk if available
-  if (chunk.usage && typeof chunk.usage === "object") {
-    const promptTokens =
-      typeof chunk.usage.prompt_tokens === "number" ? chunk.usage.prompt_tokens : 0;
-    const outputTokens =
-      typeof chunk.usage.completion_tokens === "number" ? chunk.usage.completion_tokens : 0;
-
-    // Extract cache tokens from prompt_tokens_details
-    const cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens;
-    const cacheCreationTokens = chunk.usage.prompt_tokens_details?.cache_creation_tokens;
-    const cacheReadTokens = typeof cachedTokens === "number" ? cachedTokens : 0;
-    const cacheCreateTokens = typeof cacheCreationTokens === "number" ? cacheCreationTokens : 0;
-
-    // input_tokens = prompt_tokens - cached_tokens - cache_creation_tokens
-    // Because OpenAI's prompt_tokens includes all prompt-side tokens
-    const inputTokens = promptTokens - cacheReadTokens - cacheCreateTokens;
-
-    state.usage = {
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-    };
-
-    // Add cache_read_input_tokens if present
-    if (cacheReadTokens > 0) {
-      state.usage.cache_read_input_tokens = cacheReadTokens;
-    }
-
-    // Add cache_creation_input_tokens if present
-    if (cacheCreateTokens > 0) {
-      state.usage.cache_creation_input_tokens = cacheCreateTokens;
-    }
-
-    // Note: completion_tokens_details.reasoning_tokens is already included in output_tokens
-    // No need to add separately as Claude expects total output_tokens
-  }
 
   // First chunk - ALWAYS send message_start first
   if (!state.messageStartSent) {
