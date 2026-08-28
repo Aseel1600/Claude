@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCombos } from "@/lib/db/combos";
+import { comboStepsToTargets } from "@/lib/combos/simulatorTargets";
 import { getProviderConnections } from "@/lib/db/providers";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
         errors.push(`Combo "${body.comboId}" not found.`);
         return NextResponse.json({ error: "Combo not found" }, { status: 404 });
       }
-      const targets = typeof combo.targets === "string" ? JSON.parse(combo.targets) : combo.targets;
+      const targets = comboStepsToTargets(combo, warnings);
       comboInfo = { name: combo.name, strategy: combo.strategy, targets };
     } else if (body.combo) {
       comboInfo = body.combo;
