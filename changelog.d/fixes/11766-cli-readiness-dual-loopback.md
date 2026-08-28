@@ -1,0 +1,1 @@
+- **fix(cli):** probe literal IPv4 and IPv6 loopbacks concurrently, with family-matched TCP fallback, for the unreleased latest-tip family-coverage regression introduced by #10758 and related to [#11766](https://github.com/diegosouzapw/OmniRoute/issues/11766), while preserving #6800: a socket that accepts TCP but never answers remains not ready.

@@ -63,6 +63,8 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export const LOOPBACK_PROBE_HOSTS = ["127.0.0.1", "::1"];
+
 // #2460: Default raised from 15s to 60s so Windows users (slower Next.js
 // cold start due to filesystem watchers, antivirus, etc.) get a working
 // "server ready" signal instead of a phantom timeout while the server is
@@ -73,11 +75,16 @@ export function sleep(ms) {
 // socket that merely accepts TCP and then hangs without ever completing
 // a single request (#6800: that's a still-booting/CPU-bound process, not
 // a "route not mounted" gap, and must NOT be reported as ready).
+// Each poll probes both literal loopback families concurrently and aggregates
+// ready > hanging > fast-reject > not-listening before applying that shared grace.
 export async function waitForServer(port, timeout = 60000) {
   const start = Date.now();
   let tcpListeningSince = null;
   while (Date.now() - start < timeout) {
-    const outcome = await pollHealthOnce(port);
+    const outcomes = await Promise.all(
+      LOOPBACK_PROBE_HOSTS.map((host) => pollHealthOnce(port, host))
+    );
+    const outcome = classifyReadiness(outcomes);
     if (outcome === "ready") return true;
     if (outcome === "fast-reject") {
       if (tcpListeningSince === null) tcpListeningSince = Date.now();
@@ -100,23 +107,24 @@ export async function waitForServer(port, timeout = 60000) {
 // - "hanging": the request timed out waiting for any response — the
 //   process accepted the TCP connection but never answered (#6800).
 // - "not-listening": nothing is accepting connections on the port at all.
-async function pollHealthOnce(port) {
+async function pollHealthOnce(port, host) {
+  const urlHost = host.includes(":") ? `[${host}]` : host;
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/monitoring/health`, {
+    const res = await fetch(`http://${urlHost}:${port}/api/monitoring/health`, {
       signal: AbortSignal.timeout(2000),
     });
     return res.ok ? "ready" : "fast-reject";
   } catch (err) {
     if (err?.name === "TimeoutError") return "hanging";
-    const listening = await isPortListening(port).catch(() => false);
+    const listening = await isPortListening(port, host).catch(() => false);
     return listening ? "fast-reject" : "not-listening";
   }
 }
 
-async function isPortListening(port) {
+async function isPortListening(port, host) {
   const net = await import("node:net");
   return new Promise((resolve) => {
-    const socket = net.connect({ host: "127.0.0.1", port, timeout: 1000 });
+    const socket = net.connect({ host, port, timeout: 1000 });
     const finish = (ok) => {
       try {
         socket.destroy();
@@ -127,4 +135,11 @@ async function isPortListening(port) {
     socket.once("error", () => finish(false));
     socket.once("timeout", () => finish(false));
   });
+}
+
+export function classifyReadiness(outcomes) {
+  if (outcomes.includes("ready")) return "ready";
+  if (outcomes.includes("hanging")) return "hanging";
+  if (outcomes.includes("fast-reject")) return "fast-reject";
+  return "not-listening";
 }
