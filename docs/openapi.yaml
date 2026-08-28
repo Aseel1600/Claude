@@ -164,9 +164,7 @@ paths:
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: "#/components/schemas/ExclusiveConnectionLeaseLifecycle"
-                  - $ref: "#/components/schemas/ExclusiveConnectionLeaseStatus"
+                $ref: "#/components/schemas/ExclusiveConnectionLeaseLifecycle"
         "400":
           description: Missing or invalid lease context/action
         "401":
@@ -7846,7 +7844,10 @@ components:
   schemas:
     ExclusiveConnectionLeaseLifecycle:
       type: object
-      description: Acquire, renew, and release lifecycle response; never includes connection metadata.
+      description: >-
+        Shared lease lifecycle response. The optional connection object is present only for an
+        explicit, successful owner-authenticated status action; acquire, renew, and release never
+        include connection metadata.
       required: [state, generation, acquiredAt, renewedAt, expiresAt]
       properties:
         state: { type: string, enum: [ACTIVE, RELEASED] }
@@ -7854,29 +7855,22 @@ components:
         acquiredAt: { type: string, format: date-time }
         renewedAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
-    ExclusiveConnectionLeaseStatus:
-      allOf:
-        - $ref: "#/components/schemas/ExclusiveConnectionLeaseLifecycle"
-        - type: object
+        connection:
+          type: object
           description: >-
-            Owner-authenticated active binding display metadata. Wrong-key, wrong-owner,
+            Privacy-safe metadata for the exact active binding. Wrong-key, wrong-owner,
             stale-generation, missing, expired, released, or invalidated leases return a generic
             409 without this object. No credential, internal id, owner identity, or email fallback
             is serialized.
-          required: [state, connection]
+          required: [displayName, provider]
           properties:
-            state: { type: string, const: ACTIVE }
-            connection:
-              type: object
-              required: [displayName, provider]
-              properties:
-                displayName:
-                  type: [string, "null"]
-                  description: Trimmed operator-configured name, or null when no privacy-safe name exists.
-                provider:
-                  type: string
-                  minLength: 1
-                  description: Non-sensitive provider display label, never a generated compatible-provider id.
+            displayName:
+              type: [string, "null"]
+              description: Trimmed operator-configured name, or null when no privacy-safe name exists.
+            provider:
+              type: string
+              minLength: 1
+              description: Non-sensitive provider display label, never a generated compatible-provider id.
     ExclusiveConnectionLeaseCapacity:
       type: object
       required: [state, error, reason, retryAfter, eligibleCount, freeCount]

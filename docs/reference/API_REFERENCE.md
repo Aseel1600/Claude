@@ -147,8 +147,7 @@ a generated compatible-provider identifier. Credentials, tokens, cookies, raw co
 key ids, owner hashes, fencing secrets, and internal routing data are excluded.
 
 Wrong-key, wrong-owner, stale-generation, missing, expired, released, and invalidated lookups all
-return the same `409 LEASE_FENCE_STALE` error without connection metadata. A client that received
-`WAITING_FOR_CAPACITY` has no active binding to inspect. When routing transitions an active lease,
+return the same `409 LEASE_FENCE_STALE` error without connection metadata. A client that received the capacity-wait response has no active binding to inspect. When routing transitions an active lease,
 the same generation remains valid and status atomically returns the new binding, never the old one.
 Existing clients remain unchanged because acquire, renew, release, and waiting responses retain
 their previous shapes.
