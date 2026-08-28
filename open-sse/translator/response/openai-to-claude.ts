@@ -164,22 +164,22 @@ function stopTextBlock(state, results) {
 
 // Convert OpenAI stream chunk to Claude format
 export function openaiToClaudeResponse(chunk, state) {
-  if (!chunk || !chunk.choices?.[0]) return null;
+  if (!chunk && !state.pendingClaudeFinishChoice) return null;
 
   const results = [];
-  const choice = chunk.choices[0];
-  const delta = choice.delta;
+  const chunkUsage = chunk?.usage;
+  const hasChunkUsage = chunkUsage && typeof chunkUsage === "object";
 
   // Track usage from OpenAI chunk if available
-  if (chunk.usage && typeof chunk.usage === "object") {
+  if (hasChunkUsage) {
     const promptTokens =
-      typeof chunk.usage.prompt_tokens === "number" ? chunk.usage.prompt_tokens : 0;
+      typeof chunkUsage.prompt_tokens === "number" ? chunkUsage.prompt_tokens : 0;
     const outputTokens =
-      typeof chunk.usage.completion_tokens === "number" ? chunk.usage.completion_tokens : 0;
+      typeof chunkUsage.completion_tokens === "number" ? chunkUsage.completion_tokens : 0;
 
     // Extract cache tokens from prompt_tokens_details
-    const cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens;
-    const cacheCreationTokens = chunk.usage.prompt_tokens_details?.cache_creation_tokens;
+    const cachedTokens = chunkUsage.prompt_tokens_details?.cached_tokens;
+    const cacheCreationTokens = chunkUsage.prompt_tokens_details?.cache_creation_tokens;
     const cacheReadTokens = typeof cachedTokens === "number" ? cachedTokens : 0;
     const cacheCreateTokens = typeof cacheCreationTokens === "number" ? cacheCreationTokens : 0;
 
@@ -205,6 +205,13 @@ export function openaiToClaudeResponse(chunk, state) {
     // Note: completion_tokens_details.reasoning_tokens is already included in output_tokens
     // No need to add separately as Claude expects total output_tokens
   }
+
+  const chunkChoice = chunk?.choices?.[0];
+  const flushingPendingFinish = !chunkChoice && Boolean(state.pendingClaudeFinishChoice);
+  const choice = chunkChoice || state.pendingClaudeFinishChoice;
+  if (!choice) return null;
+  if (flushingPendingFinish) state.pendingClaudeFinishChoice = null;
+  const delta = choice.delta;
 
   // First chunk - ALWAYS send message_start first
   if (!state.messageStartSent) {
@@ -436,6 +443,11 @@ export function openaiToClaudeResponse(chunk, state) {
   // guard therefore misfired and silently dropped the terminal message_delta/message_stop
   // for Responses→Claude streams (#5828 regression).
   if (choice.finish_reason && !state.claudeFinishEmitted) {
+    if (!hasChunkUsage && !flushingPendingFinish) {
+      state.pendingClaudeFinishChoice = choice;
+      return results.length > 0 ? results : null;
+    }
+
     state.claudeFinishEmitted = true;
     stopThinkingBlock(state, results);
     stopTextBlock(state, results);
