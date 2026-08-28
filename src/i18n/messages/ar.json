@@ -2924,6 +2924,7 @@
       "letta": "عميل Letta CLI بذاكرة مستمرة واستخدام للأدوات",
       "warp": "طرفية Warp AI مع دعم لمزودي الخدمة المخصصين",
       "agent-deck": "منسق الوكلاء المتعددين Agent Deck",
+      "5dive": "5dive — أسطول ذاتي الاستضافة من وكلاء البرمجة؛ ملف اعتماد واحد يوجّهها جميعًا إلى OmniRoute",
       "prime-agent": "Prime Agent — self-improving RLM coding harness with OpenAI-compatible provider support"
     },
     "guides": {

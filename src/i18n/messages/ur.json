@@ -2924,6 +2924,7 @@
       "letta": "مستقل میموری اور ٹول کے استعمال کے ساتھ Letta CLI ایجنٹ",
       "warp": "کسٹم پرووائیڈر سپورٹ کے ساتھ Warp AI ٹرمینل",
       "agent-deck": "Agent Deck ملٹی ایجنٹ آرکیسٹریٹر",
+      "5dive": "5dive — خود میزبان کوڈنگ ایجنٹس کا بیڑا؛ ایک auth پروفائل ان سب کو OmniRoute کی طرف بھیجتی ہے",
       "prime-agent": "Prime Agent — self-improving RLM coding harness with OpenAI-compatible provider support"
     },
     "guides": {

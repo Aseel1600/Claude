@@ -2924,6 +2924,7 @@
       "letta": "स्थायी मेमोरी और टूल उपयोग के साथ Letta CLI एजेंट",
       "warp": "कस्टम प्रदाता समर्थन के साथ Warp AI टर्मिनल",
       "agent-deck": "Agent Deck मल्टी-एजेंट ऑर्केस्ट्रेटर",
+      "5dive": "5dive — स्व-होस्टेड कोडिंग एजेंट्स का बेड़ा; एक auth प्रोफ़ाइल सभी को OmniRoute की ओर इंगित करती है",
       "prime-agent": "Prime Agent — self-improving RLM coding harness with OpenAI-compatible provider support"
     },
     "guides": {

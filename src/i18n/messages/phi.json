@@ -2924,6 +2924,7 @@
       "letta": "Letta CLI agent na may persistent memory at paggamit ng tool",
       "warp": "Warp AI terminal na may suporta sa custom provider",
       "agent-deck": "Agent Deck multi-agent orchestrator",
+      "5dive": "5dive — self-hosted fleet ng coding agents; isang auth profile ang nagtuturo sa kanilang lahat sa OmniRoute",
       "prime-agent": "Prime Agent — self-improving RLM coding harness with OpenAI-compatible provider support"
     },
     "guides": {

@@ -2924,6 +2924,7 @@
       "letta": "Letta CLI 代理，具備持久記憶與工具使用能力",
       "warp": "Warp AI 終端機，支援自訂提供者",
       "agent-deck": "Agent Deck 多代理協調器",
+      "5dive": "5dive — 自架的編碼代理機群；一個認證設定檔即可將全部指向 OmniRoute",
       "prime-agent": "Prime Agent — self-improving RLM coding harness with OpenAI-compatible provider support"
     },
     "guides": {

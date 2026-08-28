@@ -2924,6 +2924,7 @@
       "letta": "CLI-агент Letta с постоянной памятью и использованием инструментов",
       "warp": "Терминал Warp AI с поддержкой кастомных провайдеров",
       "agent-deck": "Мультиагентный оркестратор Agent Deck",
+      "5dive": "5dive — самостоятельно размещаемый флот агентов для кода; один auth-профиль направляет их всех в OmniRoute",
       "prime-agent": "Prime Agent — self-improving RLM coding harness with OpenAI-compatible provider support"
     },
     "guides": {
