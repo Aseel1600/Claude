@@ -249,6 +249,28 @@ export const OAUTH_INVALID_TOKEN_SIGNALS = [
   "invalid credentials",
 ];
 
+// A model that upstream has permanently retired — Gemini's deprecated-model 404
+// ("This model models/gemini-2.5-flash is no longer available to new users...")
+// and Fireworks/OpenAI-compatible "end of life" 410s ("has reached its end of
+// life ... and is no longer available") — will 404/410 on EVERY future request;
+// no cooldown short enough to retry soon is ever correct. Without this check
+// these fall through to the generic "all other errors" branch at the bottom of
+// checkFallbackError, which only applies a short (seconds-to-minutes) transient
+// cooldown, so combo/auto-routing keeps re-selecting the dead model roughly
+// every cooldown window, forever — wasted upstream calls that, at volume, look
+// like abusive traffic to the provider (observed: a Gemini free-tier key
+// retried `gemini-2.5-flash`/`gemini-2.5-flash-lite` every ~15-45 minutes for a
+// full day). Matched independent of MODEL_ACCESS_DENIED_PATTERNS below because
+// those only fire for status 400; this needs to catch the far more common
+// 404/410 status a retired model actually returns.
+export const MODEL_PERMANENTLY_UNAVAILABLE_PATTERNS = [
+  /\bno longer available\b/i,
+  /\bno longer supported\b/i,
+  /\bhas reached (?:its |the )?end.?of.?life\b/i,
+  /\bmodel[\s\S]{0,40}?\b(?:deprecated|retired|discontinued|decommissioned)\b/i,
+  /\b(?:deprecated|retired|discontinued|decommissioned)[\s\S]{0,40}?\bmodel\b/i,
+];
+
 // Context overflow patterns — the prompt exceeds the model's maximum context length.
 // Different providers phrase this differently. Used to decide whether a 400 error
 // should trigger combo fallback (a different model may have a larger context window).
@@ -419,6 +441,15 @@ export function isAccountDeactivated(errorText: string): boolean {
 export function isCreditsExhausted(errorText: string): boolean {
   const lower = String(errorText || "").toLowerCase();
   return CREDITS_EXHAUSTED_SIGNALS.some((sig) => lower.includes(sig));
+}
+
+/**
+ * Returns true if the response body indicates the requested model has been
+ * permanently retired by the provider (see MODEL_PERMANENTLY_UNAVAILABLE_PATTERNS).
+ */
+export function isModelPermanentlyUnavailable(errorText: string): boolean {
+  const text = String(errorText || "");
+  return MODEL_PERMANENTLY_UNAVAILABLE_PATTERNS.some((p) => p.test(text));
 }
 
 /**
@@ -1752,6 +1783,28 @@ export function checkFallbackError(
         cooldownMs: 365 * 24 * 60 * 60 * 1000, // 1 year = effectively permanent
         reason: RateLimitReason.AUTH_ERROR,
         permanent: true,
+      };
+    }
+
+    // A retired model (Gemini deprecated-model 404, Fireworks/etc. end-of-life 410)
+    // will fail identically on every future request — lock it for a long, fixed
+    // window instead of falling through to the generic transient-error branch's
+    // short backoff, which would otherwise keep re-selecting a permanently dead
+    // model roughly every cooldown window, all day, hammering the provider with
+    // guaranteed-to-fail requests (see MODEL_PERMANENTLY_UNAVAILABLE_PATTERNS).
+    // `quotaResetHintMs` flows into combo.ts's per-request model-lockout as an
+    // upstream-verified reset, so it is honored in full and not clamped to the
+    // normal ~20min model-lockout ceiling.
+    if (
+      (status === HTTP_STATUS.NOT_FOUND || status === HTTP_STATUS.GONE) &&
+      isModelPermanentlyUnavailable(errorStr)
+    ) {
+      const cooldownMs = 24 * 60 * 60 * 1000; // 24h
+      return {
+        shouldFallback: true,
+        cooldownMs,
+        reason: "not_found",
+        quotaResetHintMs: cooldownMs,
       };
     }
 
