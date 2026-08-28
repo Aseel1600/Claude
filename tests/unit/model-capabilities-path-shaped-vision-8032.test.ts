@@ -79,13 +79,51 @@ test("#8032 leaf fallback: cline-pass/kimi-k3 resolves MODEL_SPECS kimi-k3 visio
   assert.equal(caps.supportsVision, true);
 });
 
+test("Hyperspace Claude 4.8 Opus alias resolves native vision", () => {
+  const caps = modelCapabilities.getResolvedModelCapabilities("hyperspace/claude-4.8-opus[1m]");
+  assert.equal(caps.supportsVision, true);
+});
+
+test("Vision Bridge keeps Hyperspace Claude 4.8 Opus for image requests", async () => {
+  const model = "hyperspace/claude-4.8-opus[1m]";
+  const { VisionBridgeGuardrail } = await import("../../src/lib/guardrails/visionBridge.ts");
+  let visionCallCount = 0;
+  const guardrail = new VisionBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({ visionBridgeEnabled: true }),
+      callVisionModel: async () => {
+        visionCallCount++;
+        return "should not run";
+      },
+    },
+  });
+
+  const result = await guardrail.preCall(
+    {
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "What is in this image?" },
+            { type: "image_url", image_url: { url: "https://example.com/photo.png" } },
+          ],
+        },
+      ],
+    },
+    { model, log: console }
+  );
+
+  assert.equal(result.block, false);
+  assert.equal(visionCallCount, 0);
+  assert.equal(result.modifiedPayload, undefined);
+});
+
 test("#8032 leaf fallback is vision-only: aihorde/deepseek/deepseek-v4-flash keeps tools=false", () => {
   // Regression guard from PR review (#8495 / #8212): shared getStaticSpec leaf
   // lookup previously promoted this live-discovered AI Horde id to the real
   // DeepSeek V4 Flash supportsTools:true spec. Leaf lookup must stay vision-only.
-  const caps = modelCapabilities.getResolvedModelCapabilities(
-    "aihorde/deepseek/deepseek-v4-flash"
-  );
+  const caps = modelCapabilities.getResolvedModelCapabilities("aihorde/deepseek/deepseek-v4-flash");
   assert.equal(caps.toolCalling, false);
   assert.equal(caps.supportsTools, false);
   assert.equal(

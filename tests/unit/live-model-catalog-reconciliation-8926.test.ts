@@ -167,6 +167,15 @@ test("#8926: providers without an authoritative live catalog retain static fallb
   assert.equal(resolved.model, "gpt-4o-mini");
 });
 
+test("OpenAI gpt-5.6 alias accepts the canonical live catalog model", async () => {
+  await seedProviderCatalog("openai", "openai-live-gpt-5-6", ["gpt-5.6-sol"]);
+
+  const resolved = await getModelInfo("openai/gpt-5.6");
+
+  assert.equal(resolved.provider, "openai");
+  assert.equal(resolved.model, "gpt-5.6");
+});
+
 test("#8926: registered effort variant is rejected when its live base is absent", async () => {
   await seedProviderCatalog("cursor", "cursor-live-without-base-8926", ["cursor-live-only-8926"]);
 
