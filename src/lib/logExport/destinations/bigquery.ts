@@ -31,6 +31,13 @@ const INSERT_CHUNK_SIZE = 500;
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const MAX_INSERT_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
+/**
+ * A table created moments ago is not immediately visible to the streaming endpoint —
+ * insertAll answers 404 for a short window even though the table exists. Only retried
+ * when this run created the table, so a genuinely missing table still fails fast.
+ */
+const MAX_FRESH_TABLE_ATTEMPTS = 6;
+const FRESH_TABLE_DELAY_MS = 2_000;
 
 export const bigQueryConfigSchema = z.object({
   projectId: z.string().min(1).max(200),
@@ -193,6 +200,8 @@ function describeFailure(status: number, body: BigQueryResponseBody | null): str
 
 class BigQueryClient implements LogExportClient {
   private readonly key: ServiceAccountKey;
+  /** Set when prepare() created the table in this run — see MAX_FRESH_TABLE_ATTEMPTS. */
+  private createdTableThisRun = false;
 
   constructor(
     private readonly config: BigQueryConfig,
@@ -300,6 +309,7 @@ class BigQueryClient implements LogExportClient {
     if (!createdTable.ok && createdTable.status !== 409) {
       throw new Error(describeFailure(createdTable.status, createdTable.json));
     }
+    this.createdTableThisRun = true;
   }
 
   async send(records: readonly LogExportRecord[]): Promise<void> {
@@ -330,10 +340,21 @@ class BigQueryClient implements LogExportClient {
       })),
     };
 
+    let freshTableAttempts = 0;
     for (let attempt = 1; ; attempt++) {
       const response = await this.request("POST", `${this.tablePath}/insertAll`, body);
 
       if (!response.ok) {
+        // The table exists but the streaming endpoint has not caught up yet.
+        if (
+          response.status === 404 &&
+          this.createdTableThisRun &&
+          freshTableAttempts < MAX_FRESH_TABLE_ATTEMPTS
+        ) {
+          freshTableAttempts += 1;
+          await this.sleep(FRESH_TABLE_DELAY_MS);
+          continue;
+        }
         const retryable = RETRYABLE_STATUSES.has(response.status);
         if (!retryable || attempt >= MAX_INSERT_ATTEMPTS) {
           throw new Error(describeFailure(response.status, response.json));
@@ -355,11 +376,10 @@ class BigQueryClient implements LogExportClient {
     }
   }
 
+  // Deliberately NOT unref'd: this timer is awaited mid-request, and an unref'd one
+  // lets the process exit out from under the retry when nothing else holds the loop.
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      const timer = setTimeout(resolve, ms);
-      timer.unref?.();
-    });
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

@@ -114,6 +114,12 @@ Transient statuses (408/429/500/502/503/504) are retried up to three times with 
 backoff, reusing the same insertIds; auth and schema failures throw on the first attempt rather
 than burning the run.
 
+A table created moments ago is not yet visible to the streaming endpoint, which answers
+404 for a few seconds. That 404 is retried, but **only when this run created the table** —
+a genuinely missing table still fails fast. Note that re-creating a table under a name that
+was recently deleted makes BigQuery refuse streaming inserts for several minutes; that is a
+property of delete-then-recreate, so prefer a new table name over dropping and re-adding one.
+
 **A partial failure arrives as HTTP 200 with a non-empty `insertErrors[]`.** That is treated as
 a failure and throws, which is what stops the cursor from advancing past rows BigQuery never
 accepted; `tests/unit/log-export-bigquery.test.ts` pins the behaviour.

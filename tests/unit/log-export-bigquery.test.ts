@@ -366,3 +366,46 @@ test("send_PermanentAuthFailure_DoesNotRetry", async () => {
     "a 403 is terminal — retrying it just burns the run"
   );
 });
+
+test("send_FreshlyCreatedTableStillPropagating_RetriesThe404", async () => {
+  let inserts = 0;
+  const { fetchImpl } = stubFetch([
+    (call) => {
+      if (call.method === "GET") return { status: 404, json: { error: { message: "Not found" } } };
+      if (call.method === "POST" && /\/(datasets|tables)$/.test(call.url)) {
+        return { status: 200, json: {} };
+      }
+      if (call.url.endsWith("/insertAll")) {
+        inserts += 1;
+        // BigQuery answers 404 on the streaming endpoint until the new table propagates.
+        return inserts === 1
+          ? { status: 404, json: { error: { message: "Table 123:ds.tbl not found." } } }
+          : { status: 200, json: {} };
+      }
+      return null;
+    },
+  ]);
+  const client = bigquery.createBigQueryClientForTest(CONFIG, fetchImpl);
+
+  await client.prepare();
+  await client.send([RECORD]);
+
+  assert.equal(inserts, 2, "the 404 on a just-created table is retried, not surfaced");
+});
+
+test("send_MissingTableNotCreatedByThisRun_FailsFastOn404", async () => {
+  let inserts = 0;
+  const { fetchImpl } = stubFetch([
+    (call) => {
+      if (call.url.endsWith("/insertAll")) {
+        inserts += 1;
+        return { status: 404, json: { error: { message: "Table 123:ds.tbl not found." } } };
+      }
+      return null;
+    },
+  ]);
+  const client = bigquery.createBigQueryClientForTest(CONFIG, fetchImpl);
+
+  await assert.rejects(() => client.send([RECORD]), /not found/);
+  assert.equal(inserts, 1, "a table this run did not create is a real error, not a race");
+});
