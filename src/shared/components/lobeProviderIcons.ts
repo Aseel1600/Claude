@@ -487,7 +487,7 @@ export function getLobeProviderIcon(
   type: "mono" | "color" = "color"
 ): LobeIconComponent | null {
   const iconKey = LOBE_PROVIDER_ALIASES[providerId.toLowerCase()];
-  if (!iconKey) return null;
+  if (!Object.hasOwn(LOBE_ICON_COMPONENTS, iconKey)) return null;
 
   const entry = LOBE_ICON_COMPONENTS[iconKey];
   return type === "color" && entry.color ? entry.color : entry.mono;

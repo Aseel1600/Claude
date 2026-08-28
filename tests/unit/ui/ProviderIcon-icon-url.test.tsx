@@ -137,3 +137,18 @@ describe("ProviderIcon — Qwen Cloud local asset", () => {
     }
   );
 });
+
+describe("ProviderIcon — inherited object property ids", () => {
+  it.each(["constructor", "valueOf", "hasOwnProperty", "__proto__"])(
+    "renders provider id %s through the unknown-provider fallback",
+    (providerId) => {
+      const container = renderIcon({ providerId });
+      const img = container.querySelector("img");
+
+      expect(img).not.toBeNull();
+      expect(img?.getAttribute("src")).toBe(
+        `https://thesvg.org/icons/${providerId.toLowerCase()}/default.svg`
+      );
+    }
+  );
+});

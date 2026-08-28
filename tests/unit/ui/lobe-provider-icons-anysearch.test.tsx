@@ -10,3 +10,12 @@ describe("AnySearch provider icon fallback", () => {
     }
   );
 });
+
+describe("unknown provider icon fallback", () => {
+  it.each(["constructor", "valueOf", "hasOwnProperty", "__proto__"])(
+    "does not resolve inherited object property %s as an icon",
+    (providerId) => {
+      expect(getLobeProviderIcon(providerId)).toBeNull();
+    }
+  );
+});
