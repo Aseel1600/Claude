@@ -40,7 +40,7 @@ function writeManifest(
     recordType: "manifest",
     schemaVersion: 1,
     expectedAssetCount: records.filter((record) => record.recordType === "asset").length,
-    auditedCommit: "091589089cd134a94df9f6cdab9ba562b2cefd18",
+    auditedCommit: "7d57d9f4a15931aa33a9ab968e4e5d76a205e27c",
     auditedAt: "2026-08-26",
     legalScope:
       "Provenance records source matching only; it does not establish copyright or trademark clearance.",
