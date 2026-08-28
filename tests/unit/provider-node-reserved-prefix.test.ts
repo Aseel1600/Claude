@@ -117,8 +117,9 @@ test("shared set excludes manual aliases that never intercept nodes at runtime",
 test("shared set size includes live REGISTRY and retired Designer + Felo prefixes", () => {
   // Computed (not hand-derived) after combining Designer's 2 retired
   // ids/aliases with Felo's 2 retired ids/aliases on top of the live
-  // REGISTRY walk.
-  assert.equal(RESERVED_PREFIX_COUNT, 400);
+  // REGISTRY walk, minus the 3 GPL-derived Raycast/Hailuo Web ids/aliases
+  // removed from REGISTRY by #11691's migration 166.
+  assert.equal(RESERVED_PREFIX_COUNT, 397);
 });
 
 test("isReservedProviderPrefix rejects non-string input", () => {
