@@ -1014,8 +1014,128 @@ test("sanitizeReasoningEffortForProvider: future models (glm-5.4, deepseek-v5, k
   }
 });
 
-test("sanitizeReasoningEffortForProvider: muse-spark-1.2 preserves xhigh on providers that accept xhigh", () => {
-  const body = { model: "muse-spark-1.2", reasoning_effort: "xhigh", messages: [] };
-  const res = sanitizeReasoningEffortForProvider(body, "codex", "muse-spark-1.2", null) as Record<string, unknown>;
-  assert.equal(res.reasoning_effort, "xhigh", "muse-spark-1.2 preserves xhigh natively");
+test("sanitizeReasoningEffortForProvider: muse-spark-1.2 clamps max/ultra → xhigh and none → minimal", () => {
+  const log = makeLog();
+  const bodyMax = { model: "muse-spark-1.2", reasoning_effort: "max", messages: [] };
+  const resMax = sanitizeReasoningEffortForProvider(bodyMax, "codex", "muse-spark-1.2", log) as Record<string, unknown>;
+  assert.equal(resMax.reasoning_effort, "xhigh", "muse-spark-1.2 clamps max to xhigh");
+
+  const bodyUltra = { model: "muse-spark-1.2", reasoning_effort: "ultra", messages: [] };
+  const resUltra = sanitizeReasoningEffortForProvider(bodyUltra, "codex", "muse-spark-1.2", log) as Record<string, unknown>;
+  assert.equal(resUltra.reasoning_effort, "xhigh", "muse-spark-1.2 clamps ultra to xhigh");
+
+  const bodyNone = { model: "muse-spark-1.2", reasoning_effort: "none", messages: [] };
+  const resNone = sanitizeReasoningEffortForProvider(bodyNone, "codex", "muse-spark-1.2", log) as Record<string, unknown>;
+  assert.equal(resNone.reasoning_effort, "minimal", "muse-spark-1.2 clamps none to minimal");
+
+  const bodyMed = { model: "muse-spark-1.2", reasoning_effort: "medium", messages: [] };
+  const resMed = sanitizeReasoningEffortForProvider(bodyMed, "codex", "muse-spark-1.2", log) as Record<string, unknown>;
+  assert.equal(resMed.reasoning_effort, "medium", "muse-spark-1.2 preserves medium");
+});
+
+test("sanitizeReasoningEffortForProvider: GLM-5.3 and GLM-5.3-flash mappings and forced thinking", () => {
+  const log = makeLog();
+  for (const model of ["glm-5.3", "glm-5.3-flash", "z-ai/glm-5.3-flash"]) {
+    // none/minimal/low → low
+    for (const effort of ["none", "minimal", "low"]) {
+      const b = { model, reasoning_effort: effort, messages: [] };
+      const r = sanitizeReasoningEffortForProvider(b, "glm", model, log) as Record<string, unknown>;
+      assert.equal(r.reasoning_effort, "low", `${model} should map ${effort} → low`);
+    }
+
+    // medium/high → high
+    for (const effort of ["medium", "high"]) {
+      const b = { model, reasoning_effort: effort, messages: [] };
+      const r = sanitizeReasoningEffortForProvider(b, "glm", model, log) as Record<string, unknown>;
+      assert.equal(r.reasoning_effort, "high", `${model} should map ${effort} → high`);
+    }
+
+    // xhigh/max/ultra → max
+    for (const effort of ["xhigh", "max", "ultra"]) {
+      const b = { model, reasoning_effort: effort, messages: [] };
+      const r = sanitizeReasoningEffortForProvider(b, "glm", model, log) as Record<string, unknown>;
+      assert.equal(r.reasoning_effort, "max", `${model} should map ${effort} → max`);
+    }
+
+    // thinking.type="disabled" is forced to "enabled"
+    const bDisabled = {
+      model,
+      reasoning_effort: "max",
+      thinking: { type: "disabled" },
+      messages: [],
+    };
+    const rDisabled = sanitizeReasoningEffortForProvider(bDisabled, "glm", model, log) as Record<string, unknown>;
+    assert.deepEqual(rDisabled.thinking, { type: "enabled" });
+  }
+});
+
+test("sanitizeReasoningEffortForProvider: GLM-5.2 mappings", () => {
+  const log = makeLog();
+  const model = "glm-5.2";
+  // none/minimal → none
+  for (const effort of ["none", "minimal"]) {
+    const b = { model, reasoning_effort: effort, messages: [] };
+    const r = sanitizeReasoningEffortForProvider(b, "glm", model, log) as Record<string, unknown>;
+    assert.equal(r.reasoning_effort, "none", `glm-5.2 should map ${effort} → none`);
+  }
+
+  // low/medium → high
+  for (const effort of ["low", "medium"]) {
+    const b = { model, reasoning_effort: effort, messages: [] };
+    const r = sanitizeReasoningEffortForProvider(b, "glm", model, log) as Record<string, unknown>;
+    assert.equal(r.reasoning_effort, "high", `glm-5.2 should map ${effort} → high`);
+  }
+
+  // high → high
+  const bHigh = { model, reasoning_effort: "high", messages: [] };
+  const rHigh = sanitizeReasoningEffortForProvider(bHigh, "glm", model, log) as Record<string, unknown>;
+  assert.equal(rHigh.reasoning_effort, "high");
+
+  // xhigh/max/ultra → max
+  for (const effort of ["xhigh", "max", "ultra"]) {
+    const b = { model, reasoning_effort: effort, messages: [] };
+    const r = sanitizeReasoningEffortForProvider(b, "glm", model, log) as Record<string, unknown>;
+    assert.equal(r.reasoning_effort, "max", `glm-5.2 should map ${effort} → max`);
+  }
+});
+
+test("sanitizeReasoningEffortForProvider: o1-preview strips reasoning_effort", () => {
+  const log = makeLog();
+  const body = { model: "o1-preview", reasoning_effort: "high", messages: [] };
+  const res = sanitizeReasoningEffortForProvider(body, "openai", "o1-preview", log) as Record<string, unknown>;
+  assert.equal(res.reasoning_effort, undefined, "o1-preview strips reasoning_effort");
+});
+
+test("sanitizeReasoningEffortForProvider: o1, o1-mini, o3-mini clamp xhigh/max/ultra → high", () => {
+  const log = makeLog();
+  for (const model of ["o1", "o1-mini", "o3-mini", "o3-pro"]) {
+    for (const effort of ["xhigh", "max", "ultra"]) {
+      const b = { model, reasoning_effort: effort, messages: [] };
+      const r = sanitizeReasoningEffortForProvider(b, "openai", model, log) as Record<string, unknown>;
+      assert.equal(r.reasoning_effort, "high", `${model} should clamp ${effort} → high`);
+    }
+    for (const effort of ["low", "medium", "high"]) {
+      const b = { model, reasoning_effort: effort, messages: [] };
+      const r = sanitizeReasoningEffortForProvider(b, "openai", model, log) as Record<string, unknown>;
+      assert.equal(r.reasoning_effort, effort, `${model} should preserve ${effort}`);
+    }
+  }
+});
+
+test("sanitizeReasoningEffortForProvider: MiniMax, Grok clamping rules", () => {
+  const log = makeLog();
+  // MiniMax
+  const bMiniMax = { model: "minimax-m3", reasoning_effort: "max", messages: [] };
+  const rMiniMax = sanitizeReasoningEffortForProvider(bMiniMax, "minimax", "minimax-m3", log) as Record<string, unknown>;
+  assert.equal(rMiniMax.reasoning_effort, "high");
+
+  // Grok 4.5 clamps to high
+  const bGrok45 = { model: "grok-4.5", reasoning_effort: "max", messages: [] };
+  const rGrok45 = sanitizeReasoningEffortForProvider(bGrok45, "xai", "grok-4.5", log) as Record<string, unknown>;
+  assert.equal(rGrok45.reasoning_effort, "high");
+
+  // Grok 4.6 clamps to xhigh
+  const bGrok46 = { model: "grok-4.6", reasoning_effort: "max", messages: [] };
+  const rGrok46 = sanitizeReasoningEffortForProvider(bGrok46, "xai", "grok-4.6", log) as Record<string, unknown>;
+  assert.equal(rGrok46.reasoning_effort, "xhigh");
 });
