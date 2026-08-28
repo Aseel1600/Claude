@@ -65,8 +65,8 @@ const TOOL_RENAME_MAP: Record<string, string> = {
 };
 
 const REVERSE_MAP: Record<string, string> = {};
-for (const [k, v] of Object.entries(TOOL_RENAME_MAP)) {
-  REVERSE_MAP[v] = k;
+for (const v of Object.values(TOOL_RENAME_MAP)) {
+  REVERSE_MAP[v] = v;
 }
 
 function getRequestToolNameMap(body: Record<string, unknown>): Map<string, string> {
@@ -235,7 +235,19 @@ export function restoreClaudeToolName(
   // Undefined when rawName already IS the canonical form — an input that
   // maps to itself must keep flowing to the #7926 legacy paths below.
   const lower = rawName.toLowerCase();
-  const canonicalRaw = TOOL_RENAME_MAP[lower];
+  let canonicalRaw = TOOL_RENAME_MAP[lower];
+
+  if (!canonicalRaw) {
+    const colonIdx = lower.lastIndexOf(":");
+    if (colonIdx > -1) {
+      const baseName = lower.slice(colonIdx + 1);
+      if (TOOL_RENAME_MAP[baseName]) {
+        const prefix = rawName.slice(0, colonIdx + 1);
+        canonicalRaw = prefix + TOOL_RENAME_MAP[baseName];
+      }
+    }
+  }
+
   const canonical = canonicalRaw && canonicalRaw !== rawName ? canonicalRaw : undefined;
 
   if (toolNameMap?.size) {
