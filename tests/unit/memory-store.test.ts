@@ -379,3 +379,47 @@ test("getMemoryTokensUsed sums estimated tokens, optionally scoped to an api key
   assert.equal(store.getMemoryTokensUsed(), 3); // all memories
   assert.equal(store.getMemoryTokensUsed("missing-key"), 0);
 });
+
+test("listMemories filters by metadata category (Fixes #11650)", async () => {
+  insertMemoryRow({
+    id: "cat-1",
+    apiKeyId: "key-a",
+    metadata: JSON.stringify({ category: "codegraph", source: "test" }),
+    content: "codegraph memory",
+    createdAt: "2026-04-01T00:00:00.000Z",
+    updatedAt: "2026-04-01T00:00:00.000Z",
+  });
+  insertMemoryRow({
+    id: "cat-2",
+    apiKeyId: "key-a",
+    metadata: JSON.stringify({ category: "decision", source: "test" }),
+    content: "decision memory",
+    createdAt: "2026-04-02T00:00:00.000Z",
+    updatedAt: "2026-04-02T00:00:00.000Z",
+  });
+  insertMemoryRow({
+    id: "cat-3",
+    apiKeyId: "key-a",
+    metadata: JSON.stringify({ category: "codegraph", source: "test" }),
+    content: "another codegraph",
+    createdAt: "2026-04-03T00:00:00.000Z",
+    updatedAt: "2026-04-03T00:00:00.000Z",
+  });
+
+  const onlyCodegraph = await store.listMemories({ apiKeyId: "key-a", category: "codegraph" });
+  assert.deepEqual(
+    onlyCodegraph.data.map((m) => m.id),
+    ["cat-3", "cat-1"]
+  );
+  assert.equal(onlyCodegraph.total, 2);
+  // byType counts only the filtered subset
+  assert.deepEqual(onlyCodegraph.byType, { factual: 2 });
+
+  const onlyDecision = await store.listMemories({ apiKeyId: "key-a", category: "decision" });
+  assert.deepEqual(onlyDecision.data.map((m) => m.id), ["cat-2"]);
+  assert.equal(onlyDecision.total, 1);
+
+  const missingCategory = await store.listMemories({ apiKeyId: "key-a", category: "nonexistent" });
+  assert.deepEqual(missingCategory.data, []);
+  assert.equal(missingCategory.total, 0);
+});
