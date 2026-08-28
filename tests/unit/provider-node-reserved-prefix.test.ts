@@ -91,6 +91,13 @@ test("shared set contains REGISTRY ids and aliases (tokenrouter + trk)", () => {
   assert.equal(RESERVED_PROVIDER_PREFIXES.has("trk"), true);
 });
 
+test("shared guard keeps retired Felo ids reserved after registry removal", () => {
+  assert.equal(RESERVED_PROVIDER_PREFIXES.has("felo-web"), true);
+  assert.equal(RESERVED_PROVIDER_PREFIXES.has("felo"), true);
+  assert.equal(isReservedProviderPrefix(" FeLo-Web "), true);
+  assert.equal(isReservedProviderPrefix("\u00a0FELO\uFEFF"), true);
+});
+
 test("shared set is case-sensitive like the runtime guard", () => {
   assert.equal(isReservedProviderPrefix("TokenRouter"), false);
   assert.equal(isReservedProviderPrefix("TOKENROUTER"), false);
@@ -107,14 +114,10 @@ test("shared set excludes manual aliases that never intercept nodes at runtime",
   assert.equal(RESERVED_PROVIDER_PREFIXES.has("aq"), false);
 });
 
-test("shared set size includes live REGISTRY and 2 retired Designer prefixes", () => {
-  // Count measured against release/v3.8.51 tip (398 pinned post-#11333,
-  // #11629, #11631 — a deduplicated Set, not a raw id+alias sum) after the
-  // Microsoft Designer Web retirement drops its 2 ids/aliases from the live
-  // REGISTRY walk and re-adds them explicitly via
-  // RETIRED_MICROSOFT_DESIGNER_WEB_PROVIDER_IDS so they remain unavailable
-  // for compatible-node shadowing. The assertion pins the actual computed
-  // set size, not a hand-derived sum.
+test("shared set size includes live REGISTRY and retired Designer + Felo prefixes", () => {
+  // Computed (not hand-derived) after combining Designer's 2 retired
+  // ids/aliases with Felo's 2 retired ids/aliases on top of the live
+  // REGISTRY walk.
   assert.equal(RESERVED_PREFIX_COUNT, 400);
 });
 
@@ -149,6 +152,31 @@ test("createProviderNodeSchema rejects reserved alias 'trk'", () => {
     apiType: "chat",
   });
   assert.equal(result.success, false);
+});
+
+test("provider node schemas reject retired Felo prefixes and normalized variants", () => {
+  for (const prefix of ["felo-web", "felo", " FeLo-Web ", "\u00a0FELO\uFEFF"]) {
+    const created = createProviderNodeSchema.safeParse({
+      name: "Retired prefix",
+      prefix,
+      apiType: "chat",
+    });
+    assert.equal(created.success, false, `create must reject ${JSON.stringify(prefix)}`);
+
+    const updated = updateProviderNodeSchema.safeParse({
+      name: "Retired prefix",
+      prefix,
+      baseUrl: "https://retired.example.invalid/v1",
+    });
+    assert.equal(updated.success, false, `update must reject ${JSON.stringify(prefix)}`);
+
+    const preset = createProviderNodeSchema.safeParse({
+      preset: "vibeproxy-openai",
+      prefix,
+      baseUrl: "http://localhost:8317",
+    });
+    assert.equal(preset.success, false, `preset create must reject ${JSON.stringify(prefix)}`);
+  }
 });
 
 test("createProviderNodeSchema accepts mixed-case 'TokenRouter' (no runtime collision)", () => {

@@ -16,6 +16,8 @@
  * account pool (not a configured bearer key) and has its own server-side model-alias mechanism.
  */
 
+import { assertRuntimeProviderAvailable } from "@/shared/constants/providerRetirement";
+
 import { getExecutor } from "../../executors/index.ts";
 import { isCliproxyapiDeepModeEnabled } from "../../executors/cliproxyapi.ts";
 import { isDarioDeepModeEnabled } from "../../executors/dario.ts";
@@ -96,6 +98,7 @@ export async function resolveExecutorWithProxy(
   providerSpecificData?: Record<string, unknown> | null
 ) {
   assertMicrosoftDesignerWebProviderAvailable(prov);
+  assertRuntimeProviderAvailable(prov);
 
   // Per-connection routing override (#6339): the resolved connection can opt itself
   // into the CLIProxyAPI passthrough executor via providerSpecificData.cliproxyapiMode

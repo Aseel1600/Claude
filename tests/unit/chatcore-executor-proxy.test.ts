@@ -154,3 +154,25 @@ test("connection proxy overrides cannot bypass Microsoft Designer retirement", a
     }
   }
 });
+
+test("retired Felo ids cannot bypass the tombstone through a connection proxy", async () => {
+  for (const providerId of ["felo-web", "felo", " FeLo-Web ", "\tFELO\n"]) {
+    await assert.rejects(
+      resolveExecutorWithProxy(providerId, undefined, {
+        cliproxyapiMode: "claude-native",
+      }),
+      (error: unknown) => {
+        const typed = error as Error & { code?: string; status?: number };
+        assert.equal(typed.code, "PROVIDER_RETIRED");
+        assert.equal(typed.status, 410);
+        assert.match(typed.message, /retired/i);
+        return true;
+      }
+    );
+  }
+
+  const openAi = await resolveExecutorWithProxy("openai", undefined, {
+    cliproxyapiMode: "claude-native",
+  });
+  assert.equal(openAi, await getExecutor("cliproxyapi"));
+});

@@ -28,6 +28,7 @@ import {
 } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { resolveProxyForConnection } from "@/lib/localDb";
 import { hasBlockingProxyAssignment } from "@/lib/db/proxies";
+import { isRuntimeProviderRetirementError } from "@/shared/constants/providerRetirement";
 import {
   CircuitBreakerOpenError,
   getCircuitBreaker,
@@ -127,6 +128,14 @@ export async function resolveModelOrError(
   } catch (error) {
     if (isMicrosoftDesignerWebProviderRetiredError(error)) {
       return { error: errorResponse(HTTP_STATUS.GONE, error.message) };
+    }
+    if (isRuntimeProviderRetirementError(error)) {
+      return {
+        error: errorResponse(error.status, error.message, {
+          type: "provider_error",
+          code: error.code,
+        }),
+      };
     }
     throw error;
   }

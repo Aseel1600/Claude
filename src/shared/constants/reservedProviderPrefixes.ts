@@ -25,6 +25,7 @@ import {
   isMicrosoftDesignerWebRetiredProviderId,
   RETIRED_MICROSOFT_DESIGNER_WEB_PROVIDER_IDS,
 } from "@/shared/constants/designerWebRetirement";
+import { isRuntimeRetiredProviderId, RUNTIME_RETIRED_PROVIDER_IDS } from "./providerRetirement";
 
 let _reserved: Set<string> | null = null;
 
@@ -38,13 +39,15 @@ function buildReservedProviderPrefixes(): Set<string> {
   for (const providerId of RETIRED_MICROSOFT_DESIGNER_WEB_PROVIDER_IDS) {
     reserved.add(providerId);
   }
+  for (const providerId of RUNTIME_RETIRED_PROVIDER_IDS) reserved.add(providerId);
   _reserved = reserved;
   return reserved;
 }
 
 /**
- * All canonical reserved provider prefixes (REGISTRY ids + aliases + retired ids).
- * Built lazily so the registry is only walked once per process.
+ * All canonical reserved provider prefixes (REGISTRY ids + aliases + retired
+ * provider tombstones). Built lazily so the registry is only walked once per
+ * process.
  */
 export function getReservedProviderPrefixes(): ReadonlySet<string> {
   return buildReservedProviderPrefixes();
@@ -69,7 +72,8 @@ export const RESERVED_PROVIDER_PREFIXES: ReadonlySet<string> = getReservedProvid
 export function isReservedProviderPrefix(value: unknown): boolean {
   return (
     (typeof value === "string" && buildReservedProviderPrefixes().has(value)) ||
-    isMicrosoftDesignerWebRetiredProviderId(value)
+    isMicrosoftDesignerWebRetiredProviderId(value) ||
+    isRuntimeRetiredProviderId(value)
   );
 }
 
@@ -78,5 +82,5 @@ export function isReservedProviderPrefix(value: unknown): boolean {
  * prefix and tells the operator what to pick instead.
  */
 export function reservedProviderPrefixMessage(value: string): string {
-  return `"${value}" is a reserved provider prefix — choose a different prefix (reserved ids/aliases cannot be used for custom nodes because requests like <prefix>/model would always route to the built-in provider)`;
+  return `"${value}" is a reserved provider prefix — choose a different prefix (reserved ids/aliases cannot be used for custom nodes because requests like <prefix>/model route to a built-in provider or fail closed when retired)`;
 }
