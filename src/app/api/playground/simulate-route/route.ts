@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getComboModelProvider, getComboModelString, getComboStepWeight } from "@/lib/combos/steps";
 import { getCombos } from "@/lib/db/combos";
 import { getProviderConnections } from "@/lib/db/providers";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
@@ -47,6 +48,12 @@ interface SimulateResponse {
   totalEstimatedLatencyMs: number;
   warnings: string[];
   errors: string[];
+}
+
+interface SimulationTarget {
+  provider: string;
+  model: string;
+  weight?: number;
 }
 
 const simulateRequestSchema = z
@@ -128,6 +135,37 @@ function estimateContextWindow(model: string): number {
   return 128000;
 }
 
+function parseStoredTargets(value: unknown): unknown[] {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function normalizeSimulationTarget(value: unknown): SimulationTarget | null {
+  const modelString = getComboModelString(value);
+  if (!modelString) return null;
+
+  const provider = getComboModelProvider(value) || "unknown";
+  const providerPrefix = provider === "unknown" ? null : `${provider}/`;
+  const model =
+    providerPrefix && modelString.startsWith(providerPrefix)
+      ? modelString.slice(providerPrefix.length)
+      : modelString;
+  const hasWeight =
+    value !== null && typeof value === "object" && !Array.isArray(value) && "weight" in value;
+
+  return {
+    provider,
+    model,
+    ...(hasWeight ? { weight: getComboStepWeight(value) } : {}),
+  };
+}
+
+function normalizeStoredTargets(combo: Record<string, unknown>): SimulationTarget[] {
+  return parseStoredTargets(combo.targets ?? combo.models)
+    .map(normalizeSimulationTarget)
+    .filter((target): target is SimulationTarget => target !== null);
+}
+
 export async function POST(request: Request) {
   try {
     const rawBody = await request.json();
@@ -152,7 +190,7 @@ export async function POST(request: Request) {
         errors.push(`Combo "${body.comboId}" not found.`);
         return NextResponse.json({ error: "Combo not found" }, { status: 404 });
       }
-      const targets = typeof combo.targets === "string" ? JSON.parse(combo.targets) : combo.targets;
+      const targets = normalizeStoredTargets(combo);
       comboInfo = { name: combo.name, strategy: combo.strategy, targets };
     } else if (body.combo) {
       comboInfo = body.combo;
