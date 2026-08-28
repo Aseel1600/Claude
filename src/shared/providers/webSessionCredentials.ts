@@ -135,13 +135,6 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "ecto_1_sess", "abra_sess"],
   },
-  "hailuo-web": {
-    kind: "token",
-    credentialName: "_token",
-    placeholder: '_token=... (hailuo.ai → DevTools → Local Storage → "_token")',
-    acceptsFullCookieHeader: false,
-    storageKeys: ["token", "_token"],
-  },
   "claude-web": {
     kind: "cookie",
     credentialName: "sessionKey",

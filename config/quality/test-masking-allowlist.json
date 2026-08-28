@@ -37,6 +37,36 @@
       "replacement": "tests/unit/felo-web-retirement.test.ts",
       "reason": "v3.8.50 #11698: the Felo Web integration remains on a GPL provenance/licensing HOLD, so its executor and registry no longer ship. The replacement proves runtime/catalog/source absence; generic no-auth and strict-zero-cost behavior remains covered with independent fixtures."
     },
+    "tests/unit/executor-hailuo-web.test.ts": {
+      "replacement": "tests/unit/gpl-derived-provider-removals.test.ts",
+      "sourceRemoved": [
+        "open-sse/executors/hailuo-web.ts",
+        "open-sse/config/providers/registry/minimax/web/index.ts"
+      ],
+      "reason": "v3.8.50 provenance remediation: the GPL-derived Hailuo Web executor and registry were removed. The replacement proves runtime/source absence while preserving both official MiniMax API providers."
+    },
+    "tests/unit/raycast-auth.test.ts": {
+      "replacement": "tests/unit/gpl-derived-provider-removals.test.ts",
+      "sourceRemoved": [
+        "open-sse/services/raycast.ts",
+        "src/lib/oauth/providers/raycast.ts",
+        "src/lib/oauth/services/raycast.ts"
+      ],
+      "reason": "v3.8.50 provenance remediation: the GPL-derived Raycast protocol and OAuth service were removed. The replacement proves raycast/rc runtime and source absence while preserving the independent GitHub provider."
+    },
+    "tests/unit/raycast-local-extract.test.ts": {
+      "replacement": "tests/unit/gpl-derived-provider-removals.test.ts",
+      "sourceRemoved": ["src/lib/oauth/services/raycastLocal.ts"],
+      "reason": "v3.8.50 provenance remediation: the retired Raycast integration no longer ships local credential extraction. The replacement checks exact source closure and the negative runtime contract."
+    },
+    "tests/unit/web-cookie-hailuo-web-11000.test.ts": {
+      "replacement": "tests/unit/gpl-derived-provider-removals.test.ts",
+      "sourceRemoved": [
+        "open-sse/executors/hailuo-web.ts",
+        "open-sse/config/providers/registry/minimax/web/index.ts"
+      ],
+      "reason": "v3.8.50 provenance remediation: the Hailuo Web cookie transport was removed with its GPL-derived executor. The replacement proves absence while preserving MiniMax and MiniMax China."
+    },
     "open-sse/services/combo/__tests__/targetExhaustion.test.ts": {
       "replacement": "tests/unit/combo/combo-target-exhaustion.test.ts",
       "reason": "v3.8.44 #5976: os testes de exaustão eram flake-prone (delays Math.random, timeouts 30s, >3min no CI) e foram REESCRITOS como unit determinístico com MAIS cobertura (21 casos/52 asserts vs 13 casos/37 asserts). Documentado no commit 5fe225850. Revisão humana: apresentado ao operador no STOP #1 do release v3.8.44."

@@ -370,11 +370,6 @@
       "configSource": "<custom-config>",
       "provider": "hyperagent"
     },
-    "hailuo-web": {
-      "className": "HailuoWebExecutor",
-      "configSource": "<custom-config>",
-      "provider": "hailuo-web"
-    },
     "hc": {
       "className": "HuggingChatExecutor",
       "configSource": "<custom-config>",
@@ -545,16 +540,6 @@
       "configSource": "<custom-config>",
       "provider": "qwen-web"
     },
-    "raycast": {
-      "className": "RaycastExecutor",
-      "configSource": "raycast",
-      "provider": "raycast"
-    },
-    "rc": {
-      "className": "RaycastExecutor",
-      "configSource": "raycast",
-      "provider": "raycast"
-    },
     "t3-web": {
       "className": "T3ChatWebExecutor",
       "configSource": "<custom-config>",
@@ -701,6 +686,6 @@
       "provider": "zai-web"
     }
   },
-  "keyCount": 142,
+  "keyCount": 137,
   "sharedInstances": []
 }

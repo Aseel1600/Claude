@@ -8,7 +8,7 @@ import { getWebSessionCredentialRequirement } from "@/shared/providers/webSessio
  * `validateWebCookieProvider` probe (`src/lib/providers/validation/webCookie.ts`).
  *
  * `WEB_SESSION_CREDENTIAL_REQUIREMENTS` currently marks more providers as `kind: "token"`
- * than have a matching validator (e.g. hailuo-web, t3-chat-web, promptql). Those fall
+ * than have a matching validator (e.g. t3-chat-web, promptql). Those fall
  * through to `validateWebCookieProvider`'s generic probe, which
  * sends the stored credential as a `Cookie` header and treats most non-401/403 responses
  * as valid — the wrong wire format for a token-authenticated provider, so an invalid
