@@ -9,7 +9,7 @@
 UPDATE exclusive_connection_leases
 SET state = 'INVALIDATED',
     ended_at = COALESCE(ended_at, datetime('now')),
-    end_reason = COALESCE(end_reason, 'provider integration retired in v3.8.50')
+    end_reason = COALESCE(end_reason, 'provider integration retired in v3.8.51')
 WHERE state = 'ACTIVE'
   AND (
     provider IN ('raycast', 'rc', 'hailuo-web')
@@ -24,9 +24,9 @@ UPDATE provider_connections
 SET is_active = 0,
     test_status = 'unavailable',
     error_code = 'PROVIDER_REMOVED',
-    last_error = 'Provider integration retired from OmniRoute v3.8.50',
+    last_error = 'Provider integration retired from OmniRoute v3.8.51',
     last_error_type = 'provider_removed',
-    last_error_source = 'migration:163',
+    last_error_source = 'migration:166',
     last_error_at = COALESCE(last_error_at, datetime('now')),
     updated_at = datetime('now')
 WHERE provider IN ('raycast', 'rc', 'hailuo-web');

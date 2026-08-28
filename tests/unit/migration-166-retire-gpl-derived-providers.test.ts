@@ -17,13 +17,13 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("migration 163 disables GPL-derived connections fail-closed and preserves audit history", async () => {
+test("migration 166 disables GPL-derived connections fail-closed and preserves audit history", async () => {
   const db = core.getDbInstance();
 
   const applied = db
-    .prepare("SELECT version FROM _omniroute_migrations WHERE version = 163")
+    .prepare("SELECT version FROM _omniroute_migrations WHERE version = 166")
     .get() as { version: number } | undefined;
-  assert.ok(applied, "migration 163 must be recorded as applied");
+  assert.ok(applied, "migration 166 must be recorded as applied");
 
   // api_keys policy columns are reconciled lazily by the domain module on fresh
   // databases; production upgrades already carry them from normal API-key use.
@@ -69,7 +69,7 @@ test("migration 163 disables GPL-derived connections fail-closed and preserves a
   }
 
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "src/lib/db/migrations/163_retire_gpl_derived_providers.sql"),
+    path.join(process.cwd(), "src/lib/db/migrations/166_retire_gpl_derived_providers.sql"),
     "utf8"
   );
   db.exec(sql);
@@ -94,7 +94,7 @@ test("migration 163 disables GPL-derived connections fail-closed and preserves a
       test_status: "unavailable",
       error_code: "PROVIDER_REMOVED",
       last_error_type: "provider_removed",
-      last_error_source: "migration:163",
+      last_error_source: "migration:166",
     });
 
     const lease = db
@@ -105,7 +105,7 @@ test("migration 163 disables GPL-derived connections fail-closed and preserves a
       .get(connectionId) as { state: string; ended_at: string | null; end_reason: string | null };
     assert.equal(lease.state, "INVALIDATED");
     assert.ok(lease.ended_at);
-    assert.equal(lease.end_reason, "provider integration retired in v3.8.50");
+    assert.equal(lease.end_reason, "provider integration retired in v3.8.51");
 
     assert.ok(db.prepare("SELECT id FROM usage_history WHERE provider = ?").get(provider));
     assert.ok(db.prepare("SELECT id FROM call_logs WHERE provider = ?").get(provider));
