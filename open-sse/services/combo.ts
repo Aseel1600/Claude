@@ -2182,6 +2182,32 @@ async function handleComboChatInner({
           // rather than waiting for the next turn's lazy headroom/status recheck.
           releaseStickyPinOnFailure(_sticky.messageHash, targetWithConnection.connectionId);
 
+          // #11911: when the provider/connection is marked exhausted (providerExhausted
+          // or the connection added to exhaustedConnections), clear the LKGP pin so
+          // the next request doesn't re-select the same dead provider first.
+          const exhaustedProvider = targetWithConnection.provider;
+          const exhaustedConnId = targetWithConnection.connectionId;
+          if (
+            exhaustedProvider &&
+            exhaustedProvider !== "unknown" &&
+            (providerExhausted ||
+              exhaustedConnections.has(`${exhaustedProvider}:${exhaustedConnId}`))
+          ) {
+            void (async () => {
+              try {
+                const { clearLKGP } = await import("../../src/lib/localDb");
+                await Promise.all([
+                  clearLKGP(combo.name, targetWithConnection.executionKey),
+                  clearLKGP(combo.name, combo.id || combo.name),
+                ]);
+              } catch (err) {
+                log.warn("COMBO", "Failed to clear Last Known Good Provider. This is non-fatal.", {
+                  err,
+                });
+              }
+            })();
+          }
+
           // #2101: Prevent infinite fallback loops with 400 Bad Request errors that are genuinely
           // body-specific (malformed JSON, bad format, missing required fields).
           // These should NOT stop the combo:
@@ -3302,24 +3328,20 @@ async function handleRoundRobinCombo({
               "COMBO-RR",
               `Maximum combo attempts (${maxGlobalAttempts}) exceeded. Terminating loop to prevent runaway requests.`
             );
-            return errorResponseWithComboDiagnostics(
-              503,
-              "Maximum combo retry limit reached",
-              {
-                poolSize: modelCount,
-                attempted: globalAttempts,
-                excluded: [
-                  ...[...exhaustedProviders].map((p) => ({ provider: p, reason: "exhausted" })),
-                  ...[...exhaustedConnections].map((c) => formatExhaustedConnectionKey(String(c))),
-                ],
-                attemptOrder: rrOutcomes.map((o) => ({
-                  provider: o.model.split("/")[0] || "unknown",
-                  model: o.model,
-                })),
-                terminalReason: "max_attempts_exceeded",
-                recovery: buildRecoveryHint("max_attempts_exceeded"),
-              }
-            );
+            return errorResponseWithComboDiagnostics(503, "Maximum combo retry limit reached", {
+              poolSize: modelCount,
+              attempted: globalAttempts,
+              excluded: [
+                ...[...exhaustedProviders].map((p) => ({ provider: p, reason: "exhausted" })),
+                ...[...exhaustedConnections].map((c) => formatExhaustedConnectionKey(String(c))),
+              ],
+              attemptOrder: rrOutcomes.map((o) => ({
+                provider: o.model.split("/")[0] || "unknown",
+                model: o.model,
+              })),
+              terminalReason: "max_attempts_exceeded",
+              recovery: buildRecoveryHint("max_attempts_exceeded"),
+            });
           }
           if (retry > 0) {
             log.info(
@@ -3694,6 +3716,36 @@ async function handleRoundRobinCombo({
             _rrSessionSticky.messageHash,
             targetWithConnection.connectionId
           );
+
+          // #11911: when the provider/connection is marked exhausted (providerExhausted
+          // or the connection added to exhaustedConnections), clear the LKGP pin so
+          // the next request doesn't re-select the same dead provider first.
+          const exhaustedProvider = targetWithConnection.provider;
+          const exhaustedConnId = targetWithConnection.connectionId;
+          if (
+            exhaustedProvider &&
+            exhaustedProvider !== "unknown" &&
+            (providerExhausted ||
+              exhaustedConnections.has(`${exhaustedProvider}:${exhaustedConnId}`))
+          ) {
+            void (async () => {
+              try {
+                const { clearLKGP } = await import("../../src/lib/localDb");
+                await Promise.all([
+                  clearLKGP(combo.name, targetWithConnection.executionKey),
+                  clearLKGP(combo.name, combo.id || combo.name),
+                ]);
+              } catch (err) {
+                log.warn(
+                  "COMBO-RR",
+                  "Failed to clear Last Known Good Provider. This is non-fatal.",
+                  {
+                    err,
+                  }
+                );
+              }
+            })();
+          }
 
           // Transient errors → mark in semaphore so round-robin stops stampeding this target.
           if (
