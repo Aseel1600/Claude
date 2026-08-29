@@ -61,6 +61,9 @@ jobs:
     name: Build (advisory)
     needs: changes
     # FORK PRs ONLY. build.yml's `Fast Production Build` triggers on `push: branches: ["**"]`
+    # (#11946, 2026-08-29: build.yml is now workflow_dispatch-only — the hosted runner cannot
+    # build this tree in any profile, 8/8 recent fork PRs included — so own-origin PRs rely on
+    # ci.yml `Build` after merge to main and on nightly-release-green for release/**.)
     # and runs `build:release` — a superset of this job — so for an own-origin branch this job
     # was building the same tree twice. A fork contributor pushes to THEIR repo, so that push
     # never fires here, and this is the only pre-merge build signal they get. Measured
