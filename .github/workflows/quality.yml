@@ -189,8 +189,11 @@ jobs:
             .eslintcache
             .eslintcache-complexity
           key: eslint-${{ runner.os }}-${{ hashFiles('eslint.config.mjs', 'eslint.complexity-ratchets.config.mjs', 'config/quality/eslint-suppressions.json', 'package-lock.json') }}
-          restore-keys: |
-            eslint-${{ runner.os }}-
+          # No restore-keys fallback on purpose (#11600, P-II.1 of the v3.8.50 postmortem): a
+          # cache built under a different suppressions file / lint config / lockfile reports
+          # stale per-file verdicts, which is exactly how 215 pre-existing errors stayed
+          # invisible for a whole cycle. Exact key or a cold full lint (~13 min) — never a
+          # partial cache from another configuration.
       # Security scanners — same hardened install as ci.yml quality-extended
       # (gh release download = authenticated, 5000 req/hr; curl to api.github.com
       # is rate-limited to 60/hr and silently no-ops when throttled). The blocking
@@ -460,6 +463,12 @@ jobs:
     # cache restore saturating the link), while the tests themselves tied, 2m54 vs 2m31. So
     # self-hosted is strictly worse here and there is nothing to configure.
     runs-on: ubuntu-latest
+    # A shard finishes in ~10 min. Without a ceiling a hung test process holds the PR for
+    # GitHub's 6 h default: on 2026-08-28 shard 1/4 sat 64 min without a line of output
+    # (twice, same spot — a timing race, gone on the third run) while the other three
+    # shards were long green. 30 min = 3x the normal wall-clock; a shard that needs more
+    # is a hang, not a slow run, and a fast red with a re-run beats a silent 6 h hold.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -524,8 +533,11 @@ jobs:
             .eslintcache
             .eslintcache-complexity
           key: eslint-${{ runner.os }}-${{ hashFiles('eslint.config.mjs', 'eslint.complexity-ratchets.config.mjs', 'config/quality/eslint-suppressions.json', 'package-lock.json') }}
-          restore-keys: |
-            eslint-${{ runner.os }}-
+          # No restore-keys fallback on purpose (#11600, P-II.1 of the v3.8.50 postmortem): a
+          # cache built under a different suppressions file / lint config / lockfile reports
+          # stale per-file verdicts, which is exactly how 215 pre-existing errors stayed
+          # invisible for a whole cycle. Exact key or a cold full lint (~13 min) — never a
+          # partial cache from another configuration.
       - name: ESLint (baseline congelado — warning novo = vermelho)
         # lint:json writes the report; --max-warnings 0 keeps no-new-warnings policy.
         run: npm run lint:json -- --max-warnings 0
